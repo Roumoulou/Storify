@@ -21,7 +21,8 @@ annotation class StoreConfiguration(
     val withMeta: Boolean = false,
     val useDeepCopy: Boolean = true,
     val autoSaveIntervalMs: Long = 300_000L,
-    val defaultUpdatePolicy: UpdatePolicy = UpdatePolicy.SKIP
+    val defaultUpdatePolicy: UpdatePolicy = UpdatePolicy.SKIP,
+    val validateOnUpdate: Boolean = false
 )
 
 enum class StoreFileFormatType { JSON, TOML }

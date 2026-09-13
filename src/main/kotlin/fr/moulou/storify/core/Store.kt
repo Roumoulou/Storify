@@ -3,6 +3,7 @@ package fr.moulou.storify.core
 import fr.moulou.storify.Operation
 import fr.moulou.storify.StoreFormat
 import fr.moulou.storify.StoreMeta
+import fr.moulou.storify.validation.ValidationResult
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -18,7 +19,15 @@ interface Store<DATA : Any> : AutoCloseable {
     val meta: StoreMeta?
 
     fun saveImmediate()
-    fun reloadFromFile()
+
+    /**
+     * Relit le fichier et remplace les données en mémoire, avec revalidation par défaut : en échec,
+     * la mémoire reste intacte et une ValidationException remonte. `validate = false` saute la revalidation.
+     */
+    fun reloadFromFile(validate: Boolean = true)
+
+    /** Valide les données en mémoire avec le validator du store (Success sans validator). */
+    fun validateNow(): ValidationResult
 
     val onSaveCallbacks: MutableList<(Operation<DATA>) -> Unit>
     val onReloadCallbacks: MutableList<(Operation<DATA>) -> Unit>

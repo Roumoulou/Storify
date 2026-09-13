@@ -150,8 +150,8 @@ L'écriture est atomique (C-02) : chaque sauvegarde encode vers un fichier tempo
 disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
 `saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture, et le fichier initial comme le sidecar
-meta passent par le même chemin. Reste `reloadFromFile()` : il passe par le setter de `data`, qui remplace la racine sous write lock et notifie
-les callbacks de reload ; il ne revalide pas ce qu'il vient de lire (chantier C-05).
+meta passent par le même chemin. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
+remplace la racine sous write lock et notifie les callbacks de reload.
 
 ## 8. La validation
 
@@ -164,9 +164,12 @@ L'enrichisseur (`ValidationErrorEnricher`) retrouve ce numéro de ligne en navig
 d'imbrication et les index de tableaux. Ses limites assumées : JSON seulement, une clé par ligne, échec silencieux. Il a fait ses preuves en
 conditions réelles : le crash du banc du 2026-09-13 affichait `[HomesData.totalTeleports] ... (was: -1) → line 19`.
 
-Aujourd'hui la validation ne joue **qu'au chargement initial**. La validation à l'update a disparu du code : `ValidationFailedOperation` existe
-dans la hiérarchie `Operation` mais n'est plus jamais émise, et rien n'expose publiquement une validation à la demande. Trancher son sort est le
-chantier C-05.
+La validation joue à trois moments (C-05) : au chargement initial, au `reloadFromFile` (revalidation par défaut : l'objet relu est validé AVANT
+de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), et à la demande via `validateNow()`, public sur `Store`.
+S'y ajoute l'opt-in `validateOnUpdate` (défaut `false`, **non recommandé**) : chaque update copie la racine, mute, valide, et en échec restaure
+puis émet `ValidationFailedOperation` vers les callbacks (les transactions rendent `TransactionOperation(success = false)`) ; la valeur invalide
+n'entre jamais, au prix d'une copie de racine et d'un validator sous write lock à chaque geste. Il exige `useDeepCopy`, et le bon réflexe reste
+les contrôles métier avant de muter.
 
 ## 9. Les formats
 
@@ -226,7 +229,8 @@ exercés en vrai. Les faits marquants, sources des chantiers :
   garantie pour toutes les policies ; le défaut ne gouverne plus que les callbacks, et des tests verrouillent les deux comportements.
 - Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
   édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc ; soldé au chantier C-01 : `close()` désarme le hook).
-- `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4) ; seule la validation du consommateur les rattrape.
+- `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4 ; soldé au chantier C-05 : revalidation par défaut, `validateNow()`
+  public, et l'update validable en opt-in).
 - La `ValidationException` au chargement est excellente (chemin, valeur, numéro de ligne JSON), mais en solo Minecraft elle se paie d'un crash
   complet du client (« Exception in server tick loop »).
 - L'auto-save tient son intervalle (ticks de 30 s observés à la seconde près), le callback ciblé par propriété fonctionne, la persistance et le

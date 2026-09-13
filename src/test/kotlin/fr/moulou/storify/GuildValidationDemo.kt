@@ -4,6 +4,7 @@ import fr.moulou.storify.core.*
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 // ══════════════════════════════════════════════════════════════
@@ -53,7 +54,7 @@ data class RankPermissions(
 /** La guilde complète — classe racine du store */
 @Serializable
 @StorePath("C:\\temp\\guild.json")
-@StoreConfiguration(withAutoSave = false, withValidation = true, useDeepCopy = false)
+@StoreConfiguration(withAutoSave = false, withValidation = true, validateOnUpdate = true)
 @StoreValidator(GuildDataValidator::class)
 data class GuildData(
     var name: String,
@@ -230,9 +231,10 @@ class GuildValidationDemo {
         val store = freshStore()
         store.registerOnUpdate { op ->
             if (op is ValidationFailedOperation<*, *, *>)
-                println("BLOCKED: ${op.validationError}") // Seulement bloqué si useDeepCopy est true !
+                println("BLOCKED: ${op.validationError}")
         }
         store.set(GuildData::name, "")
+        assertEquals("Les Conquérants", store.data.name) // refusé pour de vrai depuis C-05 (validateOnUpdate)
         println("Name unchanged: '${store.data.name}'")
     }
 
@@ -287,6 +289,7 @@ class GuildValidationDemo {
         store.mutate(GuildData::members) { members ->
             (members as MutableList).add(GuildMember("", "member", 0))
         }
+        assertEquals(3, store.data.members.size) // la mutation invalide a été restaurée (C-05)
         println("Members count: ${store.data.members.size}")
     }
 
@@ -394,6 +397,8 @@ class GuildValidationDemo {
             level = 999        // invalide
             tag = "oops"       // invalide
         }
+        assertEquals("Les Conquérants", store.data.name) // la transaction invalide a tout restauré (C-05)
+        assertEquals(1, store.data.level)
         println("Guild still valid: name='${store.data.name}', level=${store.data.level}, tag='${store.data.tag}'")
     }
 

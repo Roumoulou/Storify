@@ -43,6 +43,9 @@ import kotlin.time.Clock
  *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
  *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
  * @property autoSaveIntervalMs  Intervalle en millisecondes entre chaque tick d'auto-save. Défaut 5 min.
+ * @property validateOnUpdate  Valide la racine à CHAQUE update, avec rollback et [ValidationFailedOperation] en échec.
+ *                             NON RECOMMANDÉ : copie de la racine entière et validator sous write lock à chaque geste ;
+ *                             préférez des contrôles métier avant de muter. Exige [useDeepCopy]. Défaut `false`.
  */
 data class StoreConfig(
     val withValidation: Boolean = false,
@@ -50,7 +53,8 @@ data class StoreConfig(
     val withMeta: Boolean = false,
     val useDeepCopy: Boolean = true,
     val defaultUpdatePolicy: UpdatePolicy = UpdatePolicy.SKIP,
-    val autoSaveIntervalMs: Long = 300_000L
+    val autoSaveIntervalMs: Long = 300_000L,
+    val validateOnUpdate: Boolean = false
 )
 
 /**
@@ -142,6 +146,20 @@ class BaseStore<DATA : Any>(
         isDirty = true
     }
 
+    // ── Les aides du garde C-05 (validateOnUpdate), appelées depuis le pipeline inline ──
+
+    /** La copie de sécurité de la racine, pour le rollback du garde. */
+    @PublishedApi
+    internal fun rootBackup(): DATA = deepCopyFn(_data)
+
+    /** Rend l'échec de validation de la racine, ou null si tout est valide. */
+    @PublishedApi
+    internal fun guardValidationFailure(): ValidationResult.Failure? = runValidation(_data) as? ValidationResult.Failure
+
+    /** Restaure la racine depuis la copie de sécurité du garde. */
+    @PublishedApi
+    internal fun restoreRoot(backup: DATA) { _data = backup }
+
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
     private val autoSavePaused = AtomicBoolean(false)
 
@@ -189,6 +207,7 @@ class BaseStore<DATA : Any>(
     fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
 
     init {
+        require(!config.validateOnUpdate || config.useDeepCopy) { "[Storify] validateOnUpdate requires useDeepCopy (root rollback)" }
         initData()
         initUpdatePolicies()
         initValidation()
@@ -332,7 +351,21 @@ class BaseStore<DATA : Any>(
         onSaveCallbacks.forEach { it(operation) }
     }
     override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
-    override fun reloadFromFile() { checkOpen(); data = this.dataDecoder(path) }
+
+    override fun reloadFromFile(validate: Boolean) {
+        checkOpen()
+        val incoming = dataDecoder(path)
+        if (validate && config.withValidation) {
+            val result = runValidation(incoming)
+            if (result is ValidationResult.Failure) {
+                val errors = ValidationErrorEnricher.enrich(format, path, result.errors)
+                throw ValidationException(errors, "[Storify] Reload of '$path' rejected, in-memory data untouched:\n${ValidationResult.Failure(errors).formatFull()}")
+            }
+        }
+        data = incoming
+    }
+
+    override fun validateNow(): ValidationResult = dataLock.read { runValidation(_data) }
 
     // ── Contrôle auto-save ──
     override fun pauseAutoSave() {
@@ -398,7 +431,8 @@ class BaseStore<DATA : Any>(
     )
 
     /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
-    private fun runValidation(data: DATA): ValidationResult {
+    @PublishedApi
+    internal fun runValidation(data: DATA): ValidationResult {
         if (validator != null) {
             val ctx = ValidationContext(
                 currentPath = data::class.simpleName ?: "Unknown",
@@ -446,8 +480,21 @@ class BaseStore<DATA : Any>(
 
         val policy = updatePolicies[kProperty1] ?: config.defaultUpdatePolicy
 
+        // C-05, opt-in validateOnUpdate : copie de sécurité de la racine (seul rollback générique d'une
+        // mutation en place) et capture de l'avant, pour l'opération d'échec.
+        val guardBackup: DATA? = if (config.validateOnUpdate) rootBackup() else null
+        val guardOld: CapturedValue<VALUE> = if (guardBackup != null) CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver))) else CapturedValue.Unavailable
+
         if (policy == UpdatePolicy.SKIP) {
             applyUpdate(receiver)
+            if (guardBackup != null) {
+                val failure = guardValidationFailure()
+                if (failure != null) {
+                    val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
+                    restoreRoot(guardBackup)
+                    return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1)
+                }
+            }
             markDirty()
             return@write null
         }
@@ -460,6 +507,14 @@ class BaseStore<DATA : Any>(
         val oldSnapshot: VALUE = if (wantSnapshot) deepCopyValue(oldValue) else oldValue
 
         applyUpdate(receiver)
+        if (guardBackup != null) {
+            val failure = guardValidationFailure()
+            if (failure != null) {
+                val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
+                restoreRoot(guardBackup)
+                return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1)
+            }
+        }
         markDirty()
 
         val newValue = kProperty1.get(receiver)
@@ -504,6 +559,15 @@ class BaseStore<DATA : Any>(
 
             try {
                 _data.block()
+
+                // C-05, opt-in : la transaction se valide en bloc ; en échec, tout est restauré.
+                if (config.validateOnUpdate) {
+                    val result = runValidation(_data)
+                    if (result is ValidationResult.Failure && backupSnapshot != null) {
+                        _data = backupSnapshot
+                        return@write TransactionOperation(CapturedValue.DeepCopy(backupSnapshot), CapturedValue.Unavailable, success = false, validationError = result.formatFull())
+                    }
+                }
                 markDirty()
 
                 if (config.useDeepCopy && backupSnapshot != null) {

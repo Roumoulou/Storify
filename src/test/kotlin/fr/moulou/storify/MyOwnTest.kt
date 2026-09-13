@@ -4,6 +4,7 @@ import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.mutateIn
 import fr.moulou.storify.core.set
+import fr.moulou.storify.core.transaction
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.ValidationException
 import fr.moulou.storify.validation.Validator
@@ -81,6 +82,20 @@ data class InvalidDefaultsData(
 
 class InvalidDefaultsValidator : Validator<InvalidDefaultsData> {
     override fun validate(data: InvalidDefaultsData, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
+/** L'opt-in du chantier C-05 : la validation à chaque update, non recommandée mais disponible. */
+@Serializable
+@StoreConfiguration(withAutoSave = false, validateOnUpdate = true)
+@StoreValidator(GuardedDataValidator::class)
+data class GuardedData(
+    var name: String = "valide",
+)
+
+class GuardedDataValidator : Validator<GuardedData> {
+    override fun validate(data: GuardedData, ctx: ValidationContext) {
         ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
     }
 }
@@ -353,5 +368,58 @@ class MyOwnTest {
 
         assertTrue(Files.exists(path)) // la copie de la ressource reste, éditable : le voeu du TODO d'origine
         assertTrue(exception.message!!.contains("line")) // et les erreurs pointent la ligne dans cette copie
+    }
+
+    @Test
+    fun `validateNow dénonce ce qu'un update silencieux a laissé entrer`() {
+        val path = newStorePath("validate-now.json")
+        val store = StoreFactory.create<MyOwnData2>(path.toString())
+
+        assertTrue(store.validateNow().isValid)
+
+        store.set(MyOwnData2::stringValue, "") // policy par défaut SKIP : la valeur entre sans un mot
+        assertTrue(store.validateNow().isInvalid) // ... et validateNow la dénonce à la demande (C-05)
+    }
+
+    @Test
+    fun `reloadFromFile revalide par défaut et laisse la mémoire intacte en échec`() {
+        val path = newStorePath("reload-guard.json")
+        val store = StoreFactory.create<MyOwnData2>(path.toString())
+        store.set(MyOwnData2::stringValue, "sain")
+        store.saveImmediate()
+
+        path.writeText(path.readText().replace("\"sain\"", "\"\"")) // le fichier devient invalide, mais bien formé
+
+        assertThrows(ValidationException::class.java) { store.reloadFromFile() }
+        assertEquals("sain", store.data.stringValue) // la mémoire n'a pas bougé
+
+        store.reloadFromFile(validate = false) // l'échappatoire documentée
+        assertEquals("", store.data.stringValue)
+    }
+
+    @Test
+    fun `validateOnUpdate refuse la valeur, restaure, et signale par une opération`() {
+        val path = newStorePath("guarded.json")
+        val store = StoreFactory.createFromConstructor<GuardedData>(path.toString())
+
+        val operations = mutableListOf<Operation<GuardedData>>()
+        store.registerOnUpdate { operations.add(it) }
+
+        store.set(GuardedData::name, "") // refusé : pas d'exception, un rollback et une opération d'échec
+        assertEquals("valide", store.data.name)
+        val failure = assertInstanceOf(ValidationFailedOperation::class.java, operations.single())
+        assertTrue(failure.validationError.contains("name"))
+
+        store.transaction { name = "" } // la transaction invalide restaure tout
+        assertEquals("valide", store.data.name)
+        assertTrue(operations.any { it is TransactionOperation<*> && !it.success })
+    }
+
+    @Test
+    fun `validateOnUpdate exige useDeepCopy`() {
+        val path = newStorePath("guarded-nodeep.json")
+        assertThrows(IllegalArgumentException::class.java) {
+            StoreFactory.createFromConstructor<GuardedData>(path.toString(), config = StoreConfig(withAutoSave = false, useDeepCopy = false, validateOnUpdate = true))
+        }
     }
 }

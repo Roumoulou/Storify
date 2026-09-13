@@ -45,9 +45,10 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   fichier tronqué, même en cas de crash en pleine écriture).
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
-- **Validation au chargement** : un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
-  d'erreur), et un rapport d'erreurs détaillé, enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
-  fichier sur disque.
+- **Validation** : au chargement, au rechargement (`reloadFromFile` revalide par défaut, mémoire intacte en échec) et à la demande
+  (`validateNow()`) ; un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
+  d'erreur), un rapport d'erreurs détaillé enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
+  fichier sur disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par CBOR** : les snapshots des callbacks et le rollback des transactions passent par un aller-retour de sérialisation, mesuré
   par un benchmark dédié (`DeepCopyBenchmark`).
@@ -139,8 +140,8 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 
 En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `Docs\chantiers.md` :
 
-- la validation ne joue qu'au chargement initial : ni à l'update (le mécanisme a disparu du code), ni au `reloadFromFile`, et rien ne l'expose
-  publiquement pour la déclencher à la demande ;
+- la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
+  verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
   la persistance, elle, est garantie quelle que soit la policy ;
 - un format custom enregistré via `Utils.registerFormat` n'est pas accepté par la factory.

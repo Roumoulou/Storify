@@ -6,6 +6,7 @@ import fr.moulou.storify.core.setIn
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 // ──────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ data class PlayerStats(
 
 @Serializable
 @StorePath("C:\\temp\\player_data.json")
-@StoreConfiguration(withAutoSave = false, withValidation = true)
+@StoreConfiguration(withAutoSave = false, withValidation = true, validateOnUpdate = true)
 @StoreValidator(PlayerDataValidator::class)
 data class PlayerData(
     var name: String,
@@ -129,6 +130,7 @@ class ValidationDemo {
                 println("Update accepted ✓ — health = ${store.data.stats.health}")
         }
         store.setIn(PlayerStats::health, 999) { this.stats }
+        assertEquals(20, store.data.stats.health) // refusé pour de vrai depuis C-05 (validateOnUpdate)
     }
 
     @Test

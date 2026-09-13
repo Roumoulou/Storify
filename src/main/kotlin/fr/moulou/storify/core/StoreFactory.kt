@@ -101,7 +101,8 @@ object StoreFactory {
                 withMeta = it.withMeta,
                 useDeepCopy = it.useDeepCopy,
                 autoSaveIntervalMs = it.autoSaveIntervalMs,
-                defaultUpdatePolicy = it.defaultUpdatePolicy
+                defaultUpdatePolicy = it.defaultUpdatePolicy,
+                validateOnUpdate = it.validateOnUpdate
             )
         }
 
