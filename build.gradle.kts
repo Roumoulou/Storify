@@ -1,8 +1,6 @@
 import java.util.Properties
-import java.io.FileInputStream
 
 plugins {
-//    alias(libs.plugins.shadow)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     id("java-library")
@@ -11,7 +9,7 @@ plugins {
 
 val targetJavaVersion = libs.versions.java.get().toInt()
 
-// --- 2. IDENTITÉ DU PROJET ---
+// ── Identité du projet ───────────────────────────────────────────────
 version = project.property("mod_version").toString()
 group = project.property("maven_group").toString()
 
@@ -46,7 +44,6 @@ dependencies {
     testRuntimeOnly(libs.slf4j.simple)
 }
 
-
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     withSourcesJar()
@@ -55,65 +52,41 @@ java {
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
-            // On publie le composant "java" standard (ton code compilé + le pom.xml généré)
             from(components["java"])
-
-            // On récupère les infos de ton gradle.properties
             groupId = project.group.toString()
             artifactId = project.base.archivesName.get()
             version = project.version.toString()
-
-            // Optionnel : si tu veux AUSSI publier ton "shadowJar" (le gros JAR avec tout dedans)
-            // artifact(tasks["shadowJar"])
         }
     }
 
     repositories {
-        maven {
-            name = "Repsy"
-            // Remplace "ton_username" et "ton_repo" par ce que tu auras créé sur repsy.io
-            url = uri("https://repo.repsy.io/roumoulou/maven")
+        // Dépôt Repsy en veille (C-18) : configuré seulement quand ses identifiants sont présents,
+        // pour qu'un build ordinaire ne s'encombre pas d'un avertissement tant que la publication dort.
+        val globalPropsFile = file("S:/18/global.properties")
+        if (globalPropsFile.exists()) {
+            maven {
+                name = "Repsy"
+                url = uri("https://repo.repsy.io/roumoulou/maven")
 
-            credentials {
-                val globalProps = Properties()
-                val globalPropsFile = file("S:/18/global.properties")
+                credentials {
+                    val globalProps = Properties()
+                    globalPropsFile.inputStream().use { globalProps.load(it) }
 
-                if (globalPropsFile.exists()) {
-                    globalPropsFile.inputStream().use { stream ->
-                        globalProps.load(stream)
-                    }
-                } else {
-                    logger.warn("⚠️ Attention : Le fichier S:/18/global.properties est introuvable !")
+                    username = globalProps.getProperty("respy.io.username", "UTILISATEUR_INCONNU")
+                    val bwsUuid = globalProps.getProperty("respy.bws.uuid", "UUID_INCONNU")
+                    val bwsExePath = globalProps.getProperty("tools.bws.path")
+
+                    // Le token vit dans Bitwarden Secrets (bws), lu à la volée plutôt qu'écrit en clair.
+                    password = try {
+                        val execResult = providers.exec {
+                            commandLine(bwsExePath, "secret", "get", bwsUuid)
+                            isIgnoreExitValue = true // bws absent ou en échec ne casse pas la configuration
+                        }
+                        val output = execResult.standardOutput.asText.get()
+                        val match = "\"value\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(output)
+                        match?.groupValues?.get(1) ?: "AUCUN_TOKEN_FOURNI"
+                    } catch (_: Exception) { "ERREUR_D_EXECUTION" }
                 }
-
-                val myRepsyUsername = globalProps.getProperty("respy.io.username", "UTILISATEUR_INCONNU")
-                val myBwsUuid = globalProps.getProperty("respy.bws.uuid", "UUID_INCONNU")
-                val bwsExePath = globalProps.getProperty("tools.bws.path")
-
-//                val properties = Properties()
-//                properties.load(file("S:\\18\\global.properties"))
-
-                username = myRepsyUsername
-
-                password = try {
-                    val execResult = providers.exec {
-                        commandLine(bwsExePath, "secret", "get", myBwsUuid)
-
-                        // LA LIGNE MAGIQUE : Empêche Gradle de crasher si bws échoue (exit 1)
-                        isIgnoreExitValue = true
-                    }
-
-                    val output = execResult.standardOutput.asText.get()
-
-                    // La Regex cherche "value", suivi de deux points (avec ou sans espaces),
-                    // puis capture tout ce qu'il y a entre les guillemets suivants.
-                    val regex = "\"value\"\\s*:\\s*\"([^\"]+)\"".toRegex()
-                    val match = regex.find(output)
-
-                    if (match != null) match.groupValues[1]
-                    else "AUCUN_TOKEN_FOURNI"
-
-                } catch (_: Exception) { "ERREUR_D_EXECUTION" }
             }
         }
     }
@@ -130,47 +103,6 @@ tasks {
 
     jar { from("LICENSE") { rename { "${it}_${project.base.archivesName.get()}" } } }
 
-//    shadowJar {
-//        // ── Nom du JAR ──────────────────────────────────────────────
-//        archiveClassifier.set("all")
-//        // → mon-app-1.0.0-all.jar
-//
-//        // ── Manifest ────────────────────────────────────────────────
-//        manifest {
-//            attributes(
-//                "Implementation-Title" to project.name,
-//                "Implementation-Version" to project.version,
-//            )
-//        }
-//
-//        mergeServiceFiles()
-//
-//        // ── Relocate ───────────────────────────────────────────────
-//        // Empêche les conflits si quelqu'un utilise ton JAR comme lib
-//        // et a déjà zip4j / json-path dans son classpath
-//
-//        // ── Nettoyage ───────────────────────────────────────────────
-//        // Supprime les fichiers inutiles des libs embarquées
-//        exclude("META-INF/MANIFEST.MF")  // ceux des libs, pas le tien
-//        exclude("META-INF/*.SF")
-//        exclude("META-INF/*.DSA")
-//        exclude("META-INF/*.RSA")
-//        exclude("META-INF/LICENSE*")
-//        exclude("META-INF/NOTICE*")
-//
-//        // ── Stratégie de doublons ───────────────────────────────────
-//        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-//
-//        // ── Merge des fichiers de service ───────────────────────────
-//        mergeServiceFiles()
-//        // Quand 2 libs ont un fichier META-INF/services/xxx,
-//        // Shadow les fusionne au lieu d'en écraser un
-//    }
-
-//    build {
-//        dependsOn(shadowJar)
-//    }
-
     test {
         useJUnitPlatform()
 
@@ -182,6 +114,5 @@ tasks {
             showCauses = true
             exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
-
     }
 }

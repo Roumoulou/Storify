@@ -125,10 +125,16 @@ c'est fait, avec la date.
   qu'aucun `git add` n'avale une copie de sauvegarde. **Fait le 2026-09-13** : deux instantanés montés dans `_archives\2026-09-13\` (le second,
   `gradle-wrapper.properties.avant-9.4.1-bin`, découvert au passage), le dépôt de la lib né en `bcd5af0` (66 fichiers), celui du banc en `9bc908c`
   (20 fichiers), branche `master` des deux côtés.
-- [ ] **C-16 : le build au propre** (S ; LECTURE). Le `jar` embarque `from("LICENSE")`, un chemin qui n'existe pas (le fichier s'appelle
+- [x] **C-16 : le build au propre** (S ; LECTURE). Le `jar` embarque `from("LICENSE")`, un chemin qui n'existe pas (le fichier s'appelle
   `LICENSE.txt`) : l'inclusion échoue en silence. S'y ajoutent : les blocs shadow morts en commentaire, les commentaires pédagogiques à élaguer,
   la numérotation de sections orpheline (« 2. IDENTITÉ » sans 1), le warning `global.properties` qui pollue chaque build tant que la publication
-  est en veille (lien C-18), et la licence elle-même à trancher (placeholder de 41 octets, sans nom après le copyright).
+  est en veille (lien C-18), et la licence elle-même à trancher (placeholder de 41 octets, sans nom après le copyright). **Fait le 2026-09-13** :
+  `LICENSE.txt` renommé en `LICENSE` par `git mv` (la convention, et le `from("LICENSE")` réparé du même geste ; la licence entre désormais dans
+  le jar, vérifié `LICENSE_storify`), sa mention de copyright complétée (`Copyright (c) 2025-2026 Roumoulou`, tous droits réservés ; le choix
+  d'une licence réelle reste reporté à froid). `build.gradle.kts` nettoyé : code mort retiré (plugin shadow, bloc `shadowJar`,
+  `dependsOn(shadowJar)`, fragments commentés), commentaires pédagogiques réécrits au registre neutre, numérotation orpheline corrigée, et le
+  warning `global.properties` éteint en ne configurant le dépôt Repsy que si le fichier existe (gel propre ; le sort de Repsy reste à C-18).
+  Builds lib et banc verts.
 
 ## 5. P3, la vision
 
