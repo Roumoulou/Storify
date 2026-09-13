@@ -97,10 +97,10 @@ data class PlayerHomes(
 
 @Serializable
 data class Home(
-    var dimension: String = "minecraft:overworld",
-    var x: Double = 0.0,
-    var y: Double = 64.0,
-    var z: Double = 0.0,
+    var dimension: String,
+    var x: Double,
+    var y: Double,
+    var z: Double
 )
 
 class HomesModDataValidator : Validator<HomesModData> {
@@ -226,10 +226,11 @@ class HomesModDemo {
         }
 
         // Trois homes passent, le quatrième bute sur la limite lue dans la config.
-        assertTrue(setHome(steve, "Steve", "base", Home(x = 100.0, z = 200.0)))
-        assertTrue(setHome(steve, "Steve", "mine", Home(y = 12.0)))
-        assertTrue(setHome(steve, "Steve", "ferme", Home(z = -40.0)))
-        assertFalse(setHome(steve, "Steve", "plage", Home())) // maxHomesPerPlayer = 3
+        // Un Home se construit toujours en entier : pas de valeurs par défaut, pas de home à moitié posé.
+        assertTrue(setHome(steve, "Steve", "base", Home("minecraft:overworld", x = 100.0, y = 64.0, z = 200.0)))
+        assertTrue(setHome(steve, "Steve", "mine", Home("minecraft:overworld", x = 0.0, y = 12.0, z = 0.0)))
+        assertTrue(setHome(steve, "Steve", "ferme", Home("minecraft:the_nether", x = 30.0, y = 70.0, z = -40.0)))
+        assertFalse(setHome(steve, "Steve", "plage", Home("minecraft:overworld", x = 500.0, y = 63.0, z = 500.0))) // maxHomesPerPlayer = 3
 
         // Le callback ciblé : il ne parle que quand LE compteur bouge, pas à chaque update du store.
         var counterCallbacks = 0
