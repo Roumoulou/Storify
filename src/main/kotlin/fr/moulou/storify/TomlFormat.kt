@@ -6,6 +6,7 @@ import dev.eav.tomlkt.encodeToNativeWriter
 import java.nio.file.Path
 import kotlin.io.path.bufferedReader
 import kotlin.io.path.bufferedWriter
+import kotlin.io.path.createDirectories
 
 class TomlFormat(
     private val toml: Toml = Toml { ignoreUnknownKeys = true }
@@ -16,6 +17,7 @@ class TomlFormat(
     }
 
     inline fun <reified DATA> encodeToPath(data: DATA, path: Path) {
+        path.parent?.createDirectories()
         path.bufferedWriter().use { writer -> underlyingToml().encodeToNativeWriter(data, writer) }
     }
 

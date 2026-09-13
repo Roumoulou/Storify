@@ -197,4 +197,13 @@ class MyOwnTest {
         val exception = assertThrows(ValidationException::class.java) { StoreFactory.create<MyOwnData2>(path.toString()) }
         assertTrue(exception.message!!.contains("stringValue"))
     }
+
+    @Test
+    fun `un store TOML naît dans un dossier encore inexistant`() {
+        val path = newStorePath("marker.json").parent.resolve("toml").resolve("sub").resolve("config.toml")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), format = TomlFormat(), config = snapshotNoAutoSave)
+
+        assertEquals(MyOwnData.getDefault(), store.data)
+        assertTrue(Files.exists(path)) // le fichier initial est né, dossiers compris : TomlFormat crée les parents depuis C-04
+    }
 }

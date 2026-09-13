@@ -27,7 +27,7 @@ class JsonFormat(
 
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified DATA> encodeToPath(data: DATA, path: Path) {
-        path.parent.createDirectories()
+        path.parent?.createDirectories()
         underlyingJson().encodeToStream(data, path.outputStream())
     }
 

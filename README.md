@@ -141,7 +141,6 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - la validation ne joue qu'au chargement initial : ni à l'update (le mécanisme a disparu du code), ni au `reloadFromFile`, et rien ne l'expose
   publiquement pour la déclencher à la demande ;
 - le défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP`, qui éteint les callbacks et l'auto-save : passez `SNAPSHOT` explicitement ;
-- `TomlFormat` ne crée pas les dossiers parents du fichier (`JsonFormat`, si) ;
 - un format custom enregistré via `Utils.registerFormat` n'est pas accepté par la factory.
 
 ## 7. La documentation

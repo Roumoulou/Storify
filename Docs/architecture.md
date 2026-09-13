@@ -157,7 +157,7 @@ inline. Les réglages en place :
 | Format | Réglages | Particularités |
 |---|---|---|
 | `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
-| `TomlFormat` | ignoreUnknownKeys | Ne crée **pas** les dossiers parents (chantier C-04) |
+| `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
 
 `Utils` tient un registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné, et accepte l'enregistrement de formats
 tiers (`registerFormat`). Ce point d'extension est aujourd'hui un trompe-l'oeil : les encoders et decoders de la factory sont un `when` figé sur
@@ -202,7 +202,7 @@ update par le hook interne, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version
 Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\..\08-related-projects\storibench`) et la suite de tests les ont
 exercés en vrai. Les faits marquants, sources des chantiers :
 
-- `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc).
+- `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc ; corrigé au chantier C-04).
 - Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2) ; un test le documente désormais.
 - Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
   édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc).

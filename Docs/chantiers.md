@@ -56,8 +56,10 @@ c'est fait, avec la date.
 - [ ] **C-03 : le défaut `SKIP` devient `SNAPSHOT`** (S ; B2, TESTS). Le défaut actuel éteint callbacks, dirty et auto-save, et contredit la KDoc
   de `StoreConfig` qui annonce déjà `SNAPSHOT`. Au passage : exposer `defaultUpdatePolicy` dans `@StoreConfiguration` (introuvable par annotation
   aujourd'hui), et ajuster le test qui documente le défaut actuel.
-- [ ] **C-04 : `TomlFormat` crée les dossiers parents** (S ; B1). Deux lignes, symétrie avec `JsonFormat` ; le banc retirera son
-  `createDirectories` de contournement.
+- [x] **C-04 : `TomlFormat` crée les dossiers parents** (S ; B1). Deux lignes, symétrie avec `JsonFormat` ; le banc retirera son
+  `createDirectories` de contournement. **Fait le 2026-09-13** : `path.parent?.createDirectories()` dans les deux formats (`JsonFormat` gagne le
+  `?.`, son `parent` nu pouvait être nul sur un chemin sans dossier), contournement du banc retiré, constat n° 1 marqué corrigé dans le README du
+  banc, et un test de régression ajouté (un store TOML naît dans un dossier encore inexistant).
 - [ ] **C-05 : trancher la validation à l'update** (M/L ; B4, LECTURE, TESTS). La mécanique a disparu : `ValidationFailedOperation` n'est jamais
   émise, les démos « update bloqué » laissent tout passer. Décision à prendre : la réintroduire (valider après mutation, rollback via le snapshot
   déjà capturé en `SNAPSHOT`, émettre l'opération d'échec) ou l'abandonner et retirer l'opération orpheline. Dans les deux cas : un
@@ -113,6 +115,11 @@ c'est fait, avec la date.
 - [ ] **C-20 : le positionnement** (S ; LECTURE). L'étude comparative sérieuse (Cloth Config, owo-lib, Night Config, les configs Forge/NeoForge,
   et le monde JVM hors Minecraft), vérifiée en direct le jour venu, pour dire le créneau exact de Storify et ce qui mérite d'exister ici plutôt
   qu'ailleurs.
+- [ ] **C-21 : le support JSON5** (M ; demande du 2026-09-13). Le format taillé pour les configs éditées à la main : commentaires, virgules
+  traînantes, clés sans guillemets. La brique existe et se marie à notre pile : `li.songe:json5` (github.com/lisonge/kotlin-json5),
+  multiplateforme, bâtie pour kotlinx.serialization, vérifiée sur Maven Central le 2026-09-13 (0.8.0). Dépend de C-09 : tant que le point
+  d'extension des formats est un `when` figé, un `Json5Format` ne passerait pas la factory ; cette envie est l'argument qui fait monter C-09 dans
+  la file.
 
 ## 6. La méthode, chantier par chantier
 
