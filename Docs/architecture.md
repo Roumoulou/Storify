@@ -79,14 +79,15 @@ L'initialisation enchaîne cinq étapes, dans l'ordre du bloc `init` :
    une garde qui ignore les classes `kotlin.*` et `java.*` ; chaque `@StoreUpdatePolicy` rencontrée entre dans la map `updatePolicies`.
 3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs d'origine `FILE` sont
    enrichies des numéros de ligne JSON, puis une `ValidationException` est levée. Le store ne se construit pas.
-4. **initAutoSave** : un callback onUpdate interne pose `isDirty` (et met à jour `meta.lastModified`) ; si `withAutoSave`, un scheduler
-   single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où `isDirty` est vrai, sauf pause (`pauseAutoSave`). Le thread du scheduler
-   n'est **pas** daemon : sans `close()`, il retient la JVM (chantier C-01).
+4. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
+   levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
+   C-03). Le thread du scheduler n'est **pas** daemon : sans `close()`, il retient la JVM (chantier C-01).
 5. **initShutdownHook** : un hook `Runtime.addShutdownHook` annule le tick en cours et sauvegarde. Il court même après un crash, et même si le
    store a été « détaché » par son consommateur : c'est le mécanisme qui a réécrit des données par-dessus une édition manuelle au banc.
 
-Le point subtil de l'étape 4 : le marquage dirty est lui-même un callback onUpdate. Toute mise à jour en policy `SKIP` court-circuite les
-callbacks, donc aussi le marquage dirty, donc l'auto-save. `SKIP` étant le défaut actuel, un store laissé sur les défauts n'auto-sauve jamais.
+Jusqu'au chantier C-03, le marquage dirty était lui-même un callback onUpdate : une mise à jour `SKIP` coupait donc aussi la persistance. Depuis,
+`markDirty` vit dans le pipeline d'update et toutes les policies persistent ; `SKIP`, toujours le défaut, ne gouverne plus que le silence des
+callbacks.
 
 ## 5. Les mises à jour typées
 
@@ -103,7 +104,7 @@ L'API publique est un jeu d'extensions sur `BaseStore` :
 Tout converge vers `runUpdateInternal`, le pipeline central, exécuté sous le write lock :
 
 1. lecture de la policy de la propriété (`updatePolicies`, sinon `config.defaultUpdatePolicy`) ;
-2. `SKIP` : la mutation s'applique et la fonction rend `null`, aucun callback, aucun dirty ;
+2. `SKIP` : la mutation s'applique, le dirty est posé, et la fonction rend `null` : aucun callback ;
 3. sinon, raccourci immuable : une propriété primitive, `String` ou enum n'est jamais copiée en profondeur ;
 4. `SNAPSHOT` (et `useDeepCopy`) : copie profonde de la valeur **avant** mutation ;
 5. la mutation s'applique sur l'objet vivant ;
@@ -115,11 +116,16 @@ secours (rollback) avant de relancer l'exception. Sans `useDeepCopy`, pas de sec
 
 ## 6. Policies et captures
 
-| Policy | Copie profonde des valeurs | Callbacks et dirty |
+| Policy | Copie profonde des valeurs | Callbacks |
 |---|---|---|
 | `SNAPSHOT` | oui (avant et après) | oui |
 | `SHALLOW` | non (références) | oui |
 | `SKIP` | non | non |
+
+Le drapeau dirty, lui, est posé pour toutes les policies (depuis C-03) : la policy choisit ce qu'on observe, jamais ce qui est persisté. Le choix
+pratique, chiffré par `DeepCopyBenchmark` (0,2 µs pour un petit objet, ~70 µs pour 200 records imbriqués, par copie) : `SNAPSHOT` pour observer
+avec des captures figées et sûres, `SHALLOW` pour observer sans copies (avant indisponible sur les mutations en place, après vivant), `SKIP` pour
+le silence des points chauds.
 
 Les callbacks reçoivent les valeurs sous forme de `CapturedValue` : `DeepCopy` (copie fiable, à ne pas muter), `Shallow` (lecture au moment de la
 capture, fiable pour les immuables seulement), `Initial` (la toute première donnée, au premier save), `Unavailable` (rien à montrer).
@@ -203,7 +209,8 @@ Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\
 exercés en vrai. Les faits marquants, sources des chantiers :
 
 - `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc ; corrigé au chantier C-04).
-- Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2) ; un test le documente désormais.
+- Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2). Depuis C-03, la persistance est
+  garantie pour toutes les policies ; le défaut ne gouverne plus que les callbacks, et des tests verrouillent les deux comportements.
 - Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
   édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc).
 - `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4) ; seule la validation du consommateur les rattrape.

@@ -72,7 +72,7 @@ val configStore = StoreFactory.createFromConstructor<ServerConfig>(
     config = StoreConfig(
         withValidation = true,
         withAutoSave = false,                        // une config s'écrit au moment où on la modifie
-        defaultUpdatePolicy = UpdatePolicy.SNAPSHOT, // indispensable : le défaut actuel, SKIP, éteint callbacks et auto-save
+        defaultUpdatePolicy = UpdatePolicy.SNAPSHOT, // le défaut est SKIP : sans policy, pas de callbacks (la persistance, elle, est garantie)
     ),
     validator = ServerConfigValidator(),
 )
@@ -140,7 +140,8 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - pas d'écriture atomique : un crash pendant l'écriture peut tronquer le fichier ;
 - la validation ne joue qu'au chargement initial : ni à l'update (le mécanisme a disparu du code), ni au `reloadFromFile`, et rien ne l'expose
   publiquement pour la déclencher à la demande ;
-- le défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP`, qui éteint les callbacks et l'auto-save : passez `SNAPSHOT` explicitement ;
+- le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
+  la persistance, elle, est garantie quelle que soit la policy ;
 - un format custom enregistré via `Utils.registerFormat` n'est pas accepté par la factory.
 
 ## 7. La documentation

@@ -9,6 +9,7 @@ import fr.moulou.storify.validation.ValidationException
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -69,6 +70,13 @@ class MyOwnData2Validator : Validator<MyOwnData2> {
         }
     }
 }
+
+/** La voie annotée avec policy par défaut choisie par annotation : le champ ajouté au chantier C-03. */
+@Serializable
+@StoreConfiguration(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
+data class AnnotatedPolicyData(
+    var label: String = "x",
+)
 
 // ─── Les tests ────────────────────────────────────────────────────────────────────────
 
@@ -138,10 +146,13 @@ class MyOwnTest {
         store.registerOnUpdate { updates.add(it) }
         store.registerOnUpdateOn(MyOwnData2::intValue) { targeted.add(it) }
 
-        // stringValue est sans annotation : la policy par défaut SKIP applique la valeur mais n'émet rien (constat n° 2).
+        // stringValue est sans annotation : la policy par défaut SKIP applique la valeur mais n'émet rien.
+        // Depuis C-03, SKIP marque quand même le store dirty : la persistance ne dépend plus de la policy.
+        assertFalse(store.isDirty)
         store.set(MyOwnData2::stringValue, "bloublou")
         assertEquals("bloublou", store.data.stringValue)
         assertTrue(updates.isEmpty())
+        assertTrue(store.isDirty)
 
         // intValue porte @StoreUpdatePolicy(SHALLOW) : la valeur s'applique ET les callbacks parlent, le ciblé compris.
         store.set(MyOwnData2::intValue, 5)
@@ -205,5 +216,18 @@ class MyOwnTest {
 
         assertEquals(MyOwnData.getDefault(), store.data)
         assertTrue(Files.exists(path)) // le fichier initial est né, dossiers compris : TomlFormat crée les parents depuis C-04
+    }
+
+    @Test
+    fun `defaultUpdatePolicy se choisit par annotation`() {
+        val path = newStorePath("annotated-policy.json")
+        val store = StoreFactory.createFromConstructor<AnnotatedPolicyData>(path.toString())
+
+        assertEquals(UpdatePolicy.SNAPSHOT, store.getUpdatePolicy(AnnotatedPolicyData::label))
+
+        val updates = mutableListOf<Operation<AnnotatedPolicyData>>()
+        store.registerOnUpdate { updates.add(it) }
+        store.set(AnnotatedPolicyData::label, "y")
+        assertEquals(1, updates.size) // la policy venue de l'annotation allume les callbacks, sans config explicite
     }
 }

@@ -34,7 +34,8 @@ import kotlin.time.Clock
  *                             le rollback des transactions en cas d'exception. Défaut `true`.
  *                             Désactiver améliore les performances mais les snapshots old seront indisponibles.
  * @property defaultUpdatePolicy Politique d'update par défaut pour les propriétés sans annotation
- *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SNAPSHOT].
+ *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
+ *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
  * @property autoSaveIntervalMs  Intervalle en millisecondes entre chaque tick d'auto-save. Défaut 5 min.
  */
 data class StoreConfig(
@@ -122,8 +123,18 @@ class BaseStore<DATA : Any>(
 
     override val meta : StoreMeta? = if(config.withMeta) if(path.exists() && metaPath.exists()) metaDecoder.invoke(metaPath) else StoreMeta() else null
 
-    /** Passe à `true` à chaque update réussi ; remis à `false` par le tick d'auto-save. */
-    @Volatile private var isDirty = false
+    /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` par le tick d'auto-save. Interne pour les tests. */
+    @Volatile internal var isDirty = false
+
+    /**
+     * Marque les données modifiées : `meta.lastModified` et le drapeau dirty. Appelé par le pipeline d'update pour
+     * TOUTES les policies, [UpdatePolicy.SKIP] compris : la persistance ne dépend pas de l'observation.
+     */
+    @PublishedApi
+    internal fun markDirty() {
+        if (config.withMeta) meta?.lastModified = Clock.System.now().formatLocal()
+        isDirty = true
+    }
 
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
     private val autoSavePaused = AtomicBoolean(false)
@@ -226,13 +237,8 @@ class BaseStore<DATA : Any>(
         }
     }
 
-    /** Enregistre la tâche planifiée d'auto-save et le hook isDirty/meta sur chaque update. */
+    /** Enregistre la tâche planifiée d'auto-save. Le marquage dirty, lui, vit dans le pipeline d'update : voir [markDirty]. */
     private fun initAutoSave() {
-        registerOnUpdate {
-            if (config.withMeta) meta?.lastModified = Clock.System.now().formatLocal()
-            if (config.withAutoSave) isDirty = true
-        }
-
         if (!config.withAutoSave) return
 
         autoSaveFuture = saveScheduler.scheduleAtFixedRate({
@@ -374,6 +380,7 @@ class BaseStore<DATA : Any>(
 
         if (policy == UpdatePolicy.SKIP) {
             applyUpdate(receiver)
+            markDirty()
             return@write null
         }
 
@@ -385,6 +392,7 @@ class BaseStore<DATA : Any>(
         val oldSnapshot: VALUE = if (wantSnapshot) deepCopyValue(oldValue) else oldValue
 
         applyUpdate(receiver)
+        markDirty()
 
         val newValue = kProperty1.get(receiver)
         val oldCaptured: CapturedValue<VALUE> = when {
@@ -427,6 +435,7 @@ class BaseStore<DATA : Any>(
 
             try {
                 _data.block()
+                markDirty()
 
                 if (config.useDeepCopy && backupSnapshot != null) {
                     val o = CapturedValue.DeepCopy(backupSnapshot)

@@ -53,9 +53,12 @@ c'est fait, avec la date.
 - [ ] **C-02 : l'écriture atomique** (M ; TODO-2). Écrire dans `<fichier>.tmp`, forcer l'écriture, puis remplacer par déplacement atomique.
   Couvre le crash en cours d'écriture ; aujourd'hui l'encodage écrit directement dans le flux du fichier cible. À appliquer au fichier de données
   et au sidecar meta.
-- [ ] **C-03 : le défaut `SKIP` devient `SNAPSHOT`** (S ; B2, TESTS). Le défaut actuel éteint callbacks, dirty et auto-save, et contredit la KDoc
-  de `StoreConfig` qui annonce déjà `SNAPSHOT`. Au passage : exposer `defaultUpdatePolicy` dans `@StoreConfiguration` (introuvable par annotation
-  aujourd'hui), et ajuster le test qui documente le défaut actuel.
+- [x] **C-03 : la persistance découplée de la policy** (S ; B2, TESTS). Périmètre révisé le 2026-09-13 avec l'utilisateur : le marquage dirty
+  (et `meta.lastModified`) quitte les callbacks pour entrer dans le pipeline d'update, toutes les policies persistent (`SKIP` compris) ;
+  `@StoreConfiguration` expose `defaultUpdatePolicy` ; le défaut **reste** `SKIP` (décision utilisateur : les callbacks s'allument par policy
+  explicite), et la KDoc de `StoreConfig`, qui annonçait `SNAPSHOT` à tort, est corrigée dans ce sens. **Fait le 2026-09-13** : pipeline,
+  annotation, tests (le dirty sous `SKIP`, la policy par annotation), documentation alignée, constat n° 2 soldé pour la persistance. Le choix du
+  défaut reste ouvert : voir C-22.
 - [x] **C-04 : `TomlFormat` crée les dossiers parents** (S ; B1). Deux lignes, symétrie avec `JsonFormat` ; le banc retirera son
   `createDirectories` de contournement. **Fait le 2026-09-13** : `path.parent?.createDirectories()` dans les deux formats (`JsonFormat` gagne le
   `?.`, son `parent` nu pouvait être nul sur un chemin sans dossier), contournement du banc retiré, constat n° 1 marqué corrigé dans le README du
@@ -120,6 +123,9 @@ c'est fait, avec la date.
   multiplateforme, bâtie pour kotlinx.serialization, vérifiée sur Maven Central le 2026-09-13 (0.8.0). Dépend de C-09 : tant que le point
   d'extension des formats est un `when` figé, un `Json5Format` ne passerait pas la factory ; cette envie est l'argument qui fait monter C-09 dans
   la file.
+- [ ] **C-22 : revoir le défaut de policy** (S ; décision reportée du 2026-09-13). `SKIP` par défaut est assumé aujourd'hui (silence des
+  callbacks, persistance garantie depuis C-03) ; reste à trancher à froid entre `SKIP`, `SHALLOW` (callbacks gratuits, avant dégradé sur les
+  mutations en place) et `SNAPSHOT` (captures figées, coût mesuré par `DeepCopyBenchmark`), guidance du chapitre 6 d'`architecture.md` à l'appui.
 
 ## 6. La méthode, chantier par chantier
 
