@@ -230,4 +230,45 @@ class MyOwnTest {
         store.set(AnnotatedPolicyData::label, "y")
         assertEquals(1, updates.size) // la policy venue de l'annotation allume les callbacks, sans config explicite
     }
+
+    @Test
+    fun `l'auto-save réel persiste un update SKIP, puis close libère tout`() {
+        val path = newStorePath("autosave.json")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = StoreConfig(withAutoSave = true, autoSaveIntervalMs = 100))
+
+        val saves = mutableListOf<Operation<MyOwnData>>()
+        store.registerOnSave { saves.add(it) }
+
+        // Policy par défaut SKIP : l'update est muet pour les callbacks, mais marque dirty (C-03)...
+        store.set(MyOwnData::stringValue, "autosaved")
+
+        // ... et le tick le persiste quand même : on attend le save AUTO_SAVE (5 s de marge pour un tick de 100 ms).
+        val deadline = System.currentTimeMillis() + 5_000
+        while (saves.none { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE } && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+        }
+        assertTrue(saves.any { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE })
+        assertTrue(path.readText().contains("autosaved"))
+
+        store.close() // le scheduler meurt : sans close(), ce test retiendrait la JVM pour toujours (C-01)
+        assertTrue(store.isClosed)
+    }
+
+    @Test
+    fun `un store fermé refuse les écritures et close est idempotent`() {
+        val path = newStorePath("closed.json")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+
+        store.set(MyOwnData::stringValue, "avant fermeture")
+        store.close()
+        store.close() // idempotent : silencieux
+
+        assertTrue(store.isClosed)
+        assertEquals("avant fermeture", store.data.stringValue) // la lecture reste permise
+        assertTrue(path.readText().contains("avant fermeture")) // la sauvegarde d'adieu (CLOSE) a écrit le dirty
+
+        assertThrows(IllegalStateException::class.java) { store.set(MyOwnData::stringValue, "trop tard") }
+        assertThrows(IllegalStateException::class.java) { store.saveImmediate() }
+        assertThrows(IllegalStateException::class.java) { store.reloadFromFile() }
+    }
 }

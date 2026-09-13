@@ -23,6 +23,7 @@ StoreFactory.create*<DATA>(...)
             5. initShutdownHook   : sauvegarde à l'arrêt de la JVM
     └─> vie du store : data (read lock), set/mutate/transaction (write lock), callbacks (hors lock),
                        saveImmediate / auto-save / reloadFromFile
+    └─> close() : tick annulé, scheduler arrêté, hook désarmé, sauvegarde d'adieu (SaveTrigger.CLOSE)
 ```
 
 Les packages :
@@ -81,9 +82,14 @@ L'initialisation enchaîne cinq étapes, dans l'ordre du bloc `init` :
    enrichies des numéros de ligne JSON, puis une `ValidationException` est levée. Le store ne se construit pas.
 4. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
-   C-03). Le thread du scheduler n'est **pas** daemon : sans `close()`, il retient la JVM (chantier C-01).
-5. **initShutdownHook** : un hook `Runtime.addShutdownHook` annule le tick en cours et sauvegarde. Il court même après un crash, et même si le
-   store a été « détaché » par son consommateur : c'est le mécanisme qui a réécrit des données par-dessus une édition manuelle au banc.
+   C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
+5. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et sauvegarde : le filet anti-crash des
+   stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
+   des données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
+
+La fin de vie (C-01) : `close()`, idempotent, annule le tick, arrête le planificateur (`awaitTermination` 5 s : un tick en vol se termine avant la
+suite), désarme le hook, puis fait la sauvegarde d'adieu si le store est dirty (`SaveTrigger.CLOSE`). Un store fermé reste lisible, refuse toute
+écriture (`IllegalStateException`), et ses interrupteurs d'auto-save deviennent inertes. Les stores sont `AutoCloseable` : `use { }` fonctionne.
 
 Jusqu'au chantier C-03, le marquage dirty était lui-même un callback onUpdate : une mise à jour `SKIP` coupait donc aussi la persistance. Depuis,
 `markDirty` vit dans le pipeline d'update et toutes les policies persistent ; `SKIP`, toujours le défaut, ne gouverne plus que le silence des
@@ -132,7 +138,8 @@ capture, fiable pour les immuables seulement), `Initial` (la toute première don
 
 ## 7. La persistance
 
-Trois déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick) et `SHUTDOWN` (le hook JVM). La sauvegarde
+Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick), `SHUTDOWN` (le hook JVM) et `CLOSE`
+(la sauvegarde d'adieu de `close()`, si le store est dirty). Le drapeau dirty se remet à zéro dans `save()`, après un encodage réussi. La sauvegarde
 s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
 (qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
 
@@ -212,7 +219,7 @@ exercés en vrai. Les faits marquants, sources des chantiers :
 - Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2). Depuis C-03, la persistance est
   garantie pour toutes les policies ; le défaut ne gouverne plus que les callbacks, et des tests verrouillent les deux comportements.
 - Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
-  édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc).
+  édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc ; soldé au chantier C-01 : `close()` désarme le hook).
 - `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4) ; seule la validation du consommateur les rattrape.
 - La `ValidationException` au chargement est excellente (chemin, valeur, numéro de ligne JSON), mais en solo Minecraft elle se paie d'un crash
   complet du client (« Exception in server tick loop »).

@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.reflect.KProperty1
 
-interface Store<DATA : Any> {
+interface Store<DATA : Any> : AutoCloseable {
 
     val log: Logger get() = LoggerFactory.getLogger(javaClass)
 
@@ -35,5 +35,11 @@ interface Store<DATA : Any> {
     fun resumeAutoSave()
 
     fun isAutoSavePaused(): Boolean
+
+    /** `true` après [close] : le store reste lisible, mais fermé aux écritures. */
+    val isClosed: Boolean
+
+    /** Détache proprement le store : tick annulé, planificateur arrêté, hook JVM désarmé, sauvegarde d'adieu si dirty. Idempotent. */
+    override fun close()
 
 }

@@ -42,6 +42,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   (silence complet).
 - **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM, et
   rechargement depuis le fichier (`reloadFromFile`).
+- **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
+  sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
 - **Validation au chargement** : un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
   d'erreur), et un rapport d'erreurs détaillé, enrichi des numéros de ligne pour les fichiers JSON.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
@@ -135,8 +137,6 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 
 En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `Docs\chantiers.md` :
 
-- pas de `close()` : un store détaché garde son scheduler et son hook d'arrêt JVM, qui resauvegardera ses données à l'extinction, y compris
-  par-dessus une édition manuelle du fichier ;
 - pas d'écriture atomique : un crash pendant l'écriture peut tronquer le fichier ;
 - la validation ne joue qu'au chargement initial : ni à l'update (le mécanisme a disparu du code), ni au `reloadFromFile`, et rien ne l'expose
   publiquement pour la déclencher à la demande ;

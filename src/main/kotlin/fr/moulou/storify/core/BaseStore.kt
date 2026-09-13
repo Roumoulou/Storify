@@ -145,6 +145,23 @@ class BaseStore<DATA : Any>(
     /** Scheduler single-thread pour l'auto-save périodique. */
     private val saveScheduler = Executors.newSingleThreadScheduledExecutor()
 
+    /** `true` après [close] : le store reste lisible, les écritures refusent. */
+    private val closed = AtomicBoolean(false)
+
+    override val isClosed: Boolean get() = closed.get()
+
+    /** Le hook d'arrêt JVM, gardé en champ pour que [close] puisse le désarmer. */
+    private val shutdownHook = Thread {
+        autoSaveFuture?.cancel(false)
+        save(SaveTrigger.SHUTDOWN)
+    }
+
+    /** Refuse toute écriture sur un store fermé. */
+    @PublishedApi
+    internal fun checkOpen() {
+        check(!closed.get()) { "[Storify] Store '$path' is closed" }
+    }
+
     // ── Callbacks ──
     override val onSaveCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
     override val onReloadCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
@@ -249,7 +266,6 @@ class BaseStore<DATA : Any>(
                 if (!isDirty) {
                     log.debug("[Storify] Auto-save skipped (no changes)"); return@scheduleAtFixedRate
                 }
-                isDirty = false
                 save(SaveTrigger.AUTO_SAVE)
             } catch (e: Exception) {
                 log.error("[Storify] Auto-save failed", e)
@@ -257,12 +273,9 @@ class BaseStore<DATA : Any>(
         }, config.autoSaveIntervalMs, config.autoSaveIntervalMs, TimeUnit.MILLISECONDS)
     }
 
-    /** Garantit la persistance des données à l'arrêt de la JVM. */
+    /** Arme le filet anti-crash : la persistance à l'arrêt de la JVM, tant que le store n'est pas fermé. */
     private fun initShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(Thread {
-            autoSaveFuture?.cancel(false)
-            save(SaveTrigger.SHUTDOWN)
-        })
+        Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
 
     // ── Persistance ──
@@ -271,6 +284,13 @@ class BaseStore<DATA : Any>(
      * écrit le sidecar meta, et déclenche les [onSaveCallbacks] **hors du lock**.
      */
     private fun save(trigger: SaveTrigger) {
+        if (closed.get()) {
+            when (trigger) {
+                SaveTrigger.IMMEDIATE -> throw IllegalStateException("[Storify] Store '$path' is closed")
+                SaveTrigger.AUTO_SAVE -> return // un tick en vol pendant la fermeture s'éteint sans bruit
+                else -> {} // CLOSE et SHUTDOWN : les sauvegardes de fin de vie passent
+            }
+        }
         val operation: Operation<DATA> = dataLock.read {
 
             val oldCaptured: CapturedValue<DATA> = when {
@@ -280,6 +300,7 @@ class BaseStore<DATA : Any>(
             }
 
             dataEncoder.invoke(_data, path)
+            isDirty = false // après un encodage réussi seulement : un échec laisse le dirty au prochain tick
 
             _lastSavedData = if (config.useDeepCopy) deepCopyFn(_data) else null
             _hasSavedAtLeastOnce = true
@@ -294,18 +315,47 @@ class BaseStore<DATA : Any>(
         onSaveCallbacks.forEach { it(operation) }
     }
     override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
-    override fun reloadFromFile() { data = this.dataDecoder(path) }
+    override fun reloadFromFile() { checkOpen(); data = this.dataDecoder(path) }
 
     // ── Contrôle auto-save ──
     override fun pauseAutoSave() {
+        if (closed.get()) return
         autoSavePaused.set(true)
         log.info("[Storify] Auto-save PAUSED")
     }
     override fun resumeAutoSave() {
+        if (closed.get()) return
         autoSavePaused.set(false)
         log.info("[Storify] Auto-save RESUMED")
     }
     override fun isAutoSavePaused(): Boolean = autoSavePaused.get()
+
+    // ── Fin de vie ──
+    /**
+     * Détache proprement le store : le tick d'auto-save est annulé, le planificateur arrêté (la JVM n'est
+     * plus retenue), le hook d'arrêt JVM désarmé, et les données encore dirty font une sauvegarde d'adieu
+     * ([SaveTrigger.CLOSE]). Idempotent. Un store fermé reste lisible ; toute écriture lève une [IllegalStateException].
+     */
+    override fun close() {
+        if (!closed.compareAndSet(false, true)) return
+
+        autoSaveFuture?.cancel(false)
+        saveScheduler.shutdown()
+        try {
+            if (!saveScheduler.awaitTermination(5, TimeUnit.SECONDS)) log.warn("[Storify] Auto-save scheduler of '{}' did not stop within 5s", path)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+
+        val hookRemoved = try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook)
+        } catch (_: IllegalStateException) {
+            false // la JVM s'éteint déjà : le hook fait ou fera la sauvegarde, inutile de doubler
+        }
+
+        if (hookRemoved && isDirty) save(SaveTrigger.CLOSE)
+        log.info("[Storify] Store '{}' closed.", path)
+    }
 
     // ── Enregistrement de callbacks ──
     override fun registerOnSave(callback: (Operation<DATA>) -> Unit) { onSaveCallbacks.add(callback) }
@@ -373,6 +423,7 @@ class BaseStore<DATA : Any>(
         noinline applyUpdate: (RECEIVER) -> Unit,
         createOperation: (old: CapturedValue<VALUE>, new: CapturedValue<VALUE>) -> Operation<DATA>
     ): UpdateOutcome<DATA>? = dataLock.write {
+        checkOpen()
 
         val receiver = _data.getReceiver()
 
@@ -430,6 +481,7 @@ class BaseStore<DATA : Any>(
     }
 
     fun transactionInternal(block: DATA.() -> Unit) {
+        checkOpen()
         val operation: Operation<DATA> = dataLock.write {
             val backupSnapshot: DATA? = if (config.useDeepCopy) deepCopyFn(_data) else null
 

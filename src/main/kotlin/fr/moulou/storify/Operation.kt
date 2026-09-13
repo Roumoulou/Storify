@@ -14,7 +14,7 @@ class SetOperation<DATA : Any, RECEIVER : Any, VALUE>(
     val new: CapturedValue<VALUE>
 ) : Operation<DATA>()
 
-enum class SaveTrigger { AUTO_SAVE, IMMEDIATE, SHUTDOWN }
+enum class SaveTrigger { AUTO_SAVE, IMMEDIATE, SHUTDOWN, CLOSE }
 
 class SaveOperation<DATA : Any>(
     val old: CapturedValue<DATA>,
