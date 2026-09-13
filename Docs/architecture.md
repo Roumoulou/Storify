@@ -46,13 +46,13 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 |---|---|---|
 | `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
 | `@StoreFileFormat(type)` | la classe | Le format (`JSON` ou `TOML`) ; sinon, résolution par l'extension du chemin |
-| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000) |
+| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`) |
 | `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
 
-Deux pièges actuels, signalés en place : `@StoreConfiguration` n'expose pas `defaultUpdatePolicy` (impossible à régler par annotation), et le
-défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP` alors que sa KDoc annonce `SNAPSHOT` (chantier C-03).
+Le défaut de `defaultUpdatePolicy` est `SKIP` : sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03) ; le
+choix de ce défaut reste ouvert au chantier C-22.
 
 ## 3. La factory et la résolution
 
@@ -119,6 +119,9 @@ Tout converge vers `runUpdateInternal`, le pipeline central, exécuté sous le w
 5. la mutation s'applique sur l'objet vivant ;
 6. capture de l'après (`DeepCopy` en snapshot, `Shallow` sinon), fabrication de l'`Operation` ;
 7. hors du lock, l'appelant dispatche aux callbacks globaux puis aux callbacks ciblés de la propriété.
+
+Sous l'opt-in `validateOnUpdate` (chapitre 8), une étape s'intercale après la mutation : la racine est validée, et un échec restaure la copie de
+sécurité puis dispatche une `ValidationFailedOperation` au lieu de l'opération normale.
 
 `transaction` suit un autre chemin : copie profonde de la racine entière en secours, exécution du bloc, et en cas d'exception restauration du
 secours (rollback) avant de relancer l'exception. Sans `useDeepCopy`, pas de secours : la transaction perd son filet.
