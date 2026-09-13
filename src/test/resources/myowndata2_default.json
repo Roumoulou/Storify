@@ -1,0 +1,10 @@
+{
+    "stringValue": "fromResource",
+    "intValue": 42,
+    "myOwnData3": {
+        "map": {},
+        "myOwnData4": {
+            "map": {}
+        }
+    }
+}

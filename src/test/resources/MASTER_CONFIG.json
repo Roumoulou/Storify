@@ -1,0 +1,233 @@
+{
+    "primitives": {
+        "aString": "FROM JAR !",
+        "anInt": 42,
+        "aLong": 9999999999,
+        "aDouble": 3.14159,
+        "aFloat": 2.71,
+        "aBoolean": true,
+        "aByte": 127,
+        "aShort": 32000,
+        "aChar": "A"
+    },
+    "collections": {
+        "stringList": [
+            "item1",
+            "item2",
+            "item3",
+            "A NEW STRING"
+        ],
+        "customClassList": [
+            {
+                "name": "item1"
+            },
+            {
+                "name": "item2"
+            },
+            {
+                "name": "item3"
+            },
+            {
+                "name": "A CUSTOM TEXT"
+            }
+        ],
+        "intList": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ],
+        "longList": [
+            100,
+            200,
+            300
+        ],
+        "booleanList": [
+            true,
+            false,
+            true
+        ],
+        "doubleList": [
+            1.1,
+            2.2,
+            3.3
+        ],
+        "stringSet": [
+            "unique1",
+            "unique2",
+            "unique3"
+        ],
+        "intSet": [
+            1,
+            2,
+            3
+        ],
+        "stringToStringMap": {
+            "key1": "value1",
+            "key2": "value2",
+            "A KEY": "A VALUE"
+        },
+        "stringToIntMap": {
+            "count1": 10,
+            "count2": 20
+        },
+        "intToStringMap": {
+            "1": "one",
+            "2": "two"
+        },
+        "nestedList": [
+            [
+                "a",
+                "b"
+            ],
+            [
+                "c",
+                "d"
+            ]
+        ],
+        "nestedMap": {
+            "group1": {
+                "item1": 100,
+                "item2": 200
+            },
+            "group2": {
+                "item3": 300
+            },
+            "1004 [ 0 ]": {
+                "ONE": 1
+            },
+            "1001 [ 1 ]": {
+                "ONE": 1
+            },
+            "1007 [ 2 ]": {
+                "ONE": 1
+            },
+            "1000 [ 3 ]": {
+                "ONE": 1
+            },
+            "1009 [ 4 ]": {
+                "ONE": 1
+            },
+            "1009 [ 5 ]": {
+                "ONE": 1
+            },
+            "1010 [ 6 ]": {
+                "ONE": 1
+            },
+            "1000 [ 7 ]": {
+                "ONE": 1
+            },
+            "1004 [ 8 ]": {
+                "ONE": 1
+            },
+            "1007 [ 9 ]": {
+                "ONE": 1
+            },
+            "1001 [ 10 ]": {
+                "ONE": 1
+            }
+        }
+    },
+    "inventory": {
+        "items": [
+            "Sword",
+            "Shield"
+        ],
+        "itemIds": [
+            101,
+            102,
+            103
+        ],
+        "itemNames": [
+            "Iron",
+            "Gold",
+            "Diamond"
+        ],
+        "slots": [
+            {
+                "itemId": -1,
+                "quantity": 1,
+                "isDamaged": false
+            },
+            {
+                "itemId": -1,
+                "quantity": 1,
+                "isDamaged": false
+            },
+            {
+                "itemId": -1,
+                "quantity": 1,
+                "isDamaged": false
+            }
+        ],
+        "grid": [
+            [
+                344444444
+            ]
+        ]
+    },
+    "playerProfile": {
+        "username": "Steve",
+        "uuid": "0000-0000-0000-0000",
+        "rank": "NORMAL",
+        "address": {
+            "street": "Main Street",
+            "city": "Springfield",
+            "zipCode": "12345",
+            "coordinates": {
+                "latitude": 0.0,
+                "longitude": 0.0,
+                "uselessList": []
+            }
+        },
+        "lastLogin": "2026-03-28T16:27:46.315588300",
+        "preferences": {}
+    },
+    "questLog": {
+        "activeQuests": [],
+        "completedQuests": null,
+        "currentObjective": null,
+        "rewardMultiplier": null,
+        "questGiver": null,
+        "hints": null
+    },
+    "worldData": {
+        "worldName": "Overworld",
+        "seed": 123456789,
+        "generationDate": "2026-03-28",
+        "spawnPoint": {
+            "x": 0.0,
+            "y": 64.0,
+            "z": 0.0,
+            "dimension": "minecraft:overworld"
+        },
+        "weather": {
+            "isRaining": false,
+            "isThundering": false,
+            "rainTime": 0,
+            "thunderTime": 0
+        },
+        "players": [],
+        "entities": {},
+        "portals": [
+            {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "dimension": "minecraft:the_nether"
+            }
+        ],
+        "customProperties": {}
+    },
+    "customMetadata": {
+        "A Custom meta data KEY": "A Custom meta data VALUE"
+    },
+    "uselessList": [
+        "A USELESS TEXT",
+        "A USELESS TEXT"
+    ],
+    "version": 1,
+    "name": "New name From Code !!!",
+    "lastUpdated": "2026-03-28T16:27:46.317588100"
+}

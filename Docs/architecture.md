@@ -1,0 +1,217 @@
+# Architecture de Storify
+
+> *Type : doc technique.*
+> *Modèle : les règles générales de documents-markdown.md (The Human Readme).*
+
+Ce document décrit comment Storify est faite, mécanisme par mécanisme : le cycle de vie d'un store, les mises à jour typées, les politiques de
+capture, la persistance, la validation, les formats, la concurrence et les dépendances. Il décrit l'état réel du code, défauts compris ; ce qui
+doit changer est listé dans `chantiers.md`, ce document se contente de le signaler en place.
+
+## 1. Vue d'ensemble
+
+Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), d'un fichier (JSON ou TOML) et d'un `BaseStore<DATA>` qui orchestre
+tout le reste. Le chemin type :
+
+```
+StoreFactoryBetter.create*<DATA>(...)
+    └─> résolution : paramètres explicites > annotations de DATA > défauts
+    └─> BaseStore.init
+            1. initData           : fichier existant décodé, sinon données par défaut + écriture du fichier initial
+            2. initUpdatePolicies : scan récursif des annotations @StoreUpdatePolicy
+            3. initValidation     : validator exécuté, ValidationException si échec
+            4. initAutoSave       : hook dirty + scheduler périodique (si withAutoSave)
+            5. initShutdownHook   : sauvegarde à l'arrêt de la JVM
+    └─> vie du store : data (read lock), set/mutate/transaction (write lock), callbacks (hors lock),
+                       saveImmediate / auto-save / reloadFromFile
+```
+
+Les packages :
+
+| Package | Contenu |
+|---|---|
+| `fr.moulou.storify` | Le modèle public : annotations, `UpdatePolicy`, `Operation`, `CapturedValue`, `StoreMeta`, `Defaultable`, formats |
+| `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, les deux factories, les extensions `set`/`mutate`/`transaction` |
+| `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
+| `fr.moulou.storify.utils` | Le deep copy CBOR, le registre des formats, le formatage des dates |
+| `fr.moulou.storify.serializers` | Sérialiseurs d'appoint (`JsonPrimitiveAsStringSerializer`) |
+
+## 2. La data class et ses annotations
+
+La racine d'un store est une data class `@Serializable` dont les propriétés sont des `var` (les `val` se sérialisent mais ne se mettent pas à jour
+par l'API typée). Six annotations la complètent, toutes facultatives dès lors que l'appel à la factory fournit l'information :
+
+| Annotation | Porte sur | Rôle |
+|---|---|---|
+| `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
+| `@StoreFileFormat(type)` | la classe | Le format (`JSON` ou `TOML`) ; sinon, résolution par l'extension du chemin |
+| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000) |
+| `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
+| `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
+| `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
+
+Deux pièges actuels, signalés en place : `@StoreConfiguration` n'expose pas `defaultUpdatePolicy` (impossible à régler par annotation), et le
+défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP` alors que sa KDoc annonce `SNAPSHOT` (chantier C-03).
+
+## 3. Les factories et la résolution
+
+Deux factories publiques cohabitent : `StoreFactory` (l'ancienne) et `StoreFactoryBetter` (la refonte, celle que le banc et les tests consomment).
+La refonte fait converger toutes les variantes vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite,
+puis annotation, puis repli (`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). La fusion des deux factories est le
+chantier C-07.
+
+Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de données initiales :
+
+| Variante | Données initiales quand le fichier n'existe pas |
+|---|---|
+| `create` | Le companion object de DATA, qui doit implémenter `Defaultable<DATA>` |
+| `createFromConstructor` | `DATA::class.createInstance()` : le constructeur sans argument (tous les champs ont un défaut) |
+| `createFromDefaultable<DATA, D>` | Une classe `Defaultable` externe, instanciée par constructeur sans argument |
+| `createFromResource` | La ressource du classpath copiée vers le fichier cible, puis décodée |
+
+## 4. Le cycle de vie de BaseStore
+
+L'initialisation enchaîne cinq étapes, dans l'ordre du bloc `init` :
+
+1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE`) ; sinon les données par défaut sont fabriquées et le fichier initial
+   est écrit immédiatement (`writeInitialFile`). Conséquence à connaître : des défauts invalides sont écrits sur disque **avant** que la validation
+   ne les rejette (chantier C-06).
+2. **initUpdatePolicies** : parcours récursif de `DATA::class` par réflexion (`memberProperties`), avec un ensemble `visited` contre les cycles et
+   une garde qui ignore les classes `kotlin.*` et `java.*` ; chaque `@StoreUpdatePolicy` rencontrée entre dans la map `updatePolicies`.
+3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs d'origine `FILE` sont
+   enrichies des numéros de ligne JSON, puis une `ValidationException` est levée. Le store ne se construit pas.
+4. **initAutoSave** : un callback onUpdate interne pose `isDirty` (et met à jour `meta.lastModified`) ; si `withAutoSave`, un scheduler
+   single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où `isDirty` est vrai, sauf pause (`pauseAutoSave`). Le thread du scheduler
+   n'est **pas** daemon : sans `close()`, il retient la JVM (chantier C-01).
+5. **initShutdownHook** : un hook `Runtime.addShutdownHook` annule le tick en cours et sauvegarde. Il court même après un crash, et même si le
+   store a été « détaché » par son consommateur : c'est le mécanisme qui a réécrit des données par-dessus une édition manuelle au banc.
+
+Le point subtil de l'étape 4 : le marquage dirty est lui-même un callback onUpdate. Toute mise à jour en policy `SKIP` court-circuite les
+callbacks, donc aussi le marquage dirty, donc l'auto-save. `SKIP` étant le défaut actuel, un store laissé sur les défauts n'auto-sauve jamais.
+
+## 5. Les mises à jour typées
+
+L'API publique est un jeu d'extensions sur `BaseStore` :
+
+| Extension | Geste |
+|---|---|
+| `set(prop, value)` | Remplacer la valeur d'une propriété de la racine |
+| `setIn(prop, value) { receiver }` | Pareil, sur un objet imbriqué désigné par une lambda de navigation |
+| `mutate(prop) { block }` | Modifier en place un objet mutable de la racine (une map, une liste...) |
+| `mutateIn(prop, { receiver }) { block }` | Pareil, en navigation |
+| `transaction { block }` | Modifier la racine entière, tout ou rien |
+
+Tout converge vers `runUpdateInternal`, le pipeline central, exécuté sous le write lock :
+
+1. lecture de la policy de la propriété (`updatePolicies`, sinon `config.defaultUpdatePolicy`) ;
+2. `SKIP` : la mutation s'applique et la fonction rend `null`, aucun callback, aucun dirty ;
+3. sinon, raccourci immuable : une propriété primitive, `String` ou enum n'est jamais copiée en profondeur ;
+4. `SNAPSHOT` (et `useDeepCopy`) : copie profonde de la valeur **avant** mutation ;
+5. la mutation s'applique sur l'objet vivant ;
+6. capture de l'après (`DeepCopy` en snapshot, `Shallow` sinon), fabrication de l'`Operation` ;
+7. hors du lock, l'appelant dispatche aux callbacks globaux puis aux callbacks ciblés de la propriété.
+
+`transaction` suit un autre chemin : copie profonde de la racine entière en secours, exécution du bloc, et en cas d'exception restauration du
+secours (rollback) avant de relancer l'exception. Sans `useDeepCopy`, pas de secours : la transaction perd son filet.
+
+## 6. Policies et captures
+
+| Policy | Copie profonde des valeurs | Callbacks et dirty |
+|---|---|---|
+| `SNAPSHOT` | oui (avant et après) | oui |
+| `SHALLOW` | non (références) | oui |
+| `SKIP` | non | non |
+
+Les callbacks reçoivent les valeurs sous forme de `CapturedValue` : `DeepCopy` (copie fiable, à ne pas muter), `Shallow` (lecture au moment de la
+capture, fiable pour les immuables seulement), `Initial` (la toute première donnée, au premier save), `Unavailable` (rien à montrer).
+
+## 7. La persistance
+
+Trois déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick) et `SHUTDOWN` (le hook JVM). La sauvegarde
+s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
+(qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
+
+Ce que la persistance n'a pas encore : l'écriture atomique. L'encodage écrit directement dans le flux du fichier cible ; un crash au milieu laisse
+un fichier tronqué (chantier C-02). Et `reloadFromFile()` passe par le setter de `data`, qui remplace la racine sous write lock et notifie les
+callbacks de reload ; il ne revalide pas ce qu'il vient de lire (chantier C-05).
+
+## 8. La validation
+
+Le contrat est `Validator<T>` : `validate(data, ctx)` accumule des erreurs dans un `ValidationContext` plutôt que de lever à la première.
+Le contexte offre `check(condition, field, message, rejectedValue)`, `addError`, `addObjectError`, et la composition : `validateNested` (objet
+imbriqué, chemin `parent.champ`) et `validateEach` (collections, chemin `champ[index]`). Les erreurs (`ValidationError`) portent le chemin
+complet, la classe, le message, la valeur rejetée et, quand il est connu, le numéro de ligne du fichier.
+
+L'enrichisseur (`ValidationErrorEnricher`) retrouve ce numéro de ligne en naviguant le JSON pretty-printed ligne à ligne, en suivant la profondeur
+d'imbrication et les index de tableaux. Ses limites assumées : JSON seulement, une clé par ligne, échec silencieux. Il a fait ses preuves en
+conditions réelles : le crash du banc du 2026-09-13 affichait `[HomesData.totalTeleports] ... (was: -1) → line 19`.
+
+Aujourd'hui la validation ne joue **qu'au chargement initial**. La validation à l'update a disparu du code : `ValidationFailedOperation` existe
+dans la hiérarchie `Operation` mais n'est plus jamais émise, et rien n'expose publiquement une validation à la demande. Trancher son sort est le
+chantier C-05.
+
+## 9. Les formats
+
+`StoreFormat<T>` est minimal (une extension de fichier) ; `JsonFormat` et `TomlFormat` portent chacun leurs `decodeFromPath` et `encodeToPath`
+inline. Les réglages en place :
+
+| Format | Réglages | Particularités |
+|---|---|---|
+| `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
+| `TomlFormat` | ignoreUnknownKeys | Ne crée **pas** les dossiers parents (chantier C-04) |
+
+`Utils` tient un registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné, et accepte l'enregistrement de formats
+tiers (`registerFormat`). Ce point d'extension est aujourd'hui un trompe-l'oeil : les encoders et decoders des factories sont un `when` figé sur
+`JsonFormat` et `TomlFormat`, tout autre format est rejeté (chantier C-09).
+
+## 10. Le deep copy CBOR
+
+Les copies profondes (`utils\DeepCopy.kt`) sont un aller-retour de sérialisation CBOR : encodage en octets puis décodage, via une instance `Cbor`
+dédiée (`encodeDefaults = true`). C'est ce qui permet de copier n'importe quelle data class `@Serializable` sans imposer d'interface de clonage.
+Le coût se mesure avec `DeepCopyBenchmark` (dans les tests) : tailles croissantes, comparaison avec `.copy()` et l'affectation directe, courbe en
+fonction de la taille des collections. Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les primitives, chaînes et enums.
+
+## 11. La concurrence
+
+- Toutes les lectures et écritures de `_data` passent par un `ReentrantReadWriteLock` : `data` prend le read lock, les updates et le
+  remplacement de racine le write lock, la sauvegarde le read lock.
+- Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
+  captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
+- Non garanti à ce jour : les listes de callbacks sont des `MutableList` non synchronisées (l'enregistrement concurrent à un dispatch n'est pas
+  protégé), le sidecar meta se modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains.
+
+## 12. Le sidecar meta
+
+Avec `withMeta = true`, le store entretient `<fichier>.meta.json` : `createdAt` (à la création de l'objet), `lastModified` (mis à jour à chaque
+update par le hook interne, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version` (posée à 1, jamais incrémentée à ce jour) et `custom`
+(map libre, sans consommateur connu). Le fichier s'écrit au moment des sauvegardes. L'exploitation réelle de `version` et `custom` est à décider
+(chantiers C-13 et C-17).
+
+## 13. Les dépendances, et pourquoi
+
+| Dépendance | Rôle |
+|---|---|
+| `kotlinx-serialization-json` | Le format JSON, et le parsing du sérialiseur d'appoint |
+| `kotlinx-serialization-cbor` | Le véhicule des copies profondes (chapitre 10), pas un format offert à l'utilisateur |
+| `dev.eav.tomlkt:tomlkt` | Le format TOML |
+| `kotlin-reflect` | Le scan des annotations, `createInstance`, `memberProperties` (factories et policies) |
+| `kotlinx-datetime` | Les horodatages du sidecar meta |
+| `slf4j-api` | Le logging (le binding est laissé au consommateur ; `slf4j-simple` en test) |
+
+## 14. Ce que le banc et les tests ont prouvé
+
+Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\..\08-related-projects\storibench`) et la suite de tests les ont
+exercés en vrai. Les faits marquants, sources des chantiers :
+
+- `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc).
+- Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2) ; un test le documente désormais.
+- Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
+  édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc).
+- `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4) ; seule la validation du consommateur les rattrape.
+- La `ValidationException` au chargement est excellente (chemin, valeur, numéro de ligne JSON), mais en solo Minecraft elle se paie d'un crash
+  complet du client (« Exception in server tick loop »).
+- L'auto-save tient son intervalle (ticks de 30 s observés à la seconde près), le callback ciblé par propriété fonctionne, la persistance et le
+  sidecar meta suivent.
+
+---
+
+*Dernière vérification : 2026-09-13, sur le code de `src\main` compilé et testé ce jour (Gradle 9.7.1, Kotlin 2.4.20, Java 25).*

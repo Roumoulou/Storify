@@ -1,0 +1,2330 @@
+{
+    "primitives": {
+        "byteVar": 9,
+        "byteVal": 2,
+        "uByteVar": 1,
+        "uByteVal": 2,
+        "shortVar": 10,
+        "shortVal": 20,
+        "uShortVar": 10,
+        "uShortVal": 20,
+        "intVar": 100,
+        "intVal": 200,
+        "uIntVar": 100,
+        "uIntVal": 200,
+        "longVar": 1000,
+        "longVal": 2000,
+        "uLongVar": 1000,
+        "uLongVal": 2000,
+        "floatVar": 1.5,
+        "floatVal": 2.5,
+        "doubleVar": 3.14,
+        "doubleVal": 6.28,
+        "booleanVar": true,
+        "booleanVal": false,
+        "charVar": "A",
+        "charVal": "Z",
+        "stringVar": "hello",
+        "stringVal": "world",
+        "unitVar": {},
+        "unitVal": {}
+    },
+    "customObjects": {
+        "homeVar": {
+            "name": "default",
+            "location": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "homeVal": {
+            "name": "default",
+            "location": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "ruleVar": {
+            "homesEnabled": true,
+            "maxHomes": 3,
+            "cooldown": 30,
+            "teleportDelay": 5,
+            "cancelOnMove": true,
+            "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                "minecraft:overworld",
+                "minecraft:the_nether",
+                "minecraft:the_end"
+            ]
+        },
+        "ruleVal": {
+            "homesEnabled": true,
+            "maxHomes": 3,
+            "cooldown": 30,
+            "teleportDelay": 5,
+            "cancelOnMove": true,
+            "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                "minecraft:overworld",
+                "minecraft:the_nether",
+                "minecraft:the_end"
+            ]
+        },
+        "locationVar": {
+            "x": 0.0,
+            "y": 64.0,
+            "z": 0.0,
+            "yaw": 0.0,
+            "pitch": 0.0,
+            "dimension": "minecraft:overworld"
+        },
+        "locationVal": {
+            "x": 0.0,
+            "y": 64.0,
+            "z": 0.0,
+            "yaw": 0.0,
+            "pitch": 0.0,
+            "dimension": "minecraft:overworld"
+        }
+    },
+    "dates": {
+        "localDateVar": "2025-01-01",
+        "localDateVal": "2025-06-15",
+        "localTimeVar": "12:00",
+        "localTimeVal": "18:30",
+        "localDateTimeVar": "2025-01-01T12:00",
+        "localDateTimeVal": "2025-06-15T18:30",
+        "instantVar": "2025-01-01T00:00:00Z",
+        "instantVal": "2025-06-15T12:00:00Z",
+        "dateTimePeriodVar": "P1Y",
+        "dateTimePeriodVal": "P6M",
+        "dateTimeUnitVar": {
+            "type": "kotlinx.datetime.DayBased",
+            "days": 1
+        },
+        "dateTimeUnitVal": {
+            "type": "kotlinx.datetime.TimeBased",
+            "nanoseconds": 3600000000000
+        }
+    },
+    "primitiveArrays": {
+        "byteArrayVar": [
+            1,
+            2
+        ],
+        "byteArrayVal": [
+            3
+        ],
+        "uByteArrayVar": [
+            1,
+            2
+        ],
+        "uByteArrayVal": [
+            3
+        ],
+        "shortArrayVar": [
+            10,
+            20
+        ],
+        "shortArrayVal": [
+            30
+        ],
+        "uShortArrayVar": [
+            10,
+            20
+        ],
+        "uShortArrayVal": [
+            30
+        ],
+        "intArrayVar": [
+            100,
+            200
+        ],
+        "intArrayVal": [
+            300
+        ],
+        "uIntArrayVar": [
+            100,
+            200
+        ],
+        "uIntArrayVal": [
+            300
+        ],
+        "longArrayVar": [
+            1000,
+            2000
+        ],
+        "longArrayVal": [
+            3000
+        ],
+        "uLongArrayVar": [
+            1000,
+            2000
+        ],
+        "uLongArrayVal": [
+            3000
+        ],
+        "floatArrayVar": [
+            1.5,
+            2.5
+        ],
+        "floatArrayVal": [
+            3.5
+        ],
+        "doubleArrayVar": [
+            3.14,
+            6.28
+        ],
+        "doubleArrayVal": [
+            9.42
+        ],
+        "booleanArrayVar": [
+            true,
+            false
+        ],
+        "booleanArrayVal": [
+            true
+        ],
+        "charArrayVar": [
+            "A",
+            "B"
+        ],
+        "charArrayVal": [
+            "Z"
+        ],
+        "stringArrayVar": [
+            "foo",
+            "bar"
+        ],
+        "stringArrayVal": [
+            "baz"
+        ],
+        "unitArrayVar": [
+            {}
+        ],
+        "unitArrayVal": [
+            {}
+        ]
+    },
+    "customArrays": {
+        "homeArrayVar": [
+            {
+                "name": "arr",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeArrayVal": [
+            {
+                "name": "arr",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleArrayVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleArrayVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationArrayVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationArrayVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateArrayVar": [
+            "2025-01-01"
+        ],
+        "localDateArrayVal": [
+            "2025-06-15"
+        ],
+        "instantArrayVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantArrayVal": [
+            "2025-06-15T00:00:00Z"
+        ]
+    },
+    "lists": {
+        "byteListVar": [
+            1,
+            2
+        ],
+        "byteListVal": [
+            3
+        ],
+        "uByteListVar": [
+            1,
+            2
+        ],
+        "uByteListVal": [
+            3
+        ],
+        "shortListVar": [
+            10,
+            20
+        ],
+        "shortListVal": [
+            30
+        ],
+        "uShortListVar": [
+            10,
+            20
+        ],
+        "uShortListVal": [
+            30
+        ],
+        "intListVar": [
+            100,
+            200
+        ],
+        "intListVal": [
+            300
+        ],
+        "uIntListVar": [
+            100,
+            200
+        ],
+        "uIntListVal": [
+            300
+        ],
+        "longListVar": [
+            1000,
+            2000
+        ],
+        "longListVal": [
+            3000
+        ],
+        "uLongListVar": [
+            1000,
+            2000
+        ],
+        "uLongListVal": [
+            3000
+        ],
+        "floatListVar": [
+            1.5,
+            2.5
+        ],
+        "floatListVal": [
+            3.5
+        ],
+        "doubleListVar": [
+            3.14,
+            6.28
+        ],
+        "doubleListVal": [
+            9.42
+        ],
+        "booleanListVar": [
+            true,
+            false
+        ],
+        "booleanListVal": [
+            true
+        ],
+        "charListVar": [
+            "A",
+            "B"
+        ],
+        "charListVal": [
+            "Z"
+        ],
+        "stringListVar": [
+            "foo",
+            "bar"
+        ],
+        "stringListVal": [
+            "baz"
+        ],
+        "unitListVar": [
+            {}
+        ],
+        "unitListVal": [
+            {}
+        ],
+        "homeListVar": [
+            {
+                "name": "list",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeListVal": [
+            {
+                "name": "list",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleListVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleListVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationListVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationListVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateListVar": [
+            "2025-01-01"
+        ],
+        "localDateListVal": [
+            "2025-06-15"
+        ],
+        "instantListVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantListVal": [
+            "2025-06-15T00:00:00Z"
+        ]
+    },
+    "mutableLists": {
+        "byteMutableListVar": [
+            1,
+            2
+        ],
+        "byteMutableListVal": [
+            3
+        ],
+        "uByteMutableListVar": [
+            1,
+            2
+        ],
+        "uByteMutableListVal": [
+            3
+        ],
+        "shortMutableListVar": [
+            10,
+            20
+        ],
+        "shortMutableListVal": [
+            30
+        ],
+        "uShortMutableListVar": [
+            10,
+            20
+        ],
+        "uShortMutableListVal": [
+            30
+        ],
+        "intMutableListVar": [
+            100,
+            200
+        ],
+        "intMutableListVal": [
+            300
+        ],
+        "uIntMutableListVar": [
+            100,
+            200
+        ],
+        "uIntMutableListVal": [
+            300
+        ],
+        "longMutableListVar": [
+            1000,
+            2000
+        ],
+        "longMutableListVal": [
+            3000
+        ],
+        "uLongMutableListVar": [
+            1000,
+            2000
+        ],
+        "uLongMutableListVal": [
+            3000
+        ],
+        "floatMutableListVar": [
+            1.5,
+            2.5
+        ],
+        "floatMutableListVal": [
+            3.5
+        ],
+        "doubleMutableListVar": [
+            3.14,
+            6.28
+        ],
+        "doubleMutableListVal": [
+            9.42
+        ],
+        "booleanMutableListVar": [
+            true,
+            false
+        ],
+        "booleanMutableListVal": [
+            true
+        ],
+        "charMutableListVar": [
+            "A",
+            "B"
+        ],
+        "charMutableListVal": [
+            "Z"
+        ],
+        "stringMutableListVar": [
+            "foo",
+            "bar"
+        ],
+        "stringMutableListVal": [
+            "baz"
+        ],
+        "unitMutableListVar": [
+            {}
+        ],
+        "unitMutableListVal": [
+            {}
+        ],
+        "homeMutableListVar": [
+            {
+                "name": "mlist",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeMutableListVal": [
+            {
+                "name": "mlist",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleMutableListVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleMutableListVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationMutableListVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationMutableListVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateMutableListVar": [
+            "2025-01-01"
+        ],
+        "localDateMutableListVal": [
+            "2025-06-15"
+        ],
+        "instantMutableListVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantMutableListVal": [
+            "2025-06-15T00:00:00Z"
+        ],
+        "homeArrayListVar": [
+            {
+                "name": "mlist",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeArrayListVal": [
+            {
+                "name": "mlist",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleArrayListVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleArrayListVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationArrayListVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationArrayListVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateArrayListVar": [
+            "2025-01-01"
+        ],
+        "localDateArrayListVal": [
+            "2025-06-15"
+        ],
+        "instantArrayListVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantArrayListVal": [
+            "2025-06-15T00:00:00Z"
+        ]
+    },
+    "sets": {
+        "byteSetVar": [
+            1,
+            2
+        ],
+        "byteSetVal": [
+            3
+        ],
+        "uByteSetVar": [
+            1,
+            2
+        ],
+        "uByteSetVal": [
+            3
+        ],
+        "shortSetVar": [
+            10,
+            20
+        ],
+        "shortSetVal": [
+            30
+        ],
+        "uShortSetVar": [
+            10,
+            20
+        ],
+        "uShortSetVal": [
+            30
+        ],
+        "intSetVar": [
+            100,
+            200
+        ],
+        "intSetVal": [
+            300
+        ],
+        "uIntSetVar": [
+            100,
+            200
+        ],
+        "uIntSetVal": [
+            300
+        ],
+        "longSetVar": [
+            1000,
+            2000
+        ],
+        "longSetVal": [
+            3000
+        ],
+        "uLongSetVar": [
+            1000,
+            2000
+        ],
+        "uLongSetVal": [
+            3000
+        ],
+        "floatSetVar": [
+            1.5,
+            2.5
+        ],
+        "floatSetVal": [
+            3.5
+        ],
+        "doubleSetVar": [
+            3.14,
+            6.28
+        ],
+        "doubleSetVal": [
+            9.42
+        ],
+        "booleanSetVar": [
+            true,
+            false
+        ],
+        "booleanSetVal": [
+            true
+        ],
+        "charSetVar": [
+            "A",
+            "B"
+        ],
+        "charSetVal": [
+            "Z"
+        ],
+        "stringSetVar": [
+            "foo",
+            "bar"
+        ],
+        "stringSetVal": [
+            "baz"
+        ],
+        "unitSetVar": [
+            {}
+        ],
+        "unitSetVal": [
+            {}
+        ],
+        "homeSetVar": [
+            {
+                "name": "set",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeSetVal": [
+            {
+                "name": "set",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleSetVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleSetVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationSetVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationSetVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateSetVar": [
+            "2025-01-01"
+        ],
+        "localDateSetVal": [
+            "2025-06-15"
+        ],
+        "instantSetVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantSetVal": [
+            "2025-06-15T00:00:00Z"
+        ]
+    },
+    "mutableSets": {
+        "byteMutableSetVar": [
+            1,
+            2
+        ],
+        "byteMutableSetVal": [
+            3
+        ],
+        "uByteMutableSetVar": [
+            1,
+            2
+        ],
+        "uByteMutableSetVal": [
+            3
+        ],
+        "shortMutableSetVar": [
+            10,
+            20
+        ],
+        "shortMutableSetVal": [
+            30
+        ],
+        "uShortMutableSetVar": [
+            10,
+            20
+        ],
+        "uShortMutableSetVal": [
+            30
+        ],
+        "intMutableSetVar": [
+            100,
+            200
+        ],
+        "intMutableSetVal": [
+            300
+        ],
+        "uIntMutableSetVar": [
+            100,
+            200
+        ],
+        "uIntMutableSetVal": [
+            300
+        ],
+        "longMutableSetVar": [
+            1000,
+            2000
+        ],
+        "longMutableSetVal": [
+            3000
+        ],
+        "uLongMutableSetVar": [
+            1000,
+            2000
+        ],
+        "uLongMutableSetVal": [
+            3000
+        ],
+        "floatMutableSetVar": [
+            1.5,
+            2.5
+        ],
+        "floatMutableSetVal": [
+            3.5
+        ],
+        "doubleMutableSetVar": [
+            3.14,
+            6.28
+        ],
+        "doubleMutableSetVal": [
+            9.42
+        ],
+        "booleanMutableSetVar": [
+            true,
+            false
+        ],
+        "booleanMutableSetVal": [
+            true
+        ],
+        "charMutableSetVar": [
+            "A",
+            "B"
+        ],
+        "charMutableSetVal": [
+            "Z"
+        ],
+        "stringMutableSetVar": [
+            "foo",
+            "bar"
+        ],
+        "stringMutableSetVal": [
+            "baz"
+        ],
+        "unitMutableSetVar": [
+            {}
+        ],
+        "unitMutableSetVal": [
+            {}
+        ],
+        "homeMutableSetVar": [
+            {
+                "name": "mset",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeMutableSetVal": [
+            {
+                "name": "mset",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleMutableSetVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleMutableSetVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationMutableSetVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationMutableSetVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateMutableSetVar": [
+            "2025-01-01"
+        ],
+        "localDateMutableSetVal": [
+            "2025-06-15"
+        ],
+        "instantMutableSetVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantMutableSetVal": [
+            "2025-06-15T00:00:00Z"
+        ],
+        "byteLinkedHashSetVar": [
+            1,
+            2
+        ],
+        "byteLinkedHashSetVal": [
+            3
+        ],
+        "uByteLinkedHashSetVar": [
+            1,
+            2
+        ],
+        "uByteLinkedHashSetVal": [
+            3
+        ],
+        "shortLinkedHashSetVar": [
+            10,
+            20
+        ],
+        "shortLinkedHashSetVal": [
+            30
+        ],
+        "uShortLinkedHashSetVar": [
+            10,
+            20
+        ],
+        "uShortLinkedHashSetVal": [
+            30
+        ],
+        "intLinkedHashSetVar": [
+            100,
+            200
+        ],
+        "intLinkedHashSetVal": [
+            300
+        ],
+        "uIntLinkedHashSetVar": [
+            100,
+            200
+        ],
+        "uIntLinkedHashSetVal": [
+            300
+        ],
+        "longLinkedHashSetVar": [
+            1000,
+            2000
+        ],
+        "longLinkedHashSetVal": [
+            3000
+        ],
+        "uLongLinkedHashSetVar": [
+            1000,
+            2000
+        ],
+        "uLongLinkedHashSetVal": [
+            3000
+        ],
+        "floatLinkedHashSetVar": [
+            1.5,
+            2.5
+        ],
+        "floatLinkedHashSetVal": [
+            3.5
+        ],
+        "doubleLinkedHashSetVar": [
+            3.14,
+            6.28
+        ],
+        "doubleLinkedHashSetVal": [
+            9.42
+        ],
+        "booleanLinkedHashSetVar": [
+            true,
+            false
+        ],
+        "booleanLinkedHashSetVal": [
+            true
+        ],
+        "charLinkedHashSetVar": [
+            "A",
+            "B"
+        ],
+        "charLinkedHashSetVal": [
+            "Z"
+        ],
+        "stringLinkedHashSetVar": [
+            "foo",
+            "bar"
+        ],
+        "stringLinkedHashSetVal": [
+            "baz"
+        ],
+        "homeLinkedHashSetVar": [
+            {
+                "name": "mset",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "homeLinkedHashSetVal": [
+            {
+                "name": "mset",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "ruleLinkedHashSetVar": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "ruleLinkedHashSetVal": [
+            {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        ],
+        "locationLinkedHashSetVar": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "locationLinkedHashSetVal": [
+            {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        ],
+        "localDateLinkedHashSetVar": [
+            "2025-01-01"
+        ],
+        "localDateLinkedHashSetVal": [
+            "2025-06-15"
+        ],
+        "instantLinkedHashSetVar": [
+            "2025-01-01T00:00:00Z"
+        ],
+        "instantLinkedHashSetVal": [
+            "2025-06-15T00:00:00Z"
+        ]
+    },
+    "maps": {
+        "stringToByteMapVar": {
+            "a": 1
+        },
+        "stringToByteMapVal": {
+            "b": 2
+        },
+        "stringToUByteMapVar": {
+            "a": 1
+        },
+        "stringToUByteMapVal": {
+            "b": 2
+        },
+        "stringToShortMapVar": {
+            "a": 10
+        },
+        "stringToShortMapVal": {
+            "b": 20
+        },
+        "stringToUShortMapVar": {
+            "a": 10
+        },
+        "stringToUShortMapVal": {
+            "b": 20
+        },
+        "stringToIntMapVar": {
+            "a": 100
+        },
+        "stringToIntMapVal": {
+            "b": 200
+        },
+        "stringToUIntMapVar": {
+            "a": 100
+        },
+        "stringToUIntMapVal": {
+            "b": 200
+        },
+        "stringToLongMapVar": {
+            "a": 1000
+        },
+        "stringToLongMapVal": {
+            "b": 2000
+        },
+        "stringToULongMapVar": {
+            "a": 1000
+        },
+        "stringToULongMapVal": {
+            "b": 2000
+        },
+        "stringToFloatMapVar": {
+            "a": 1.5
+        },
+        "stringToFloatMapVal": {
+            "b": 2.5
+        },
+        "stringToDoubleMapVar": {
+            "a": 3.14
+        },
+        "stringToDoubleMapVal": {
+            "b": 6.28
+        },
+        "stringToBooleanMapVar": {
+            "a": true
+        },
+        "stringToBooleanMapVal": {
+            "b": false
+        },
+        "stringToCharMapVar": {
+            "a": "X"
+        },
+        "stringToCharMapVal": {
+            "b": "Y"
+        },
+        "stringToStringMapVar": {
+            "a": "foo"
+        },
+        "stringToStringMapVal": {
+            "b": "bar"
+        },
+        "stringToUnitMapVar": {
+            "a": {}
+        },
+        "stringToUnitMapVal": {
+            "b": {}
+        },
+        "stringToHomeMapVar": {
+            "h1": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToHomeMapVal": {
+            "h2": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToRuleMapVar": {
+            "r1": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToRuleMapVal": {
+            "r2": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToLocationMapVar": {
+            "l1": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocationMapVal": {
+            "l2": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocalDateMapVar": {
+            "d1": "2025-01-01"
+        },
+        "stringToLocalDateMapVal": {
+            "d2": "2025-06-15"
+        },
+        "stringToInstantMapVar": {
+            "i1": "2025-01-01T00:00:00Z"
+        },
+        "stringToInstantMapVal": {
+            "i2": "2025-06-15T00:00:00Z"
+        },
+        "intToStringMapVar": {
+            "1": "one"
+        },
+        "intToStringMapVal": {
+            "2": "two"
+        },
+        "intToHomeMapVar": {
+            "1": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "intToHomeMapVal": {
+            "2": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "intToIntMapVar": {
+            "1": 10
+        },
+        "intToIntMapVal": {
+            "2": 20
+        },
+        "longToStringMapVar": {
+            "1": "one"
+        },
+        "longToStringMapVal": {
+            "2": "two"
+        },
+        "longToHomeMapVar": {
+            "1": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "longToHomeMapVal": {
+            "2": {
+                "name": "map",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        }
+    },
+    "mutableMaps": {
+        "stringToByteMutableMapVar": {
+            "a": 1
+        },
+        "stringToByteMutableMapVal": {
+            "b": 2
+        },
+        "stringToUByteMutableMapVar": {
+            "a": 1
+        },
+        "stringToUByteMutableMapVal": {
+            "b": 2
+        },
+        "stringToShortMutableMapVar": {
+            "a": 10
+        },
+        "stringToShortMutableMapVal": {
+            "b": 20
+        },
+        "stringToUShortMutableMapVar": {
+            "a": 10
+        },
+        "stringToUShortMutableMapVal": {
+            "b": 20
+        },
+        "stringToIntMutableMapVar": {
+            "a": 100
+        },
+        "stringToIntMutableMapVal": {
+            "b": 200
+        },
+        "stringToUIntMutableMapVar": {
+            "a": 100
+        },
+        "stringToUIntMutableMapVal": {
+            "b": 200
+        },
+        "stringToLongMutableMapVar": {
+            "a": 1000
+        },
+        "stringToLongMutableMapVal": {
+            "b": 2000
+        },
+        "stringToULongMutableMapVar": {
+            "a": 1000
+        },
+        "stringToULongMutableMapVal": {
+            "b": 2000
+        },
+        "stringToFloatMutableMapVar": {
+            "a": 1.5
+        },
+        "stringToFloatMutableMapVal": {
+            "b": 2.5
+        },
+        "stringToDoubleMutableMapVar": {
+            "a": 3.14
+        },
+        "stringToDoubleMutableMapVal": {
+            "b": 6.28
+        },
+        "stringToBooleanMutableMapVar": {
+            "a": true
+        },
+        "stringToBooleanMutableMapVal": {
+            "b": false
+        },
+        "stringToCharMutableMapVar": {
+            "a": "X"
+        },
+        "stringToCharMutableMapVal": {
+            "b": "Y"
+        },
+        "stringToStringMutableMapVar": {
+            "a": "foo"
+        },
+        "stringToStringMutableMapVal": {
+            "b": "bar"
+        },
+        "stringToUnitMutableMapVar": {
+            "a": {}
+        },
+        "stringToUnitMutableMapVal": {
+            "b": {}
+        },
+        "stringToHomeMutableMapVar": {
+            "h1": {
+                "name": "mmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToHomeMutableMapVal": {
+            "h2": {
+                "name": "mmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToRuleMutableMapVar": {
+            "r1": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToRuleMutableMapVal": {
+            "r2": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToLocationMutableMapVar": {
+            "l1": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocationMutableMapVal": {
+            "l2": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocalDateMutableMapVar": {
+            "d1": "2025-01-01"
+        },
+        "stringToLocalDateMutableMapVal": {
+            "d2": "2025-06-15"
+        },
+        "stringToInstantMutableMapVar": {
+            "i1": "2025-01-01T00:00:00Z"
+        },
+        "stringToInstantMutableMapVal": {
+            "i2": "2025-06-15T00:00:00Z"
+        },
+        "intToStringMutableMapVar": {
+            "1": "one"
+        },
+        "intToStringMutableMapVal": {
+            "2": "two"
+        },
+        "intToHomeMutableMapVar": {
+            "1": {
+                "name": "mmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "intToHomeMutableMapVal": {
+            "2": {
+                "name": "mmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "longToStringMutableMapVar": {
+            "1": "one"
+        },
+        "longToStringMutableMapVal": {
+            "2": "two"
+        }
+    },
+    "linkedHashMaps": {
+        "stringToByteLinkedHashMapVar": {
+            "a": 1
+        },
+        "stringToByteLinkedHashMapVal": {
+            "b": 2
+        },
+        "stringToUByteLinkedHashMapVar": {
+            "a": 1
+        },
+        "stringToUByteLinkedHashMapVal": {
+            "b": 2
+        },
+        "stringToShortLinkedHashMapVar": {
+            "a": 10
+        },
+        "stringToShortLinkedHashMapVal": {
+            "b": 20
+        },
+        "stringToUShortLinkedHashMapVar": {
+            "a": 10
+        },
+        "stringToUShortLinkedHashMapVal": {
+            "b": 20
+        },
+        "stringToIntLinkedHashMapVar": {
+            "a": 100
+        },
+        "stringToIntLinkedHashMapVal": {
+            "b": 200
+        },
+        "stringToUIntLinkedHashMapVar": {
+            "a": 100
+        },
+        "stringToUIntLinkedHashMapVal": {
+            "b": 200
+        },
+        "stringToLongLinkedHashMapVar": {
+            "a": 1000
+        },
+        "stringToLongLinkedHashMapVal": {
+            "b": 2000
+        },
+        "stringToULongLinkedHashMapVar": {
+            "a": 1000
+        },
+        "stringToULongLinkedHashMapVal": {
+            "b": 2000
+        },
+        "stringToFloatLinkedHashMapVar": {
+            "a": 1.5
+        },
+        "stringToFloatLinkedHashMapVal": {
+            "b": 2.5
+        },
+        "stringToDoubleLinkedHashMapVar": {
+            "a": 3.14
+        },
+        "stringToDoubleLinkedHashMapVal": {
+            "b": 6.28
+        },
+        "stringToBooleanLinkedHashMapVar": {
+            "a": true
+        },
+        "stringToBooleanLinkedHashMapVal": {
+            "b": false
+        },
+        "stringToCharLinkedHashMapVar": {
+            "a": "X"
+        },
+        "stringToCharLinkedHashMapVal": {
+            "b": "Y"
+        },
+        "stringToStringLinkedHashMapVar": {
+            "a": "foo"
+        },
+        "stringToStringLinkedHashMapVal": {
+            "b": "bar"
+        },
+        "stringToUnitLinkedHashMapVar": {
+            "a": {}
+        },
+        "stringToUnitLinkedHashMapVal": {
+            "b": {}
+        },
+        "stringToHomeLinkedHashMapVar": {
+            "h1": {
+                "name": "lhmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToHomeLinkedHashMapVal": {
+            "h2": {
+                "name": "lhmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "stringToRuleLinkedHashMapVar": {
+            "r1": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToRuleLinkedHashMapVal": {
+            "r2": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            }
+        },
+        "stringToLocationLinkedHashMapVar": {
+            "l1": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocationLinkedHashMapVal": {
+            "l2": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "stringToLocalDateLinkedHashMapVar": {
+            "d1": "2025-01-01"
+        },
+        "stringToLocalDateLinkedHashMapVal": {
+            "d2": "2025-06-15"
+        },
+        "stringToInstantLinkedHashMapVar": {
+            "i1": "2025-01-01T00:00:00Z"
+        },
+        "stringToInstantLinkedHashMapVal": {
+            "i2": "2025-06-15T00:00:00Z"
+        },
+        "intToStringLinkedHashMapVar": {
+            "1": "one"
+        },
+        "intToStringLinkedHashMapVal": {
+            "2": "two"
+        },
+        "intToHomeLinkedHashMapVar": {
+            "1": {
+                "name": "lhmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "intToHomeLinkedHashMapVal": {
+            "2": {
+                "name": "lhmap",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "longToStringLinkedHashMapVar": {
+            "1": "one"
+        },
+        "longToStringLinkedHashMapVal": {
+            "2": "two"
+        }
+    },
+    "nested": {
+        "pairVar": {
+            "first": "a",
+            "second": 1
+        },
+        "pairVal": {
+            "first": "b",
+            "second": 2
+        },
+        "tripleVar": {
+            "first": "a",
+            "second": 1,
+            "third": true
+        },
+        "tripleVal": {
+            "first": "b",
+            "second": 2,
+            "third": false
+        },
+        "pairOfHomesVar": {
+            "first": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            },
+            "second": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "pairOfHomesVal": {
+            "first": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            },
+            "second": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        },
+        "tripleOfHomesVar": {
+            "first": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            },
+            "second": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            },
+            "third": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "tripleOfHomesVal": {
+            "first": {
+                "name": "nested",
+                "location": {
+                    "x": 0.0,
+                    "y": 64.0,
+                    "z": 0.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            },
+            "second": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            },
+            "third": {
+                "x": 0.0,
+                "y": 64.0,
+                "z": 0.0,
+                "yaw": 0.0,
+                "pitch": 0.0,
+                "dimension": "minecraft:overworld"
+            }
+        },
+        "listOfPairsVar": [
+            {
+                "first": "x",
+                "second": 10
+            },
+            {
+                "first": "y",
+                "second": 20
+            }
+        ],
+        "listOfPairsVal": [
+            {
+                "first": "z",
+                "second": 30
+            }
+        ],
+        "mapOfListsVar": {
+            "player1": [
+                {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            ]
+        },
+        "mapOfListsVal": {
+            "player2": [
+                {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            ]
+        },
+        "mapOfSetsVar": {
+            "dims": [
+                "minecraft:overworld",
+                "minecraft:the_nether"
+            ]
+        },
+        "mapOfSetsVal": {
+            "dims": [
+                "minecraft:the_end"
+            ]
+        },
+        "mapOfMapsVar": {
+            "scores": {
+                "a": 10,
+                "b": 20
+            }
+        },
+        "mapOfMapsVal": {
+            "scores": {
+                "c": 30
+            }
+        },
+        "listOfMapsVar": [
+            {
+                "h1": {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            }
+        ],
+        "listOfMapsVal": [
+            {
+                "h2": {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            }
+        ],
+        "listOfListsVar": [
+            [
+                1,
+                2,
+                3
+            ],
+            [
+                4,
+                5
+            ]
+        ],
+        "listOfListsVal": [
+            [
+                6,
+                7
+            ]
+        ],
+        "mutableListOfMutableMapsVar": [
+            {
+                "h1": {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            }
+        ],
+        "mutableListOfMutableMapsVal": [
+            {
+                "h2": {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            }
+        ],
+        "mutableMapOfMutableListsVar": {
+            "p1": [
+                {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            ]
+        },
+        "mutableMapOfMutableListsVal": {
+            "p2": [
+                {
+                    "name": "nested",
+                    "location": {
+                        "x": 0.0,
+                        "y": 64.0,
+                        "z": 0.0,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "dimension": "minecraft:overworld"
+                    }
+                }
+            ]
+        },
+        "mapOfPairsVar": {
+            "admin": {
+                "first": {
+                    "homesEnabled": true,
+                    "maxHomes": 3,
+                    "cooldown": 30,
+                    "teleportDelay": 5,
+                    "cancelOnMove": true,
+                    "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                        "minecraft:overworld"
+                    ]
+                },
+                "second": [
+                    "perm1",
+                    "perm2"
+                ]
+            }
+        },
+        "mapOfPairsVal": {
+            "user": {
+                "first": {
+                    "homesEnabled": true,
+                    "maxHomes": 3,
+                    "cooldown": 30,
+                    "teleportDelay": 5,
+                    "cancelOnMove": true,
+                    "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                        "minecraft:overworld"
+                    ]
+                },
+                "second": [
+                    "perm3"
+                ]
+            }
+        }
+    },
+    "playersHomes": {
+        "Steve": [
+            {
+                "name": "base",
+                "location": {
+                    "x": 100.0,
+                    "y": 64.0,
+                    "z": 200.0,
+                    "yaw": 0.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:overworld"
+                }
+            }
+        ],
+        "Alex": [
+            {
+                "name": "nether_hub",
+                "location": {
+                    "x": 50.0,
+                    "y": 70.0,
+                    "z": -30.0,
+                    "yaw": 90.0,
+                    "pitch": 0.0,
+                    "dimension": "minecraft:the_nether"
+                }
+            }
+        ]
+    },
+    "associatedPlayersToRules": {
+        "Steve": {
+            "first": {
+                "homesEnabled": true,
+                "maxHomes": 5,
+                "cooldown": 60,
+                "teleportDelay": 3,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld",
+                    "minecraft:the_nether"
+                ]
+            },
+            "second": [
+                "vip",
+                "builder"
+            ]
+        },
+        "Alex": {
+            "first": {
+                "homesEnabled": true,
+                "maxHomes": 3,
+                "cooldown": 30,
+                "teleportDelay": 5,
+                "cancelOnMove": true,
+                "allowedDimensionsFromWhichPlayerCanCreateAHome": [
+                    "minecraft:overworld"
+                ]
+            },
+            "second": [
+                "default"
+            ]
+        }
+    }
+}

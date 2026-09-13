@@ -1,0 +1,12 @@
+{
+    "name": "from-resource",
+    "count": 99,
+    "enabled": false,
+    "description": "loaded from classpath resource",
+    "maxRetries": 7,
+    "tags": ["resource", "test"],
+    "thresholds": {
+        "cpu": 0.8,
+        "memory": 0.9
+    }
+}

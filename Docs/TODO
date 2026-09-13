@@ -1,0 +1,44 @@
+1. Si la validation échoue lorsque l'on charge DATA pour la première fois (encore aucun fichier créer (se sera la première fois)), alors au niveau de message d'erreur, la ligne qui concerne les données non valide ne sont pas affichées.
+Pourtant, même si c'est la première fois, on créer tout de même le fichier .json non ? et on pourrait indiquer la ligne avec l'erreur. Ainsi le user peut directement aller modifié les données dans le json. Il faudrait noté toutefois que
+la validation échoue avec les données fournit pas défaut (que se soit fromConstructeur, fromCompanion, fromDefaultable ou fromResource).
+
+
+2. Mettre en place une solution pour éviter la corruption de données.
+
+voir conversation avec Gemini :
+
+Le VRAI risque : la corruption de données
+C'est ici qu'il y a un vrai danger. Que se passe-t-il si tu es en train d'écrire ton fichier de configuration, et que pile à cette milliseconde-là, le courant saute ou le jeu crash ?
+
+Le fichier n'aura été écrit qu'à moitié. Au prochain lancement, ton fichier TOML/JSON sera coupé en deux, invalide, et ta librairie plantera en essayant de le lire. Les joueurs détestent ça car ils perdent toute leur configuration.
+
+La solution des pros : L'Écriture Atomique (Atomic Write)
+Pour éviter la corruption, on n'écrase jamais le fichier original directement. On fait ceci :
+
+On écrit les nouvelles données dans un fichier temporaire (ex: config.toml.tmp).
+
+On s'assure que l'écriture est terminée à 100 %.
+
+On demande au système d'exploitation de renommer/déplacer config.toml.tmp vers config.toml (en remplaçant l'ancien).
+
+Le système d'exploitation garantit que l'opération de remplacement est "atomique" : soit elle réussit complètement, soit elle échoue, mais le fichier n'est jamais coupé en deux. Si le PC crash à l'étape 1, l'ancien fichier config.toml est toujours là, intact !
+
+
+3. Gestion des versions pour chaque fichier de configuration.
+idée : permettre de mieux gérer les versions des fichiers de configuration, ne pas charger un fichier de config qui ne correspond pas à la version actuelle (du code et de la version du mod actuelle utilisant la lib)
+idéee : autoversionner les fichiers de configuration, ev. de detecter les changements dans les fichier de config et de mettre en place automatiquement un numero de version.
+Si my data class Player a changer, l'ancien fichier de config pour l'ancienne data class player ne devrait plus fonctionner ...
+
+Lumo AI avait dit :
+
+Si tu ajoutes un champ obligatoire dans Player ou Home, les configs existantes des joueurs seront invalides.
+
+Solution : Ajouter un champ configVersion dans Validatable :
+
+interface Validatable {
+    val configVersion: Int get() = 1
+
+    fun migrateIfNeeded(currentVersion: Int) {
+        // Logique de migration
+    }
+}
