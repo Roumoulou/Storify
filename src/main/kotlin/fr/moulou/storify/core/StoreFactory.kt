@@ -1,13 +1,12 @@
-
 @file:Suppress("unused")
 
 package fr.moulou.storify.core
 
 import fr.moulou.storify.*
-import fr.moulou.storify.core.StoreFactory.createInternal
 import fr.moulou.storify.utils.Utils
 import fr.moulou.storify.utils.deepCopyViaCbor
 import fr.moulou.storify.validation.Validator
+import kotlinx.serialization.serializer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -17,22 +16,6 @@ import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.findAnnotation
 
 object StoreFactory {
-
-    inline fun <reified T> StoreFormat<*>.createEncoder(): (T, Path) -> Unit = { data, path ->
-        when (this) {
-            is JsonFormat -> this.encodeToPath(data, path)
-            is TomlFormat -> this.encodeToPath(data, path)
-            else -> throw IllegalArgumentException("Format unsupported: ${this::class.simpleName}")
-        }
-    }
-
-    inline fun <reified T> StoreFormat<*>.createDecoder(): (Path) -> T = { path ->
-        when (this) {
-            is JsonFormat -> this.decodeFromPath(path)
-            is TomlFormat -> this.decodeFromPath(path)
-            else -> throw IllegalArgumentException("Format unsupported: ${this::class.simpleName}")
-        }
-    }
 
     /**
      * Fournisseur de données par défaut pour un store.
@@ -61,15 +44,16 @@ object StoreFactory {
 
             /**
              * Copie une ressource du classpath vers le fichier store, puis la décode.
-             * Le [format] doit être le format **déjà résolu** (pour créer le decoder).
+             * Le [format] doit être le format **déjà résolu** ; le sérialiseur, lui, est matérialisé
+             * ici, au site réifié (C-09).
              */
-            inline fun <reified DATA : Any> fromResource(storePath: Path, resourcePath: String, format: StoreFormat<*>): DefaultProvider<DATA> {
-                val decoder = format.createDecoder<DATA>()
+            inline fun <reified DATA : Any> fromResource(storePath: Path, resourcePath: String, format: StoreFormat): DefaultProvider<DATA> {
+                val deserializer = serializer<DATA>()
                 return DefaultProvider {
                     storePath.parent?.createDirectories()
                     val inputStream = DATA::class.java.classLoader.getResourceAsStream(resourcePath) ?: throw IllegalArgumentException("Resource not found: $resourcePath")
                     Files.copy(inputStream, storePath)
-                    decoder(storePath)
+                    format.decodeFromPath(deserializer, storePath)
                 }
             }
         }
@@ -80,14 +64,14 @@ object StoreFactory {
      * Chaque champ est nullable : `null` = annotation absente.
      */
     @PublishedApi
-    internal data class ResolvedAnnotations<DATA : Any>(val path: String?, val format: StoreFormat<*>?, val config: StoreConfig?, val validator: Validator<DATA>?, val defaultResourcePath: String?)
+    internal data class ResolvedAnnotations<DATA : Any>(val path: String?, val format: StoreFormat?, val config: StoreConfig?, val validator: Validator<DATA>?, val defaultResourcePath: String?)
 
     /** Résout toutes les annotations de DATA d'un coup. */
     @PublishedApi
     internal inline fun <reified DATA : Any> resolveAllAnnotations(): ResolvedAnnotations<DATA> {
         val path = DATA::class.findAnnotation<StorePath>()?.path
 
-        val format: StoreFormat<*>? = DATA::class.findAnnotation<StoreFileFormat>()?.let {
+        val format: StoreFormat? = DATA::class.findAnnotation<StoreFileFormat>()?.let {
             when (it.type) {
                 StoreFileFormatType.JSON -> JsonFormat()
                 StoreFileFormatType.TOML -> TomlFormat()
@@ -124,8 +108,10 @@ object StoreFactory {
      * 1. Résoudre les annotations de DATA (une seule fois)
      * 2. Déterminer le path final (explicite ou annoté)
      * 3. Fusionner les paramètres : **explicite > annotation > fallback**
-     * 4. Obtenir le [DefaultProvider] via la [providerFactory] (qui peut avoir besoin du format résolu)
-     * 5. Construire le [BaseStore]
+     * 4. Matérialiser le sérialiseur de DATA à son site réifié : c'est lui que le store passera au
+     *    [StoreFormat], polymorphe, format tiers compris (C-09)
+     * 5. Obtenir le [DefaultProvider] via la [providerFactory] (qui peut avoir besoin du format résolu)
+     * 6. Construire le [BaseStore]
      *
      * @param stringPath      Path explicite, ou `null` pour l'extraire de `@StorePath`
      * @param format          Format explicite (nullable — priorité sur annotation)
@@ -137,7 +123,7 @@ object StoreFactory {
      *                        `fromResource` d'utiliser le format final.
      */
     @PublishedApi
-    internal inline fun <reified DATA : Any> createInternal(stringPath: String?, format: StoreFormat<*>?, config: StoreConfig?, validator: Validator<DATA>?, providerFactory: (path: String, resolved: ResolvedAnnotations<DATA>, resolvedFormat: StoreFormat<*>) -> DefaultProvider<DATA>): BaseStore<DATA> {
+    internal inline fun <reified DATA : Any> createInternal(stringPath: String?, format: StoreFormat?, config: StoreConfig?, validator: Validator<DATA>?, providerFactory: (path: String, resolved: ResolvedAnnotations<DATA>, resolvedFormat: StoreFormat) -> DefaultProvider<DATA>): BaseStore<DATA> {
         val resolved = resolveAllAnnotations<DATA>()
 
         val finalPath = stringPath ?: resolved.path ?: throw IllegalArgumentException("${DATA::class.simpleName} must be annotated with @StorePath")
@@ -150,8 +136,7 @@ object StoreFactory {
 
         return BaseStore(
             Paths.get(finalPath), finalFormat, finalConfig,
-            finalFormat.createDecoder(), finalFormat.createEncoder(),
-            finalFormat.createDecoder<StoreMeta>(), finalFormat.createEncoder<StoreMeta>(),
+            serializer<DATA>(),
             defaultDataProvider = { provider.provide() },
             deepCopyFn = { it.deepCopyViaCbor() },
             validator = finalValidator
@@ -171,7 +156,7 @@ object StoreFactory {
      *
      * Le companion object de DATA doit implémenter [Defaultable]<DATA>.
      */
-    inline fun <reified DATA : Any> create(stringPath: String, format: StoreFormat<*>? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromCompanion<DATA>() }
+    inline fun <reified DATA : Any> create(stringPath: String, format: StoreFormat? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromCompanion<DATA>() }
 
     /**
      * Crée un store en utilisant le constructeur sans argument de DATA.
@@ -182,7 +167,7 @@ object StoreFactory {
     /**
      * Crée un store en utilisant le constructeur sans argument de DATA, avec path explicite.
      */
-    inline fun <reified DATA : Any> createFromConstructor(stringPath: String, format: StoreFormat<*>? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromConstructor<DATA>() }
+    inline fun <reified DATA : Any> createFromConstructor(stringPath: String, format: StoreFormat? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromConstructor<DATA>() }
 
     /**
      * Crée un store via une classe [Defaultable] externe.
@@ -193,7 +178,7 @@ object StoreFactory {
     /**
      * Crée un store via une classe [Defaultable] externe, avec path explicite.
      */
-    inline fun <reified DATA : Any, reified D : Defaultable<DATA>> createFromDefaultable(stringPath: String, format: StoreFormat<*>? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromDefaultable<DATA, D>() }
+    inline fun <reified DATA : Any, reified D : Defaultable<DATA>> createFromDefaultable(stringPath: String, format: StoreFormat? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { _, _, _ -> DefaultProvider.fromDefaultable<DATA, D>() }
 
     /**
      * Crée un store depuis une ressource.
@@ -209,5 +194,5 @@ object StoreFactory {
     /**
      * Crée un store depuis une ressource, avec path et resourcePath explicites.
      */
-    inline fun <reified DATA : Any> createFromResource(stringPath: String, resourcePath: String, format: StoreFormat<*>? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { path, _, resolvedFormat -> DefaultProvider.fromResource<DATA>(Paths.get(path), resourcePath, resolvedFormat) }
+    inline fun <reified DATA : Any> createFromResource(stringPath: String, resourcePath: String, format: StoreFormat? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> = createInternal(stringPath, format, config, validator) { path, _, resolvedFormat -> DefaultProvider.fromResource<DATA>(Paths.get(path), resourcePath, resolvedFormat) }
 }

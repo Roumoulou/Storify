@@ -15,7 +15,7 @@ interface Store<DATA : Any> : AutoCloseable {
 
     var data: DATA
     val path: Path
-    val format: StoreFormat<*>
+    val format: StoreFormat
     val meta: StoreMeta?
 
     fun saveImmediate()

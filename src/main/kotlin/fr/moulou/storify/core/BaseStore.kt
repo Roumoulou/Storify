@@ -4,6 +4,7 @@ import fr.moulou.storify.*
 import fr.moulou.storify.utils.DateUtils.formatLocal
 import fr.moulou.storify.utils.deepCopyValue
 import fr.moulou.storify.validation.*
+import kotlinx.serialization.KSerializer
 import java.nio.channels.FileChannel
 import java.nio.file.*
 import java.util.*
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
@@ -65,22 +67,13 @@ data class StoreConfig(
 @Suppress("PropertyName")
 class BaseStore<DATA : Any>(
     override val path: Path,
-    override val format: StoreFormat<*>,
+    override val format: StoreFormat,
 
     /** Options de comportement du store. */
     @PublishedApi internal val config: StoreConfig,
 
-    /** Désérialise [DATA] depuis le fichier au chemin donné. */
-    private val dataDecoder: (Path) -> DATA,
-
-    /** Sérialise [DATA] vers le fichier au chemin donné. */
-    private val dataEncoder: (DATA, Path) -> Unit,
-
-    /** Désérialise [StoreMeta] depuis le sidecar `.meta.json`. */
-    metaDecoder: (Path) -> StoreMeta,
-
-    /** Sérialise [StoreMeta] vers le sidecar `.meta.json`. */
-    private val metaEncoder: (StoreMeta, Path) -> Unit,
+    /** Le sérialiseur de [DATA], matérialisé une fois pour toutes au site réifié de la factory (C-09). */
+    private val dataSerializer: KSerializer<DATA>,
 
     /** Factory fournissant la [DATA] par défaut quand aucun fichier n'existe. */
     private val defaultDataProvider: () -> DATA,
@@ -127,7 +120,7 @@ class BaseStore<DATA : Any>(
     /** Chemin vers le fichier sidecar `.meta.json`. */
     private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
 
-    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaDecoder.invoke(metaPath) else StoreMeta() else null
+    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaFormat.decodeFromPath(StoreMeta.serializer(), metaPath) else StoreMeta() else null
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` par le tick d'auto-save. Interne pour les tests. */
     @Volatile
@@ -197,7 +190,7 @@ class BaseStore<DATA : Any>(
     override val onUpdateCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
     override val onUpdateCallbacksMap: MutableMap<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>> = mutableMapOf<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>>()
 
-    /** Politique d'update par propriété (défaut [UpdatePolicy.SNAPSHOT]). */
+    /** Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. */
     @PublishedApi
     internal val updatePolicies: MutableMap<KProperty1<*, *>, UpdatePolicy> = mutableMapOf()
 
@@ -228,7 +221,7 @@ class BaseStore<DATA : Any>(
     private fun initData() {
         sweepOrphanTemps()
         if (path.exists()) {
-            _data = dataDecoder(path)
+            _data = format.decodeFromPath(dataSerializer, path)
             _hasSavedAtLeastOnce = true
         } else {
             _data = defaultDataProvider.invoke()
@@ -339,8 +332,8 @@ class BaseStore<DATA : Any>(
             }
 
             synchronized(saveIoLock) {
-                atomicWrite(path) { temp -> dataEncoder.invoke(_data, temp) }
-                if (config.withMeta) atomicWrite(metaPath) { temp -> metaEncoder.invoke(meta!!, temp) }
+                atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) }
+                if (config.withMeta) atomicWrite(metaPath) { temp -> metaFormat.encodeToPath(StoreMeta.serializer(), meta!!, temp) }
             }
             isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
 
@@ -360,7 +353,7 @@ class BaseStore<DATA : Any>(
 
     override fun reloadFromFile(validate: Boolean) {
         checkOpen()
-        val incoming = dataDecoder(path)
+        val incoming = format.decodeFromPath(dataSerializer, path)
         if (validate && config.withValidation) {
             val result = runValidation(incoming)
             if (result is ValidationResult.Failure) {
@@ -605,7 +598,7 @@ class BaseStore<DATA : Any>(
     }
 
     /** Écrit le fichier initial quand aucun fichier n'existait (premier lancement). */
-    private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> dataEncoder.invoke(_data, temp) } }
+    private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) } }
 
     // ── Écriture atomique ──
     /**
@@ -613,6 +606,7 @@ class BaseStore<DATA : Any>(
      * déplacement atomique : elle est toujours une version entière, un crash en pleine écriture ne la touche jamais.
      */
     private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) {
+        target.toAbsolutePath().parent?.createDirectories() // la leçon C-04, garantie ici pour tout format, tiers compris
         val temp = target.resolveSibling("${target.fileName}.${UUID.randomUUID().toString().substring(0, 8)}.tmp")
         try {
             encodeTo(temp)
@@ -640,6 +634,11 @@ class BaseStore<DATA : Any>(
                 name.startsWith(prefix) && name.endsWith(".tmp")
             }.use { stream -> stream.forEach { runCatching { Files.deleteIfExists(it) } } }
         }
+    }
+
+    private companion object {
+        /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
+        val metaFormat = JsonFormat()
     }
 
 }

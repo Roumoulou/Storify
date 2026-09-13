@@ -34,7 +34,7 @@ internal object ValidationErrorEnricher {
      * @param errors Liste d'erreurs de validation à enrichir.
      * @return La liste d'erreurs avec le champ [ValidationError.jsonLine] renseigné lorsque possible.
      */
-    fun enrich(format: StoreFormat<*>, path: Path, errors: List<ValidationError>): List<ValidationError> {
+    fun enrich(format: StoreFormat, path: Path, errors: List<ValidationError>): List<ValidationError> {
         if (format !is JsonFormat) return errors
         return try {
             val fileLines = path.toFile().readLines()

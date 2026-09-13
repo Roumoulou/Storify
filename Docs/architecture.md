@@ -59,7 +59,8 @@ choix de ce défaut reste ouvert au chantier C-22.
 La factory publique est `StoreFactory`. Jusqu'au 2026-09-13, deux factories cohabitaient : la refonte, un temps nommée `StoreFactoryBetter`, a
 absorbé l'ancienne au chantier C-07 (dont les variantes à path explicite ignoraient silencieusement les annotations). Toutes les variantes
 convergent vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite, puis annotation, puis repli
-(`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config).
+(`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). Depuis C-09, elle matérialise aussi le sérialiseur de DATA à son
+site réifié (`serializer<DATA>()`) et le passe au store, qui appelle le format en polymorphe : la factory ne fabrique plus d'encoders.
 
 Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de données initiales :
 
@@ -177,17 +178,22 @@ les contrôles métier avant de muter.
 
 ## 9. Les formats
 
-`StoreFormat<T>` est minimal (une extension de fichier) ; `JsonFormat` et `TomlFormat` portent chacun leurs `decodeFromPath` et `encodeToPath`
-inline. Les réglages en place :
+`StoreFormat` est le vrai point d'extension de la lib (C-09) : le contrat porte `fileExtension()` et l'encode/decode générique à sérialiseur
+explicite (`decodeFromPath(deserializer, path)`, `encodeToPath(serializer, data, path)`). Le sérialiseur est matérialisé aux sites réifiés (la
+factory pour les stores, un sucre `inline reified` pour les appels directs : `format.decodeFromPath<Homes>(path)`) puis transporté par l'appel
+polymorphe : un format tiers implémente l'interface et traverse la factory sans qu'elle le connaisse. La réification ne pouvait pas être le
+mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle reste celui de la matérialisation. Les réglages en place :
 
 | Format | Réglages | Particularités |
 |---|---|---|
 | `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
 
-`Utils` tient un registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné, et accepte l'enregistrement de formats
-tiers (`registerFormat`). Ce point d'extension est aujourd'hui un trompe-l'oeil : les encoders et decoders de la factory sont un `when` figé sur
-`JsonFormat` et `TomlFormat`, tout autre format est rejeté (chantier C-09).
+`Utils` tient le registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné ; `registerFormat` y ajoute un format
+tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
+les extensions enregistrées) : le repli silencieux sur JSON est mort avec le reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers
+parents avant chaque écriture : un format tiers qui oublierait de les créer ne reproduira pas le piège du constat n° 1 (la leçon C-04,
+généralisée).
 
 ## 10. Le deep copy CBOR
 
@@ -209,8 +215,8 @@ fonction de la taille des collections. Le raccourci immuable du pipeline d'updat
 
 Avec `withMeta = true`, le store entretient `<fichier>.meta.json` : `createdAt` (à la création de l'objet), `lastModified` (mis à jour à chaque
 update par le hook interne, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version` (posée à 1, jamais incrémentée à ce jour) et `custom`
-(map libre, sans consommateur connu). Le fichier s'écrit au moment des sauvegardes. L'exploitation réelle de `version` et `custom` est à décider
-(chantiers C-13 et C-17).
+(map libre, sans consommateur connu). Le fichier s'écrit au moment des sauvegardes, toujours en JSON, quel que soit le format du store, comme son
+nom le promet (C-09). L'exploitation réelle de `version` et `custom` est à décider (chantiers C-13 et C-17).
 
 ## 13. Les dépendances, et pourquoi
 

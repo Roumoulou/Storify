@@ -7,14 +7,14 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.0.1-SNAPSHOT-02`. Aucune release publiée : le circuit de publication (Repsy) est en veille et son
-  câblage est cassé (voir `Docs\chantiers.md`).
+- Coordonnées : `fr.moulou:storify`, version `0.0.1-SNAPSHOT-02`. Aucune release publiée : le circuit de publication (Repsy) est en veille ; sa
+  remise en état est décidée (chantier C-18 de `Docs\chantiers.md`).
 - Consommation actuelle : par build composite, sans publication. Le consommateur de référence est Storibench, le banc d'essai en conditions réelles
   (un mod Fabric pour Minecraft 26.2), qui vit hors de ce dépôt, dans le classeur : `..\08-related-projects\storibench`.
 - Build et tests : verts au 2026-09-13, sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (encapsulation, point d'extension des formats). La liste complète vit
+- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (l'encapsulation en tête). La liste complète vit
   dans `Docs\chantiers.md`.
-- Dépôt Git : en place depuis le 2026-09-13 (branche `master`), un commit par chantier.
+- Dépôt Git : en place depuis le 2026-09-13 (branche `master`, un commit par chantier), poussé sur GitHub le jour même (`Roumoulou/Storify`, privé).
 - Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
 
 | Outil | Version |
@@ -28,7 +28,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 2. Les fonctionnalités
 
-- **Deux formats de fichier** : JSON (`JsonFormat`) et TOML (`TomlFormat`), résolus par l'extension du chemin quand on ne les précise pas.
+- **Deux formats de fichier fournis** : JSON (`JsonFormat`) et TOML (`TomlFormat`), résolus par l'extension du chemin quand on ne les précise
+  pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `Utils.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar copiée au premier lancement.
 - **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,
@@ -121,7 +122,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 | `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
-| `StoreFormat` | Le format de fichier ; `JsonFormat` et `TomlFormat` fournis |
+| `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat` et `TomlFormat` fournis, formats tiers via `Utils.registerFormat` |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach`) |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
@@ -144,8 +145,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
-  la persistance, elle, est garantie quelle que soit la policy ;
-- un format custom enregistré via `Utils.registerFormat` n'est pas accepté par la factory.
+  la persistance, elle, est garantie quelle que soit la policy.
 
 ## 7. La documentation
 
