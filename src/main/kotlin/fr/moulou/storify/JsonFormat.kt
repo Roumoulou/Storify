@@ -22,13 +22,13 @@ class JsonFormat(
 
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified DATA> decodeFromPath(path: Path): DATA {
-        return underlyingJson().decodeFromStream(path.inputStream())
+        return path.inputStream().use { stream -> underlyingJson().decodeFromStream(stream) }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified DATA> encodeToPath(data: DATA, path: Path) {
         path.parent?.createDirectories()
-        underlyingJson().encodeToStream(data, path.outputStream())
+        path.outputStream().use { stream -> underlyingJson().encodeToStream(data, stream) }
     }
 
     override fun fileExtension(): String = "json"

@@ -40,8 +40,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   avec les valeurs avant et après (`CapturedValue`).
 - **Politiques de capture par propriété** (`UpdatePolicy`) : `SNAPSHOT` (copie profonde avant et après), `SHALLOW` (références seules), `SKIP`
   (silence complet).
-- **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM, et
-  rechargement depuis le fichier (`reloadFromFile`).
+- **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM,
+  rechargement depuis le fichier (`reloadFromFile`), et écriture atomique partout (fichier temporaire puis déplacement atomique : jamais de
+  fichier tronqué, même en cas de crash en pleine écriture).
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
 - **Validation au chargement** : un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
@@ -137,7 +138,6 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 
 En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `Docs\chantiers.md` :
 
-- pas d'écriture atomique : un crash pendant l'écriture peut tronquer le fichier ;
 - la validation ne joue qu'au chargement initial : ni à l'update (le mécanisme a disparu du code), ni au `reloadFromFile`, et rien ne l'expose
   publiquement pour la déclencher à la demande ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;

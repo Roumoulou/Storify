@@ -271,4 +271,51 @@ class MyOwnTest {
         assertThrows(IllegalStateException::class.java) { store.saveImmediate() }
         assertThrows(IllegalStateException::class.java) { store.reloadFromFile() }
     }
+
+    @Test
+    fun `aucun fichier temporaire ne survit à une sauvegarde`() {
+        val path = newStorePath("clean.json")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+
+        store.set(MyOwnData::stringValue, "propre")
+        store.saveImmediate()
+
+        val leftovers = Files.list(path.parent).use { stream -> stream.filter { it.fileName.toString().endsWith(".tmp") }.toList() }
+        assertTrue(leftovers.isEmpty())
+    }
+
+    @Test
+    fun `un temporaire orphelin d'un crash passé est balayé à l'ouverture`() {
+        val path = newStorePath("swept.json")
+        val orphan = path.resolveSibling("${path.fileName}.deadbeef.tmp")
+        orphan.writeText("{ tronqué par un faux crash")
+
+        StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+
+        assertFalse(Files.exists(orphan))
+    }
+
+    @Test
+    fun `des sauvegardes concurrentes laissent toujours un fichier entier`() {
+        val path = newStorePath("storm.json")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+
+        // La course du C-01 : plusieurs threads encodent vers le même fichier. Avant C-02, les flux
+        // pouvaient s'entrelacer ; depuis, chaque save est un temporaire unique puis un rename atomique.
+        val threads = (1..4).map { threadNumber ->
+            Thread {
+                repeat(25) { i ->
+                    store.set(MyOwnData::stringValue, "t$threadNumber-i$i")
+                    store.saveImmediate()
+                }
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+        store.close()
+
+        // La preuve d'intégrité : un store neuf relit le fichier sans broncher, quelle que soit la valeur gagnante.
+        val reloaded = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+        assertTrue(reloaded.data.stringValue.startsWith("t"))
+    }
 }

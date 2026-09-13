@@ -143,9 +143,12 @@ Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`
 s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
 (qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
 
-Ce que la persistance n'a pas encore : l'écriture atomique. L'encodage écrit directement dans le flux du fichier cible ; un crash au milieu laisse
-un fichier tronqué (chantier C-02). Et `reloadFromFile()` passe par le setter de `data`, qui remplace la racine sous write lock et notifie les
-callbacks de reload ; il ne revalide pas ce qu'il vient de lire (chantier C-05).
+L'écriture est atomique (C-02) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
+disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
+pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
+`saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture, et le fichier initial comme le sidecar
+meta passent par le même chemin. Reste `reloadFromFile()` : il passe par le setter de `data`, qui remplace la racine sous write lock et notifie
+les callbacks de reload ; il ne revalide pas ce qu'il vient de lire (chantier C-05).
 
 ## 8. La validation
 

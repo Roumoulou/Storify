@@ -8,7 +8,13 @@ import fr.moulou.storify.validation.ValidationErrorEnricher
 import fr.moulou.storify.validation.ValidationResult
 import fr.moulou.storify.validation.ValidationException
 import fr.moulou.storify.validation.Validator
+import java.nio.channels.FileChannel
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -145,6 +151,9 @@ class BaseStore<DATA : Any>(
     /** Scheduler single-thread pour l'auto-save périodique. */
     private val saveScheduler = Executors.newSingleThreadScheduledExecutor()
 
+    /** Verrou d'IO : les sauvegardes d'un même store s'exécutent l'une après l'autre. */
+    private val saveIoLock = Any()
+
     /** `true` après [close] : le store reste lisible, les écritures refusent. */
     private val closed = AtomicBoolean(false)
 
@@ -192,6 +201,7 @@ class BaseStore<DATA : Any>(
      * Définit [_dataOrigin] et valide immédiatement les données par défaut (lance une exception si invalide).
      */
     private fun initData() {
+        sweepOrphanTemps()
         if (path.exists()) {
             _data = dataDecoder(path)
             _hasSavedAtLeastOnce = true
@@ -299,8 +309,11 @@ class BaseStore<DATA : Any>(
                 else -> CapturedValue.Unavailable
             }
 
-            dataEncoder.invoke(_data, path)
-            isDirty = false // après un encodage réussi seulement : un échec laisse le dirty au prochain tick
+            synchronized(saveIoLock) {
+                atomicWrite(path) { temp -> dataEncoder.invoke(_data, temp) }
+                if (config.withMeta) atomicWrite(metaPath) { temp -> metaEncoder.invoke(meta!!, temp) }
+            }
+            isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
 
             _lastSavedData = if (config.useDeepCopy) deepCopyFn(_data) else null
             _hasSavedAtLeastOnce = true
@@ -309,7 +322,6 @@ class BaseStore<DATA : Any>(
                 if (_lastSavedData != null) CapturedValue.DeepCopy(_lastSavedData!!)
                 else CapturedValue.Unavailable
 
-            if (config.withMeta) metaEncoder.invoke(meta!!, metaPath)
             SaveOperation(oldCaptured, newCaptured, trigger)
         }
         onSaveCallbacks.forEach { it(operation) }
@@ -505,6 +517,41 @@ class BaseStore<DATA : Any>(
     }
 
     /** Écrit le fichier initial quand aucun fichier n'existait (premier lancement). */
-    private fun writeInitialFile() = dataLock.read { dataEncoder.invoke(_data, path) }
+    private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> dataEncoder.invoke(_data, temp) } }
+
+    // ── Écriture atomique ──
+    /**
+     * Écrit via un fichier temporaire unique et voisin, force le flush disque, puis remplace la cible par
+     * déplacement atomique : elle est toujours une version entière, un crash en pleine écriture ne la touche jamais.
+     */
+    private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) {
+        val temp = target.resolveSibling("${target.fileName}.${UUID.randomUUID().toString().substring(0, 8)}.tmp")
+        try {
+            encodeTo(temp)
+            FileChannel.open(temp, StandardOpenOption.WRITE).use { it.force(true) }
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (e: AtomicMoveNotSupportedException) {
+                log.warn("[Storify] Atomic move unsupported for '{}': falling back to a non-atomic replace", target)
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (e: Exception) {
+            runCatching { Files.deleteIfExists(temp) }
+            throw e
+        }
+    }
+
+    /** Balaye les temporaires orphelins d'un crash passé (motif strict : ceux de ce fichier et de son sidecar). */
+    private fun sweepOrphanTemps() {
+        val directory = path.toAbsolutePath().parent ?: return
+        if (!directory.exists()) return
+        val prefix = "${path.fileName}."
+        runCatching {
+            Files.newDirectoryStream(directory) { candidate ->
+                val name = candidate.fileName.toString()
+                name.startsWith(prefix) && name.endsWith(".tmp")
+            }.use { stream -> stream.forEach { runCatching { Files.deleteIfExists(it) } } }
+        }
+    }
 
 }
