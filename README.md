@@ -12,8 +12,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - Consommation actuelle : par build composite, sans publication. Le consommateur de référence est Storibench, le banc d'essai en conditions réelles
   (un mod Fabric pour Minecraft 26.2), qui vit hors de ce dépôt, dans le classeur : `..\08-related-projects\storibench`.
 - Build et tests : verts au 2026-09-13, sur la stack ci-dessous.
-- L'API n'est pas stabilisée : deux factories cohabitent (`StoreFactory` et `StoreFactoryBetter`, cette dernière étant la bonne), et des renommages
-  sont prévus. La liste complète des chantiers vit dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (encapsulation, point d'extension des formats). La liste complète vit
+  dans `Docs\chantiers.md`.
 - Pas encore de dépôt Git : le `git init` est un chantier planifié, préalable aux refactors.
 - Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
 
@@ -66,7 +66,7 @@ class ServerConfigValidator : Validator<ServerConfig> {
     }
 }
 
-val configStore = StoreFactoryBetter.createFromConstructor<ServerConfig>(
+val configStore = StoreFactory.createFromConstructor<ServerConfig>(
     stringPath = "config/mymod/config.toml",
     format = TomlFormat(),
     config = StoreConfig(
@@ -93,7 +93,7 @@ data class Homes(
     var totalTeleports: Long = 0,
 )
 
-val homesStore = StoreFactoryBetter.createFromConstructor<Homes>(
+val homesStore = StoreFactory.createFromConstructor<Homes>(
     stringPath = "world/data/mymod/homes.json", // extension .json : JsonFormat résolu tout seul
     config = StoreConfig(withValidation = true, withAutoSave = true, withMeta = true, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT, autoSaveIntervalMs = 30_000),
 )
@@ -113,7 +113,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 |---|---|
 | `BaseStore<DATA>` | Le store : chargement, verrous, updates, callbacks, persistance ; implémente l'interface `Store<DATA>` |
 | `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut |
-| `StoreFactoryBetter` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
+| `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le format de fichier ; `JsonFormat` et `TomlFormat` fournis |
@@ -142,7 +142,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
   publiquement pour la déclencher à la demande ;
 - le défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP`, qui éteint les callbacks et l'auto-save : passez `SNAPSHOT` explicitement ;
 - `TomlFormat` ne crée pas les dossiers parents du fichier (`JsonFormat`, si) ;
-- un format custom enregistré via `Utils.registerFormat` n'est pas accepté par les factories.
+- un format custom enregistré via `Utils.registerFormat` n'est pas accepté par la factory.
 
 ## 7. La documentation
 

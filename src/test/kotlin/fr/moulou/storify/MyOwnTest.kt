@@ -1,7 +1,7 @@
 package fr.moulou.storify
 
 import fr.moulou.storify.core.StoreConfig
-import fr.moulou.storify.core.StoreFactoryBetter
+import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.mutateIn
 import fr.moulou.storify.core.set
 import fr.moulou.storify.validation.ValidationContext
@@ -95,7 +95,7 @@ class MyOwnTest {
     @Test
     fun `création depuis le companion, set, callbacks et persistance`() {
         val path = newStorePath("myowndata.json")
-        val store = StoreFactoryBetter.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
         assertEquals(MyOwnData.getDefault(), store.data)
 
         val updates = mutableListOf<Operation<MyOwnData>>()
@@ -121,7 +121,7 @@ class MyOwnTest {
         assertInstanceOf(CapturedValue.DeepCopy::class.java, secondSave.old) // ensuite : le snapshot du save précédent
 
         // La persistance nue : un second store sur le même fichier relit ce qui a été écrit.
-        val reloaded = StoreFactoryBetter.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+        val reloaded = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
         assertEquals("Hello !", reloaded.data.stringValue)
         assertEquals(7, reloaded.data.intValue)
     }
@@ -129,7 +129,7 @@ class MyOwnTest {
     @Test
     fun `store annoté, policy SHALLOW par annotation, callback ciblé, et le défaut SKIP qui se tait`() {
         val path = newStorePath("myowndata2.json")
-        val store = StoreFactoryBetter.create<MyOwnData2>(path.toString())
+        val store = StoreFactory.create<MyOwnData2>(path.toString())
 
         assertEquals(UpdatePolicy.SHALLOW, store.getUpdatePolicy(MyOwnData2::intValue))
 
@@ -159,7 +159,7 @@ class MyOwnTest {
     @Test
     fun `reloadFromFile relit le fichier édité à la main et notifie onReload`() {
         val path = newStorePath("myowndata.json")
-        val store = StoreFactoryBetter.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
 
         val reloads = mutableListOf<Operation<MyOwnData>>()
         store.registerOnReload { reloads.add(it) }
@@ -174,7 +174,7 @@ class MyOwnTest {
     @Test
     fun `createFromResource copie la ressource embarquée au premier lancement`() {
         val path = newStorePath("fromresource.json")
-        val store = StoreFactoryBetter.createFromResource<MyOwnData2>(path.toString(), "myowndata2_default.json")
+        val store = StoreFactory.createFromResource<MyOwnData2>(path.toString(), "myowndata2_default.json")
 
         assertEquals("fromResource", store.data.stringValue)
         assertEquals(42, store.data.intValue)
@@ -194,7 +194,7 @@ class MyOwnTest {
             """.trimIndent()
         )
 
-        val exception = assertThrows(ValidationException::class.java) { StoreFactoryBetter.create<MyOwnData2>(path.toString()) }
+        val exception = assertThrows(ValidationException::class.java) { StoreFactory.create<MyOwnData2>(path.toString()) }
         assertTrue(exception.message!!.contains("stringValue"))
     }
 }

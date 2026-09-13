@@ -13,7 +13,7 @@ Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), 
 tout le reste. Le chemin type :
 
 ```
-StoreFactoryBetter.create*<DATA>(...)
+StoreFactory.create*<DATA>(...)
     └─> résolution : paramètres explicites > annotations de DATA > défauts
     └─> BaseStore.init
             1. initData           : fichier existant décodé, sinon données par défaut + écriture du fichier initial
@@ -30,7 +30,7 @@ Les packages :
 | Package | Contenu |
 |---|---|
 | `fr.moulou.storify` | Le modèle public : annotations, `UpdatePolicy`, `Operation`, `CapturedValue`, `StoreMeta`, `Defaultable`, formats |
-| `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, les deux factories, les extensions `set`/`mutate`/`transaction` |
+| `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, la factory, les extensions `set`/`mutate`/`transaction` |
 | `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
 | `fr.moulou.storify.utils` | Le deep copy CBOR, le registre des formats, le formatage des dates |
 | `fr.moulou.storify.serializers` | Sérialiseurs d'appoint (`JsonPrimitiveAsStringSerializer`) |
@@ -52,12 +52,12 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 Deux pièges actuels, signalés en place : `@StoreConfiguration` n'expose pas `defaultUpdatePolicy` (impossible à régler par annotation), et le
 défaut de `StoreConfig.defaultUpdatePolicy` est `SKIP` alors que sa KDoc annonce `SNAPSHOT` (chantier C-03).
 
-## 3. Les factories et la résolution
+## 3. La factory et la résolution
 
-Deux factories publiques cohabitent : `StoreFactory` (l'ancienne) et `StoreFactoryBetter` (la refonte, celle que le banc et les tests consomment).
-La refonte fait converger toutes les variantes vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite,
-puis annotation, puis repli (`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). La fusion des deux factories est le
-chantier C-07.
+La factory publique est `StoreFactory`. Jusqu'au 2026-09-13, deux factories cohabitaient : la refonte, un temps nommée `StoreFactoryBetter`, a
+absorbé l'ancienne au chantier C-07 (dont les variantes à path explicite ignoraient silencieusement les annotations). Toutes les variantes
+convergent vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite, puis annotation, puis repli
+(`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config).
 
 Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de données initiales :
 
@@ -160,7 +160,7 @@ inline. Les réglages en place :
 | `TomlFormat` | ignoreUnknownKeys | Ne crée **pas** les dossiers parents (chantier C-04) |
 
 `Utils` tient un registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné, et accepte l'enregistrement de formats
-tiers (`registerFormat`). Ce point d'extension est aujourd'hui un trompe-l'oeil : les encoders et decoders des factories sont un `when` figé sur
+tiers (`registerFormat`). Ce point d'extension est aujourd'hui un trompe-l'oeil : les encoders et decoders de la factory sont un `when` figé sur
 `JsonFormat` et `TomlFormat`, tout autre format est rejeté (chantier C-09).
 
 ## 10. Le deep copy CBOR

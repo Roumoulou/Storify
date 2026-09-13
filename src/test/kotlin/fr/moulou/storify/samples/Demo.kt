@@ -1,7 +1,7 @@
 package fr.moulou.storify.samples
 
 import fr.moulou.storify.core.StoreConfig
-import fr.moulou.storify.core.StoreFactoryBetter
+import fr.moulou.storify.core.StoreFactory
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -22,12 +22,12 @@ class Demo {
         plainFile.delete()
 
         // La voie annotée : path, config et validator viennent des annotations de la classe.
-        val annotatedStore = StoreFactoryBetter.create<SimpleHomesStoreWithAnnotations>()
+        val annotatedStore = StoreFactory.create<SimpleHomesStoreWithAnnotations>()
         assertTrue(annotatedFile.exists())
         assertTrue(annotatedStore.data.playersHomes.isNotEmpty())
 
         // La voie nue : tout se donne à la factory, la classe ne porte aucune annotation de store.
-        val plainStore = StoreFactoryBetter.create<SimpleHomesStoreWithoutAnnotations>(plainFile.path, config = StoreConfig(withAutoSave = false))
+        val plainStore = StoreFactory.create<SimpleHomesStoreWithoutAnnotations>(plainFile.path, config = StoreConfig(withAutoSave = false))
         assertTrue(plainFile.exists())
         assertTrue(plainStore.data.playersHomes.isNotEmpty())
     }
