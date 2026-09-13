@@ -71,6 +71,20 @@ class MyOwnData2Validator : Validator<MyOwnData2> {
     }
 }
 
+/** Des défauts invalides dès la naissance : le fixture du chantier C-06. */
+@Serializable
+@StoreConfiguration(withAutoSave = false)
+@StoreValidator(InvalidDefaultsValidator::class)
+data class InvalidDefaultsData(
+    var name: String = "",
+)
+
+class InvalidDefaultsValidator : Validator<InvalidDefaultsData> {
+    override fun validate(data: InvalidDefaultsData, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
 /** La voie annotée avec policy par défaut choisie par annotation : le champ ajouté au chantier C-03. */
 @Serializable
 @StoreConfiguration(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
@@ -317,5 +331,27 @@ class MyOwnTest {
         // La preuve d'intégrité : un store neuf relit le fichier sans broncher, quelle que soit la valeur gagnante.
         val reloaded = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
         assertTrue(reloaded.data.stringValue.startsWith("t"))
+    }
+
+    @Test
+    fun `des défauts invalides ne créent jamais de fichier`() {
+        val path = newStorePath("never-born.json")
+
+        val exception = assertThrows(ValidationException::class.java) { StoreFactory.createFromConstructor<InvalidDefaultsData>(path.toString()) }
+
+        assertTrue(exception.message!!.contains("default data")) // le remède est dans le code, le message le dit
+        assertFalse(Files.exists(path)) // C-06 : la validation passe avant toute écriture
+    }
+
+    @Test
+    fun `une ressource invalide reste sur disque, erreurs enrichies des lignes`() {
+        val path = newStorePath("bad-resource.json")
+
+        val exception = assertThrows(ValidationException::class.java) {
+            StoreFactory.createFromResource<MyOwnData2>(path.toString(), "myowndata2_invalid.json")
+        }
+
+        assertTrue(Files.exists(path)) // la copie de la ressource reste, éditable : le voeu du TODO d'origine
+        assertTrue(exception.message!!.contains("line")) // et les erreurs pointent la ligne dans cette copie
     }
 }

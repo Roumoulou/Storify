@@ -46,7 +46,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
 - **Validation au chargement** : un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
-  d'erreur), et un rapport d'erreurs détaillé, enrichi des numéros de ligne pour les fichiers JSON.
+  d'erreur), et un rapport d'erreurs détaillé, enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
+  fichier sur disque.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par CBOR** : les snapshots des callbacks et le rollback des transactions passent par un aller-retour de sérialisation, mesuré
   par un benchmark dédié (`DeepCopyBenchmark`).

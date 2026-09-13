@@ -192,13 +192,14 @@ class BaseStore<DATA : Any>(
         initData()
         initUpdatePolicies()
         initValidation()
+        persistInitialData()
         initAutoSave()
         initShutdownHook()
     }
 
     /**
-     * Charge les données depuis le fichier s'il existe, sinon crée depuis [defaultDataProvider].
-     * Définit [_dataOrigin] et valide immédiatement les données par défaut (lance une exception si invalide).
+     * Charge les données depuis le fichier s'il existe, sinon les crée depuis [defaultDataProvider],
+     * sans rien écrire : la validation passe d'abord, le fichier initial vient après ([persistInitialData], C-06).
      */
     private fun initData() {
         sweepOrphanTemps()
@@ -207,9 +208,13 @@ class BaseStore<DATA : Any>(
             _hasSavedAtLeastOnce = true
         } else {
             _data = defaultDataProvider.invoke()
-            writeInitialFile()
         }
         _lastSavedData = deepCopyFn(_data)
+    }
+
+    /** Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06). */
+    private fun persistInitialData() {
+        if (_dataOrigin == DataOrigin.DEFAULT) writeInitialFile()
     }
 
     /** Scanne les annotations [@StoreUpdatePolicy] sur les propriétés de [DATA] et ses classes imbriquées. */
@@ -250,15 +255,15 @@ class BaseStore<DATA : Any>(
     }
 
     /**
-     * Valide les données chargées/par défaut au démarrage.
-     * Pour les données chargées depuis fichier, enrichit les erreurs avec les numéros de ligne JSON.
+     * Valide les données chargées ou nées par défaut au démarrage.
+     * Enrichit les erreurs des numéros de ligne JSON dès qu'un fichier existe : chargé, ou copié depuis une ressource (C-06).
      * @throws ValidationException si les données sont invalides.
      */
     private fun initValidation() {
         if (!config.withValidation) return
         val result = runValidation(_data)
         if (result is ValidationResult.Failure) {
-            val errors = if (_dataOrigin == DataOrigin.FILE) ValidationErrorEnricher.enrich(format, path, result.errors) else result.errors
+            val errors = if (path.exists()) ValidationErrorEnricher.enrich(format, path, result.errors) else result.errors
             val source = if (_dataOrigin == DataOrigin.FILE) "loaded from file" else "default data"
             throw ValidationException(errors, "[Storify] Store '${path}' ($source) is invalid:\n${ValidationResult.Failure(errors).formatFull()}")
         }

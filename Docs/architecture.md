@@ -16,11 +16,12 @@ tout le reste. Le chemin type :
 StoreFactory.create*<DATA>(...)
     └─> résolution : paramètres explicites > annotations de DATA > défauts
     └─> BaseStore.init
-            1. initData           : fichier existant décodé, sinon données par défaut + écriture du fichier initial
-            2. initUpdatePolicies : scan récursif des annotations @StoreUpdatePolicy
-            3. initValidation     : validator exécuté, ValidationException si échec
-            4. initAutoSave       : hook dirty + scheduler périodique (si withAutoSave)
-            5. initShutdownHook   : sauvegarde à l'arrêt de la JVM
+            1. initData            : fichier existant décodé, sinon données par défaut (sans écrire)
+            2. initUpdatePolicies  : scan récursif des annotations @StoreUpdatePolicy
+            3. initValidation      : validator exécuté, ValidationException si échec
+            4. persistInitialData  : le fichier initial des données par défaut, validation passée
+            5. initAutoSave        : scheduler périodique (si withAutoSave)
+            6. initShutdownHook    : sauvegarde à l'arrêt de la JVM
     └─> vie du store : data (read lock), set/mutate/transaction (write lock), callbacks (hors lock),
                        saveImmediate / auto-save / reloadFromFile
     └─> close() : tick annulé, scheduler arrêté, hook désarmé, sauvegarde d'adieu (SaveTrigger.CLOSE)
@@ -71,19 +72,21 @@ Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de donn
 
 ## 4. Le cycle de vie de BaseStore
 
-L'initialisation enchaîne cinq étapes, dans l'ordre du bloc `init` :
+L'initialisation enchaîne six étapes, dans l'ordre du bloc `init` :
 
-1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE`) ; sinon les données par défaut sont fabriquées et le fichier initial
-   est écrit immédiatement (`writeInitialFile`). Conséquence à connaître : des défauts invalides sont écrits sur disque **avant** que la validation
-   ne les rejette (chantier C-06).
+1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE`) ; sinon les données par défaut sont fabriquées, sans rien écrire :
+   le fichier initial n'arrive qu'après la validation (C-06), des défauts invalides ne touchent jamais le disque. Exception voulue : la copie
+   d'une ressource embarquée (`createFromResource`) existe déjà à ce stade et reste sur disque même invalide, éditable, erreurs pointées à la ligne.
 2. **initUpdatePolicies** : parcours récursif de `DATA::class` par réflexion (`memberProperties`), avec un ensemble `visited` contre les cycles et
    une garde qui ignore les classes `kotlin.*` et `java.*` ; chaque `@StoreUpdatePolicy` rencontrée entre dans la map `updatePolicies`.
-3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs d'origine `FILE` sont
-   enrichies des numéros de ligne JSON, puis une `ValidationException` est levée. Le store ne se construit pas.
-4. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
+3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs sont enrichies des
+   numéros de ligne JSON dès qu'un fichier existe (chargé, ou copié d'une ressource), puis une `ValidationException` est levée. Le store ne se
+   construit pas.
+4. **persistInitialData** : les données nées par défaut écrivent enfin leur fichier initial, la validation étant passée (C-06).
+5. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
    C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
-5. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et sauvegarde : le filet anti-crash des
+6. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et sauvegarde : le filet anti-crash des
    stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
    des données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
 
