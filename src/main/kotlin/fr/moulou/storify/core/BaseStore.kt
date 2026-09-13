@@ -3,18 +3,10 @@ package fr.moulou.storify.core
 import fr.moulou.storify.*
 import fr.moulou.storify.utils.DateUtils.formatLocal
 import fr.moulou.storify.utils.deepCopyValue
-import fr.moulou.storify.validation.ValidationContext
-import fr.moulou.storify.validation.ValidationErrorEnricher
-import fr.moulou.storify.validation.ValidationResult
-import fr.moulou.storify.validation.ValidationException
-import fr.moulou.storify.validation.Validator
+import fr.moulou.storify.validation.*
 import java.nio.channels.FileChannel
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.nio.file.StandardOpenOption
-import java.util.UUID
+import java.nio.file.*
+import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -104,7 +96,8 @@ class BaseStore<DATA : Any>(
     private enum class DataOrigin { FILE, DEFAULT }
 
     /** Objet de données vivant. Tout accès DOIT passer par [dataLock]. */
-    @PublishedApi internal lateinit var _data: DATA
+    @PublishedApi
+    internal lateinit var _data: DATA
 
     override var data: DATA
         get() = dataLock.read { _data }
@@ -120,21 +113,25 @@ class BaseStore<DATA : Any>(
     private val _dataOrigin: DataOrigin = if (path.exists()) DataOrigin.FILE else DataOrigin.DEFAULT
 
     /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
-    @PublishedApi internal val dataLock = ReentrantReadWriteLock()
+    @PublishedApi
+    internal val dataLock = ReentrantReadWriteLock()
 
     /** Snapshot de [_data] au dernier save. Sert à construire le [CapturedValue] old pour les callbacks de save. */
-    @Volatile private var _lastSavedData: DATA? = null
+    @Volatile
+    private var _lastSavedData: DATA? = null
 
     /** `true` après le premier appel réussi à [save]. */
-    @Volatile private var _hasSavedAtLeastOnce: Boolean = false
+    @Volatile
+    private var _hasSavedAtLeastOnce: Boolean = false
 
     /** Chemin vers le fichier sidecar `.meta.json`. */
     private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
 
-    override val meta : StoreMeta? = if(config.withMeta) if(path.exists() && metaPath.exists()) metaDecoder.invoke(metaPath) else StoreMeta() else null
+    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaDecoder.invoke(metaPath) else StoreMeta() else null
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` par le tick d'auto-save. Interne pour les tests. */
-    @Volatile internal var isDirty = false
+    @Volatile
+    internal var isDirty = false
 
     /**
      * Marque les données modifiées : `meta.lastModified` et le drapeau dirty. Appelé par le pipeline d'update pour
@@ -158,7 +155,9 @@ class BaseStore<DATA : Any>(
 
     /** Restaure la racine depuis la copie de sécurité du garde. */
     @PublishedApi
-    internal fun restoreRoot(backup: DATA) { _data = backup }
+    internal fun restoreRoot(backup: DATA) {
+        _data = backup
+    }
 
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
     private val autoSavePaused = AtomicBoolean(false)
@@ -199,11 +198,14 @@ class BaseStore<DATA : Any>(
     override val onUpdateCallbacksMap: MutableMap<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>> = mutableMapOf<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>>()
 
     /** Politique d'update par propriété (défaut [UpdatePolicy.SNAPSHOT]). */
-    @PublishedApi internal val updatePolicies: MutableMap<KProperty1<*, *>, UpdatePolicy> = mutableMapOf()
+    @PublishedApi
+    internal val updatePolicies: MutableMap<KProperty1<*, *>, UpdatePolicy> = mutableMapOf()
 
     /** Change la politique d'update d'une propriété au runtime. */
     @Suppress("unused")
-    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) { updatePolicies[prop] = policy }
+    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
+        updatePolicies[prop] = policy
+    }
 
     /** Récupère la politique d'update d'une propriété. */
     @Suppress("unused")
@@ -353,6 +355,7 @@ class BaseStore<DATA : Any>(
         }
         onSaveCallbacks.forEach { it(operation) }
     }
+
     override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
 
     override fun reloadFromFile(validate: Boolean) {
@@ -376,11 +379,13 @@ class BaseStore<DATA : Any>(
         autoSavePaused.set(true)
         log.info("[Storify] Auto-save PAUSED")
     }
+
     override fun resumeAutoSave() {
         if (closed.get()) return
         autoSavePaused.set(false)
         log.info("[Storify] Auto-save RESUMED")
     }
+
     override fun isAutoSavePaused(): Boolean = autoSavePaused.get()
 
     // ── Fin de vie ──
@@ -411,9 +416,18 @@ class BaseStore<DATA : Any>(
     }
 
     // ── Enregistrement de callbacks ──
-    override fun registerOnSave(callback: (Operation<DATA>) -> Unit) { onSaveCallbacks.add(callback) }
-    override fun registerOnReload(callback: (Operation<DATA>) -> Unit) { onReloadCallbacks.add(callback) }
-    override fun registerOnUpdate(callback: (Operation<DATA>) -> Unit) { onUpdateCallbacks.add(callback) }
+    override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
+        onSaveCallbacks.add(callback)
+    }
+
+    override fun registerOnReload(callback: (Operation<DATA>) -> Unit) {
+        onReloadCallbacks.add(callback)
+    }
+
+    override fun registerOnUpdate(callback: (Operation<DATA>) -> Unit) {
+        onUpdateCallbacks.add(callback)
+    }
+
     override fun registerOnUpdateOn(prop: KProperty1<*, *>, callback: (Operation<DATA>) -> Unit) {
         onUpdateCallbacksMap.compute(prop) { _, value ->
             if (value == null) mutableListOf(callback) else {
@@ -427,7 +441,8 @@ class BaseStore<DATA : Any>(
      * Contient l'opération capturée (snapshots old/new) et la propriété cible,
      * prêts à être dispatchés aux callbacks **hors du lock**.
      */
-    @PublishedApi internal data class UpdateOutcome<DATA : Any>(
+    @PublishedApi
+    internal data class UpdateOutcome<DATA : Any>(
         val success: Boolean,
         val operation: Operation<DATA>,
         val prop: KProperty1<*, *>
@@ -452,7 +467,8 @@ class BaseStore<DATA : Any>(
      * Skipé si [outcome] est `null` (policy [UpdatePolicy.SKIP]).
      * **Doit être appelé hors du [dataLock].**
      */
-    @PublishedApi internal fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
+    @PublishedApi
+    internal fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
         onUpdateCallbacks.forEach { it(outcome.operation) }
         onUpdateCallbacksMap[outcome.prop]?.forEach { it(outcome.operation) }
     }
@@ -542,7 +558,7 @@ class BaseStore<DATA : Any>(
             applyUpdate = { receiver -> kMutableProperty.set(receiver, newValue) },
             createOperation = { old, new -> SetOperation(kMutableProperty, old, new) }
         )
-        if(outcome != null) dispatchUpdateCallbacks(outcome) else return
+        if (outcome != null) dispatchUpdateCallbacks(outcome) else return
     }
 
     @PublishedApi
@@ -552,7 +568,7 @@ class BaseStore<DATA : Any>(
             applyUpdate = { receiver -> updateObject(kProperty1.get(receiver)) },
             createOperation = { old, new -> MutateOperation(kProperty1, old, new) }
         )
-        if(outcome != null) dispatchUpdateCallbacks(outcome) else return
+        if (outcome != null) dispatchUpdateCallbacks(outcome) else return
     }
 
     fun transactionInternal(block: DATA.() -> Unit) {
