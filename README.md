@@ -14,7 +14,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - Build et tests : verts au 2026-09-13, sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (encapsulation, point d'extension des formats). La liste complète vit
   dans `Docs\chantiers.md`.
-- Pas encore de dépôt Git : le `git init` est un chantier planifié, préalable aux refactors.
+- Dépôt Git : en place depuis le 2026-09-13 (branche `master`), un commit par chantier.
 - Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
 
 | Outil | Version |
