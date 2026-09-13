@@ -178,9 +178,12 @@ class BaseStore<DATA : Any>(
     override val isClosed: Boolean get() = closed.get()
 
     /** Le hook d'arrêt JVM, gardé en champ pour que [close] puisse le désarmer. */
-    private val shutdownHook = Thread {
+    private val shutdownHook = Thread { runShutdownHook() }
+
+    /** Le corps du hook, testable sans éteindre la JVM : annule le tick en vol et, comme la sauvegarde d'adieu de [close], ne sauve que dirty (C-23). */
+    internal fun runShutdownHook() {
         autoSaveFuture?.cancel(false)
-        save(SaveTrigger.SHUTDOWN)
+        if (isDirty) save(SaveTrigger.SHUTDOWN)
     }
 
     /** Refuse toute écriture sur un store fermé. */

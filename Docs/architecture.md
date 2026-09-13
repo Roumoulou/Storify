@@ -86,8 +86,8 @@ L'initialisation enchaîne six étapes, dans l'ordre du bloc `init` :
 5. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
    C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
-6. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et sauvegarde : le filet anti-crash des
-   stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
+6. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et, si le store est dirty, sauvegarde
+   (C-23 : un store resté propre ne réécrit rien à l'extinction) : le filet anti-crash des stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
    des données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
 
 La fin de vie (C-01) : `close()`, idempotent, annule le tick, arrête le planificateur (`awaitTermination` 5 s : un tick en vol se termine avant la
@@ -144,8 +144,9 @@ capture, fiable pour les immuables seulement), `Initial` (la toute première don
 
 ## 7. La persistance
 
-Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick), `SHUTDOWN` (le hook JVM) et `CLOSE`
-(la sauvegarde d'adieu de `close()`, si le store est dirty). Le drapeau dirty se remet à zéro dans `save()`, après un encodage réussi. La sauvegarde
+Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick), `SHUTDOWN` (le hook JVM, si le store est
+dirty) et `CLOSE` (la sauvegarde d'adieu de `close()`, si le store est dirty). Le drapeau dirty se remet à zéro dans `save()`, après un encodage
+réussi. La sauvegarde
 s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
 (qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
 

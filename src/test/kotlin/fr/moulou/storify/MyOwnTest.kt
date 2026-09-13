@@ -302,6 +302,24 @@ class MyOwnTest {
     }
 
     @Test
+    fun `le hook d'arrêt ne sauve que dirty`() {
+        val path = newStorePath("shutdown.json")
+        val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)
+
+        // Store propre : une édition disque faite pendant la session survit au hook (C-23).
+        store.set(MyOwnData::stringValue, "sauvé")
+        store.saveImmediate()
+        path.writeText(path.readText().replace("sauvé", "édité à la main"))
+        store.runShutdownHook()
+        assertTrue(path.readText().contains("édité à la main")) // rien à sauver : le hook n'a pas réécrit
+
+        // Store dirty : le hook reste le filet anti-crash et écrit.
+        store.set(MyOwnData::stringValue, "après crash")
+        store.runShutdownHook()
+        assertTrue(path.readText().contains("après crash"))
+    }
+
+    @Test
     fun `aucun fichier temporaire ne survit à une sauvegarde`() {
         val path = newStorePath("clean.json")
         val store = StoreFactory.create<MyOwnData>(path.toString(), config = snapshotNoAutoSave)

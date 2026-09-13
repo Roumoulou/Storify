@@ -90,6 +90,11 @@ c'est fait, avec la date.
   compromis fidèle aux deux moitiés du TODO n° 1 : la validation passe avant toute écriture (des défauts de code invalides ne créent jamais de
   fichier, le remède est dans le code), la copie d'une ressource embarquée reste sur disque même invalide (éditable, le voeu d'origine), et
   l'enrichissement aux lignes vaut dès qu'un fichier existe, quelle que soit l'origine. Deux tests.
+- [x] **C-23 : le hook d'arrêt regarde le dirty** (S ; banc du 2026-09-13, constat n° 7). Le hook JVM sauve sans condition
+  (`save(SHUTDOWN)`) là où `close()` ne sauve que dirty : un store ouvert et jamais modifié réécrit son fichier à chaque extinction, et
+  écrase une édition disque faite pendant la session. Aligner le hook sur `close()` (`if (isDirty)`), et un test. **Fait le 2026-09-13** :
+  le corps du hook extrait en `runShutdownHook()` interne (testable sans éteindre la JVM), la garde `isDirty` posée, architecture.md aligné
+  (chapitres 4 et 7), constat n° 7 soldé au banc ; un test (l'édition disque d'un store propre survit au hook, le dirty reste sauvé).
 
 ## 4. P2, l'API et le ménage
 
