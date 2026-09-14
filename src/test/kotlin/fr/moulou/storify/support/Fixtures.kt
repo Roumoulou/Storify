@@ -145,6 +145,18 @@ data class NoZeroArgConstructorData(var required: String)
 /** PAS @Serializable : le fail-fast de C-09 doit refuser dès la création, avant tout fichier. */
 class NotSerializableData(@Suppress("unused") var x: Int = 0)
 
+/** Des défauts invalides dès la naissance : le fixture du contrat C-06 (jamais de fichier écrit). */
+@Serializable
+@StoreConfiguration(withAutoSave = false)
+@StoreValidator(InvalidByDefaultValidator::class)
+data class InvalidByDefaultData(var name: String = "")
+
+class InvalidByDefaultValidator : Validator<InvalidByDefaultData> {
+    override fun validate(data: InvalidByDefaultData, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
 // ─── Les Defaultable externes ───────────────────────────────────────────────────────────────────
 
 class ExternalPlainDefaults : Defaultable<PlainData> {
