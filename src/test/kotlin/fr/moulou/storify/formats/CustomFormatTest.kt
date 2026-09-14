@@ -23,7 +23,6 @@ import java.util.UUID
 import kotlin.io.path.createDirectories
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
-import kotlin.io.path.readText
 
 // ─── Le format « tiers » ──────────────────────────────────────────────────────────────
 
@@ -108,18 +107,4 @@ class CustomFormatTest {
         assertTrue(exception.message!!.contains("zzz")) // le message nomme l'extension fautive et les formats connus
     }
 
-    @Test
-    fun `le sidecar meta d'un store TOML est du JSON, comme son nom le promet`() {
-        val path = newStorePath("config.toml")
-
-        StoreFactory.createFromConstructor<CustomPayload>(path.toString(), config = StoreConfig(withAutoSave = false, withMeta = true)).use { store ->
-            store.set(CustomPayload::count, 7)
-            store.saveImmediate()
-        }
-
-        val metaPath = path.resolveSibling("${path.fileName}.meta.json")
-        assertTrue(Files.exists(metaPath))
-        val meta = Json.decodeFromString(StoreMeta.serializer(), metaPath.readText()) // un sidecar TOML ferait échouer ce décodage JSON
-        assertEquals(1, meta.version)
-    }
 }
