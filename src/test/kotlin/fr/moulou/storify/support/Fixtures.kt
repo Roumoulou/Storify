@@ -145,6 +145,18 @@ data class NoZeroArgConstructorData(var required: String)
 /** PAS @Serializable : le fail-fast de C-09 doit refuser dès la création, avant tout fichier. */
 class NotSerializableData(@Suppress("unused") var x: Int = 0)
 
+/** L'opt-in du garde C-05 : la validation à chaque update, non recommandée mais disponible. */
+@Serializable
+@StoreConfiguration(withAutoSave = false, validateOnUpdate = true)
+@StoreValidator(GuardedFixtureValidator::class)
+data class GuardedFixture(var name: String = "valide")
+
+class GuardedFixtureValidator : Validator<GuardedFixture> {
+    override fun validate(data: GuardedFixture, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
 /** Des défauts invalides dès la naissance : le fixture du contrat C-06 (jamais de fichier écrit). */
 @Serializable
 @StoreConfiguration(withAutoSave = false)
