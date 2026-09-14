@@ -1,24 +1,24 @@
 @file:Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 
-package fr.moulou.storify.samples
+package fr.moulou.storify.legacy
 
 import fr.moulou.storify.Defaultable
 import fr.moulou.storify.StoreDefaultResource
 import fr.moulou.storify.StorePath
 import fr.moulou.storify.StoreValidator
-import fr.moulou.storify.samples.models.Home
-import fr.moulou.storify.samples.models.HomeValidator
-import fr.moulou.storify.samples.models.HomeValidator2
-import fr.moulou.storify.samples.models.Location
-import fr.moulou.storify.samples.models.PrimitivesBlock
-import fr.moulou.storify.samples.models.PrimitivesBlock2
-import fr.moulou.storify.samples.models.RandomData
-import fr.moulou.storify.samples.models.RandomData2
-import fr.moulou.storify.samples.models.Rule
-import fr.moulou.storify.samples.models.RuleValidator
-import fr.moulou.storify.samples.models.RuleValidator2
-import fr.moulou.storify.samples.models.SimpleNestedData
-import fr.moulou.storify.samples.models.SimpleNestedData2
+import fr.moulou.storify.support.Home
+import fr.moulou.storify.support.HomeValidator
+import fr.moulou.storify.support.HomeValidator2
+import fr.moulou.storify.support.Location
+import fr.moulou.storify.support.PrimitivesBlock
+import fr.moulou.storify.support.PrimitivesBlock2
+import fr.moulou.storify.support.RandomData
+import fr.moulou.storify.support.RandomData2
+import fr.moulou.storify.support.Rule
+import fr.moulou.storify.support.RuleValidator
+import fr.moulou.storify.support.RuleValidator2
+import fr.moulou.storify.support.SimpleNestedData
+import fr.moulou.storify.support.SimpleNestedData2
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable

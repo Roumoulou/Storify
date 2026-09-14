@@ -134,7 +134,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 ```
 
 Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) et écrivent leurs fichiers dans
-`build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\HomesModDemo.kt` : cinq démos
+`build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
 `.\gradlew runServer` dans `..\08-related-projects\storibench\main-project\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 

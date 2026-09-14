@@ -1,4 +1,4 @@
-package fr.moulou.storify.samples.models
+package fr.moulou.storify.support
 
 import fr.moulou.storify.Defaultable
 import fr.moulou.storify.validation.ValidationContext

@@ -1,5 +1,6 @@
-package fr.moulou.storify
+package fr.moulou.storify.legacy
 
+import fr.moulou.storify.*
 import fr.moulou.storify.core.*
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator

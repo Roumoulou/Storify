@@ -1,5 +1,6 @@
-package fr.moulou.storify
+package fr.moulou.storify.demos
 
+import fr.moulou.storify.*
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.mutate

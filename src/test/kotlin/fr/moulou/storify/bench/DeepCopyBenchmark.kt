@@ -1,4 +1,4 @@
-package fr.moulou.storify
+package fr.moulou.storify.bench
 
 import fr.moulou.storify.utils.deepCopyValue
 import kotlinx.serialization.Serializable

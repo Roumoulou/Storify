@@ -1,12 +1,12 @@
-package fr.moulou.storify.samples
+package fr.moulou.storify.legacy
 
 import fr.moulou.storify.Defaultable
-import fr.moulou.storify.samples.models.DatesBlock
-import fr.moulou.storify.samples.models.Home
-import fr.moulou.storify.samples.models.Location
-import fr.moulou.storify.samples.models.PrimitivesBlock
-import fr.moulou.storify.samples.models.RandomData
-import fr.moulou.storify.samples.models.Rule
+import fr.moulou.storify.support.DatesBlock
+import fr.moulou.storify.support.Home
+import fr.moulou.storify.support.Location
+import fr.moulou.storify.support.PrimitivesBlock
+import fr.moulou.storify.support.RandomData
+import fr.moulou.storify.support.Rule
 import kotlinx.serialization.Serializable
 
 /**

@@ -1,4 +1,4 @@
-package fr.moulou.storify.samples
+package fr.moulou.storify.legacy
 
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
