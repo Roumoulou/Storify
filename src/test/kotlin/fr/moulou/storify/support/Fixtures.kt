@@ -155,6 +155,10 @@ class BrokenExternalDefaults(@Suppress("unused") val needed: String) : Defaultab
     override fun getDefault(): PlainData = PlainData()
 }
 
+class ExternalAnnotatedDefaults : Defaultable<AnnotatedData> {
+    override fun getDefault(): AnnotatedData = AnnotatedData(greeting = "externe", uses = 9)
+}
+
 // ─── Les ressources embarquées (fichiers dans src\test\resources) ──────────────────────────────
 
 @Serializable
