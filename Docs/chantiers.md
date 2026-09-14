@@ -124,9 +124,14 @@ c'est fait, avec la date.
   aujourd'hui `saves\New World\.\data\...`. En profiter pour fixer la politique d'affichage des données dans les logs (troncature, types).
 - [ ] **C-13 : `StoreMeta` sous-exploité** (S ; LECTURE). `version` jamais incrémentée, `touch()` jamais appelé par la lib, `custom` sans
   consommateur. Brancher ce qui sert (lien C-17), tailler ce qui ne sert pas.
-- [ ] **C-14 : une vraie suite de tests** (L ; TESTS). Généraliser le geste du 2026-09-13 (assertions réelles, fichiers sous `build\tmp`,
+- [x] **C-14 : une vraie suite de tests** (L ; TESTS). Généraliser le geste du 2026-09-13 (assertions réelles, fichiers sous `build\tmp`,
   séparation nette démos/tests) : couvrir TOML, les transactions, la concurrence, le sidecar meta, et convertir les démos de validation en tests
-  quand C-05 aura tranché ce qu'elles doivent affirmer.
+  quand C-05 aura tranché ce qu'elles doivent affirmer. **Fait le 2026-09-14**, en six tranches committées sur la branche `c14-tests` : la suite
+  thématique (`support` et son zoo de fixtures, `factory`, `updates`, `persistence`, `lifecycle`, `validation`, `formats`, `meta`, `utils`),
+  121 tests neufs, 149 verts au total ; les fixtures vivent dans `build\tmp` (plus jamais `C:\temp`), les démos de validation sont converties
+  puis supprimées, la visite guidée vit dans `demos\`, le benchmark dans `bench\`, et l'ancien parc reste gelé dans `legacy\` (conservé sur
+  décision). Règle de la suite : aucun appui sur les surfaces que C-08 fermera, tout passe par `register*`, `reloadFromFile` et `transaction`.
+  Prise de guerre : le désaccord `withValidation` entre annotation et config, épinglé par `ResolutionTest` et ouvert en C-24.
 - [x] **C-15 : `git init` de la racine Gradle** (S ; LECTURE). Le standard l'exige et les chantiers ci-dessus le réclament comme filet. L'ordre de
   la doctrine : l'instantané `gradle\libs.versions.toml.avant-stack-2026-08` monte dans `_archives\` du classeur avant le `git init`, pour
   qu'aucun `git add` n'avale une copie de sauvegarde. **Fait le 2026-09-13** : deux instantanés montés dans `_archives\2026-09-13\` (le second,
@@ -142,6 +147,9 @@ c'est fait, avec la date.
   `dependsOn(shadowJar)`, fragments commentés), commentaires pédagogiques réécrits au registre neutre, numérotation orpheline corrigée, et le
   warning `global.properties` éteint en ne configurant le dépôt Repsy que si le fichier existe (gel propre ; le sort de Repsy reste à C-18).
   Builds lib et banc verts.
+- [ ] **C-24 : accorder `withValidation` entre l'annotation et la config** (S ; C-14). Le défaut de `@StoreConfiguration` est `true` quand celui
+  de `StoreConfig()` est `false` : une classe annotée sans argument valide au chargement, une classe nue ne valide pas. Découvert en écrivant la
+  suite, épinglé dans les deux sens par `ResolutionTest` ; trancher un défaut unique à froid, puis aligner KDoc et tests.
 
 ## 5. P3, la vision
 
