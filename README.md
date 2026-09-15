@@ -146,7 +146,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
-  la persistance, elle, est garantie quelle que soit la policy.
+  la persistance, elle, est garantie quelle que soit la policy, et depuis C-22 l'enregistrement d'un callback voué au silence le signale au log.
 
 ## 7. La documentation
 

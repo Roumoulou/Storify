@@ -422,10 +422,16 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     override fun registerOnUpdate(callback: (Operation<DATA>) -> Unit) {
+        if (config.defaultUpdatePolicy == UpdatePolicy.SKIP && updatePolicies.isEmpty()) {
+            log.warn("[Storify] Update callback registered but defaultUpdatePolicy is SKIP and no property carries a policy: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)")
+        }
         onUpdateCallbacks.add(callback)
     }
 
     override fun registerOnUpdateOn(prop: KProperty1<*, *>, callback: (Operation<DATA>) -> Unit) {
+        if (getUpdatePolicy(prop) == UpdatePolicy.SKIP) {
+            log.warn("[Storify] Update callback registered on '{}' but its effective policy is SKIP: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)", prop.name)
+        }
         onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(callback)
     }
 

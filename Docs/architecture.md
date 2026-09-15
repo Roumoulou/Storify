@@ -51,8 +51,9 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
 
-Le défaut de `defaultUpdatePolicy` est `SKIP` : sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03) ; le
-choix de ce défaut reste ouvert au chantier C-22.
+Le défaut de `defaultUpdatePolicy` est `SKIP` : sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03). Tranché
+au chantier C-22 : `SKIP` est assumé (le store type est une config que personne n'observe, et le pipeline construit ses captures même sans
+auditeur, voir C-25) ; en garde-fou, l'enregistrement d'un callback d'update voué au silence émet un avertissement au log.
 
 ## 3. La factory et la résolution
 

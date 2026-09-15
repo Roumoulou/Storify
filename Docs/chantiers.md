@@ -157,6 +157,9 @@ c'est fait, avec la date.
 - [ ] **C-24 : accorder `withValidation` entre l'annotation et la config** (S ; C-14). Le défaut de `@StoreConfiguration` est `true` quand celui
   de `StoreConfig()` est `false` : une classe annotée sans argument valide au chargement, une classe nue ne valide pas. Découvert en écrivant la
   suite, épinglé dans les deux sens par `ResolutionTest` ; trancher un défaut unique à froid, puis aligner KDoc et tests.
+- [ ] **C-25 : court-circuiter la capture sans auditeur** (S ; C-22). Le pipeline d'update construit captures et opération même quand aucun
+  callback d'update n'est enregistré : sous une policy observante, des copies profondes partent sans public. Court-circuiter la construction
+  quand `onUpdateCallbacks` et la liste ciblée de la propriété sont vides ; fait relevé en tranchant C-22.
 
 ## 5. P3, la vision
 
@@ -177,9 +180,14 @@ c'est fait, avec la date.
   traînantes, clés sans guillemets. La brique existe et se marie à notre pile : `li.songe:json5` (github.com/lisonge/kotlin-json5),
   multiplateforme, bâtie pour kotlinx.serialization, vérifiée sur Maven Central le 2026-09-13 (0.8.0). Dépendait de C-09, fait le 2026-09-13 :
   la voie est libre, un `Json5Format` traverse désormais la factory ; cette envie est l'argument qui avait fait monter C-09 dans la file.
-- [ ] **C-22 : revoir le défaut de policy** (S ; décision reportée du 2026-09-13). `SKIP` par défaut est assumé aujourd'hui (silence des
+- [x] **C-22 : revoir le défaut de policy** (S ; décision reportée du 2026-09-13). `SKIP` par défaut est assumé aujourd'hui (silence des
   callbacks, persistance garantie depuis C-03) ; reste à trancher à froid entre `SKIP`, `SHALLOW` (callbacks gratuits, avant dégradé sur les
   mutations en place) et `SNAPSHOT` (captures figées, coût mesuré par `DeepCopyBenchmark`), guidance du chapitre 6 d'`architecture.md` à l'appui.
+  **Fait le 2026-09-15, décision utilisateur : `SKIP` reste le défaut.** Les raisons : le store type est une config que personne n'observe (le
+  défaut ne doit rien coûter), et le pipeline construit ses captures même sans auditeur, un `SNAPSHOT` par défaut facturerait des copies sans
+  public (fait consigné en C-25). En garde-fou, `registerOnUpdateOn` avertit quand la policy effective de la propriété est `SKIP`, et
+  `registerOnUpdate` quand le store entier est voué au silence (défaut `SKIP` et aucune policy posée) : le silence qui prévient n'est plus un
+  piège. Aucun test modifié, le silence sous `SKIP` restant épinglé par la suite.
 
 ## 6. La méthode, chantier par chantier
 
