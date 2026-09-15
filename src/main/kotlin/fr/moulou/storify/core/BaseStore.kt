@@ -1,7 +1,6 @@
 package fr.moulou.storify.core
 
 import fr.moulou.storify.*
-import fr.moulou.storify.utils.DateUtils.formatLocal
 import fr.moulou.storify.utils.deepCopyValue
 import fr.moulou.storify.validation.*
 import kotlinx.serialization.KSerializer
@@ -26,7 +25,6 @@ import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
-import kotlin.time.Clock
 
 /**
  * Configuration d'une instance [BaseStore].
@@ -145,7 +143,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
      */
     @PublishedApi
     internal fun markDirty() {
-        if (config.withMeta) meta?.lastModified = Clock.System.now().formatLocal()
+        if (config.withMeta) meta?.touch()
         isDirty = true
     }
 

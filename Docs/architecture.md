@@ -233,10 +233,10 @@ fonction de la taille des collections. Le raccourci immuable du pipeline d'updat
 
 ## 12. Le sidecar meta
 
-Avec `withMeta = true`, le store entretient `<fichier>.meta.json` : `createdAt` (à la création de l'objet), `lastModified` (mis à jour à chaque
-update par le hook interne, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version` (posée à 1, jamais incrémentée à ce jour) et `custom`
-(map libre, sans consommateur connu). Le fichier s'écrit au moment des sauvegardes, toujours en JSON, quel que soit le format du store, comme son
-nom le promet (C-09). L'exploitation réelle de `version` et `custom` est à décider (chantiers C-13 et C-17).
+Avec `withMeta = true`, le store entretient `<fichier>.meta.json` : `createdAt` (à la création de l'objet), `lastModified` (entretenu à chaque
+update par `touch()` depuis C-13, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version` (posée à 1, réservée au versionnage de schéma du
+chantier C-17) et `custom` (le sac libre du consommateur ; le banc l'affiche en jeu, la lib n'y écrit jamais). Le fichier s'écrit au moment des
+sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom le promet (C-09).
 
 ## 13. Les dépendances, et pourquoi
 

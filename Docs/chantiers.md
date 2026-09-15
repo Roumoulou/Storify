@@ -145,8 +145,11 @@ c'est fait, avec la date.
   et temporaires atomiques en héritent tous, le `\.\` du banc est mort ; un test l'épingle. Le second volet se règle par un constat : la lib ne
   journalise aucune donnée utilisateur (des chemins et des états seulement, vérifié sur la flotte des messages) ; la politique est désormais
   écrite dans architecture.md, rien à tronquer.
-- [ ] **C-13 : `StoreMeta` sous-exploité** (S ; LECTURE). `version` jamais incrémentée, `touch()` jamais appelé par la lib, `custom` sans
-  consommateur. Brancher ce qui sert (lien C-17), tailler ce qui ne sert pas.
+- [x] **C-13 : `StoreMeta` sous-exploité** (S ; LECTURE). `version` jamais incrémentée, `touch()` jamais appelé par la lib, `custom` sans
+  consommateur. Brancher ce qui sert (lien C-17), tailler ce qui ne sert pas. **Fait le 2026-09-15** : `touch()` branché, `markDirty` l'appelle
+  au lieu de dupliquer sa ligne à la main (BaseStore perd deux imports au passage) ; `version` conservée et documentée « réservée au
+  versionnage de schéma, C-17 » (la retirer casserait le schéma du sidecar pour la recréer ensuite) ; `custom` a trouvé ses consommateurs en
+  route (le banc l'affiche en jeu, la suite l'exerce), conservé et documenté. Le vrai destin de `version` appartient à C-17.
 - [x] **C-14 : une vraie suite de tests** (L ; TESTS). Généraliser le geste du 2026-09-13 (assertions réelles, fichiers sous `build\tmp`,
   séparation nette démos/tests) : couvrir TOML, les transactions, la concurrence, le sidecar meta, et convertir les démos de validation en tests
   quand C-05 aura tranché ce qu'elles doivent affirmer. **Fait le 2026-09-14**, en six tranches committées sur la branche `c14-tests` : la suite
