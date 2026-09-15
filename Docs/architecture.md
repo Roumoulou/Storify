@@ -191,9 +191,14 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 |---|---|---|
 | `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
+| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults }` | Crée les dossiers parents ; les commentaires du fichier meurent au save (C-26) |
 
-`StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`), interrogé quand aucun format
-n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
+`Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
+de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
+créneau étant la config et non la donnée de masse.
+
+`StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun
+format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
 les extensions enregistrées) : le repli silencieux sur JSON est mort avec le reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers
 parents avant chaque écriture : un format tiers qui oublierait de les créer ne reproduira pas le piège du constat n° 1 (la leçon C-04,
 généralisée).
@@ -229,6 +234,7 @@ nom le promet (C-09). L'exploitation réelle de `version` et `custom` est à dé
 | `kotlinx-serialization-json` | Le format JSON, et le parsing du sérialiseur d'appoint |
 | `kotlinx-serialization-cbor` | Le véhicule des copies profondes (chapitre 10), pas un format offert à l'utilisateur |
 | `dev.eav.tomlkt:tomlkt` | Le format TOML |
+| `li.songe:json5` | Le format JSON5 : le parse et l'écriture du texte ; le mapping passe par un pont `JsonElement` kotlinx |
 | `kotlin-reflect` | Le scan des annotations, `createInstance`, `memberProperties` (factories et policies) |
 | `kotlinx-datetime` | Les horodatages du sidecar meta |
 | `slf4j-api` | Le logging (le binding est laissé au consommateur ; `slf4j-simple` en test) |

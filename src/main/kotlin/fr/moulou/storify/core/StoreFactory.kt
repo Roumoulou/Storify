@@ -75,6 +75,7 @@ object StoreFactory {
             when (it.type) {
                 StoreFileFormatType.JSON -> JsonFormat()
                 StoreFileFormatType.TOML -> TomlFormat()
+                StoreFileFormatType.JSON5 -> Json5Format()
             }
         }
 

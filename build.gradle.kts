@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(libs.kotlinx.datetime)
     implementation(libs.tomlkt)
+    implementation(libs.json5)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.cbor)
     implementation(libs.slf4j.api)

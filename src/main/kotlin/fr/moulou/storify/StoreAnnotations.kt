@@ -25,7 +25,7 @@ annotation class StoreConfiguration(
     val validateOnUpdate: Boolean = false
 )
 
-enum class StoreFileFormatType { JSON, TOML }
+enum class StoreFileFormatType { JSON, TOML, JSON5 }
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)

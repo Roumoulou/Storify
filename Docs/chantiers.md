@@ -163,6 +163,11 @@ c'est fait, avec la date.
 - [ ] **C-25 : court-circuiter la capture sans auditeur** (S ; C-22). Le pipeline d'update construit captures et opération même quand aucun
   callback d'update n'est enregistré : sous une policy observante, des copies profondes partent sans public. Court-circuiter la construction
   quand `onUpdateCallbacks` et la liste ciblée de la propriété sont vides ; fait relevé en tranchant C-22.
+- [ ] **C-26 : la sauvegarde JSON5 préservant les commentaires** (M ; C-21). La brique offre un éditeur chirurgical du source
+  (`parseToDocument`, puis `set`, `putProperty`, `remove` par plages exactes, commentaires attachés aux nœuds) : au save, réconcilier l'arbre
+  encodé avec le document parsé et n'appliquer que les différences, pour que les commentaires et le style de l'admin survivent aux sauvegardes.
+  À concevoir : le diff récursif, la stratégie des tableaux (le point dur), les replis (fichier absent ou invalide : encode à neuf). Se greffe
+  dans `encodeToPath` sans toucher au contrat C-09.
 
 ## 5. P3, la vision
 
@@ -179,10 +184,16 @@ c'est fait, avec la date.
 - [ ] **C-20 : le positionnement** (S ; LECTURE). L'étude comparative sérieuse (Cloth Config, owo-lib, Night Config, les configs Forge/NeoForge,
   et le monde JVM hors Minecraft), vérifiée en direct le jour venu, pour dire le créneau exact de Storify et ce qui mérite d'exister ici plutôt
   qu'ailleurs.
-- [ ] **C-21 : le support JSON5** (M ; demande du 2026-09-13). Le format taillé pour les configs éditées à la main : commentaires, virgules
+- [x] **C-21 : le support JSON5** (M ; demande du 2026-09-13). Le format taillé pour les configs éditées à la main : commentaires, virgules
   traînantes, clés sans guillemets. La brique existe et se marie à notre pile : `li.songe:json5` (github.com/lisonge/kotlin-json5),
   multiplateforme, bâtie pour kotlinx.serialization, vérifiée sur Maven Central le 2026-09-13 (0.8.0). Dépendait de C-09, fait le 2026-09-13 :
   la voie est libre, un `Json5Format` traverse désormais la factory ; cette envie est l'argument qui avait fait monter C-09 dans la file.
+  **Fait le 2026-09-15** : `Json5Format` par le pont `JsonElement`, la conception de la brique elle-même (kotlinx en moteur d'arbre, le texte
+  100 % JSON5), au sérialiseur explicite conforme C-09 ; sortie idiomatique (indentée, apostrophes, clés nues) ; `json5` au registre par défaut
+  et `JSON5` dans `@StoreFileFormat` ; dépendance épinglée 0.8.0, revérifiée à la source (metadata de repo1, seize versions, dernière du
+  2026-09-08). Sept tests : l'aller-retour, le confort JSON5 décodé, la sortie qui se relit, la résolution par registre et par annotation, le
+  store de bout en bout, et la limite épinglée : les commentaires meurent au save (documentée au README) ; leur sauvegarde préservante est
+  ouverte en C-26, au design éclairé par l'éditeur découvert dans les sources de la brique.
 - [x] **C-22 : revoir le défaut de policy** (S ; décision reportée du 2026-09-13). `SKIP` par défaut est assumé aujourd'hui (silence des
   callbacks, persistance garantie depuis C-03) ; reste à trancher à froid entre `SKIP`, `SHALLOW` (callbacks gratuits, avant dégradé sur les
   mutations en place) et `SNAPSHOT` (captures figées, coût mesuré par `DeepCopyBenchmark`), guidance du chapitre 6 d'`architecture.md` à l'appui.

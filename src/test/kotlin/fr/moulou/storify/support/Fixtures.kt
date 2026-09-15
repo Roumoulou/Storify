@@ -79,6 +79,12 @@ class AnnotatedDataValidator : Validator<AnnotatedData> {
 @StoreFileFormat(StoreFileFormatType.TOML)
 data class AnnotatedTomlData(var title: String = "toml", var level: Int = 2)
 
+/** Annotée JSON5 : la résolution du troisième format fourni par `@StoreFileFormat` (C-21). */
+@Serializable
+@StoreConfiguration(withAutoSave = false)
+@StoreFileFormat(StoreFileFormatType.JSON5)
+data class AnnotatedJson5Data(var motto: String = "json5", var rank: Int = 1)
+
 /** Annotée withMeta : prouve qu'une config explicite bat l'annotation (le sidecar comme témoin). */
 @Serializable
 @StoreConfiguration(withAutoSave = false, withMeta = true)

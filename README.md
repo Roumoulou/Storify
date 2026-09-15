@@ -24,12 +24,14 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 | Java (toolchain) | 25 |
 | kotlinx.serialization | 1.11.0 |
 | tomlkt | 0.6.1 |
+| li.songe:json5 | 0.8.0 |
 | kotlinx-datetime | 0.8.0 |
 
 ## 2. Les fonctionnalités
 
-- **Deux formats de fichier fournis** : JSON (`JsonFormat`) et TOML (`TomlFormat`), résolus par l'extension du chemin quand on ne les précise
-  pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
+- **Trois formats de fichier fournis** : JSON (`JsonFormat`), TOML (`TomlFormat`) et JSON5 (`Json5Format`, le JSON des configs éditées à la
+  main : commentaires, clés nues, virgules traînantes), résolus par l'extension du chemin quand on ne les précise pas ; et un vrai point
+  d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar copiée au premier lancement.
 - **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,
@@ -123,7 +125,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 | `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
-| `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat` et `TomlFormat` fournis, formats tiers via `StoreFormats.registerFormat` |
+| `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach`) |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
@@ -146,7 +148,9 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
-  la persistance, elle, est garantie quelle que soit la policy, et depuis C-22 l'enregistrement d'un callback voué au silence le signale au log.
+  la persistance, elle, est garantie quelle que soit la policy, et depuis C-22 l'enregistrement d'un callback voué au silence le signale au log ;
+- les commentaires d'un fichier JSON5 (ou JSON) édité à la main ne survivent pas à une sauvegarde : le store réécrit le fichier depuis les
+  données ; la sauvegarde préservante est le chantier C-26.
 
 ## 7. La documentation
 

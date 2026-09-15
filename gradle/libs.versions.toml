@@ -12,6 +12,7 @@ mockk = "1.14.11"
 
 # -- Dépendances ---------------------------------------------------------------
 tomlkt = "0.6.1"
+json5 = "0.8.0"
 kotlinx-serialization = "1.11.0"
 slf4j = "2.0.19"
 kotlinx-datetime = "0.8.0"
@@ -20,6 +21,7 @@ kotlinx-datetime = "0.8.0"
 
 # -- Bibliotheques -------------------------------------------------------------
 tomlkt = { module = "dev.eav.tomlkt:tomlkt", version.ref = "tomlkt" }
+json5 = { module = "li.songe:json5", version.ref = "json5" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "kotlinx-serialization" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
