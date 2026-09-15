@@ -29,7 +29,8 @@ import kotlin.time.Clock
 /**
  * Configuration d'une instance [BaseStore].
  *
- * @property withValidation    Active la validation au chargement initial (fichier ou données par défaut). Défaut `false`.
+ * @property withValidation    Active la validation au chargement initial (fichier ou données par défaut). Défaut `true` (C-24) : sans validator
+ *                             elle ne coûte rien, et poser un validator c'est vouloir qu'il tourne ; `false` est l'échappatoire explicite.
  * @property withAutoSave      Persiste automatiquement les données modifiées sur disque. Défaut `true`.
  * @property withMeta          Gère un fichier sidecar `.meta.json` (lastModified, etc.). Défaut `false`.
  * @property useDeepCopy       Deep-copy les données pour capturer old/new dans les callbacks et permettre
@@ -44,7 +45,7 @@ import kotlin.time.Clock
  *                             préférez des contrôles métier avant de muter. Exige [useDeepCopy]. Défaut `false`.
  */
 data class StoreConfig(
-    val withValidation: Boolean = false,
+    val withValidation: Boolean = true,
     val withAutoSave: Boolean = true,
     val withMeta: Boolean = false,
     val useDeepCopy: Boolean = true,

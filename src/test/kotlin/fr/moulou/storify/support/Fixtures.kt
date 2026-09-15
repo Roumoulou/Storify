@@ -84,7 +84,7 @@ data class AnnotatedTomlData(var title: String = "toml", var level: Int = 2)
 @StoreConfiguration(withAutoSave = false, withMeta = true)
 data class AnnotatedMetaData(var value: Int = 5)
 
-// ─── Le désaccord withValidation, épinglé (défaut d'annotation : true ; défaut de StoreConfig() : false) ──
+// ─── L'accord withValidation (C-24) : true des deux côtés, le validator est l'opt-in ───────────
 
 @Serializable
 @StoreValidator(BareValidatedDataValidator::class)

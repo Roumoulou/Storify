@@ -76,18 +76,16 @@ class ResolutionTest {
     }
 
     @Test
-    fun `sans aucune config, la validation suit StoreConfig et reste éteinte malgré StoreValidator`() {
-        // Le désaccord épinglé : le défaut de StoreConfig() est withValidation = false...
+    fun `sans aucune config, le validator annoté tourne, withValidation est vrai par défaut`() {
+        // L'accord C-24 : le défaut de StoreConfig() est withValidation = true...
         val path = newStorePath("bare.json")
         path.writeText("""{"name": ""}""")
-        StoreFactory.createFromConstructor<BareValidatedData>(path.toString()).use { store ->
-            assertEquals("", store.data.name) // la valeur invalide entre sans un mot : pas de config, pas de validation
-        }
+        assertThrows(ValidationException::class.java) { StoreFactory.createFromConstructor<BareValidatedData>(path.toString()) }
     }
 
     @Test
-    fun `StoreConfiguration vide allume la validation, son propre défaut étant true`() {
-        // ... alors que le défaut de l'annotation @StoreConfiguration est withValidation = true.
+    fun `StoreConfiguration sans argument valide aussi, les deux défauts accordés`() {
+        // ... et celui de l'annotation @StoreConfiguration l'est tout autant : l'accord C-24.
         val path = newStorePath("annotated-validated.json")
         path.writeText("""{"name": ""}""")
         assertThrows(ValidationException::class.java) { StoreFactory.createFromConstructor<AnnotatedValidatedData>(path.toString()) }

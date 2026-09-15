@@ -53,7 +53,9 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 
 Le défaut de `defaultUpdatePolicy` est `SKIP` : sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03). Tranché
 au chantier C-22 : `SKIP` est assumé (le store type est une config que personne n'observe, et le pipeline construit ses captures même sans
-auditeur, voir C-25) ; en garde-fou, l'enregistrement d'un callback d'update voué au silence émet un avertissement au log.
+auditeur, voir C-25) ; en garde-fou, l'enregistrement d'un callback d'update voué au silence émet un avertissement au log. Depuis C-24,
+`withValidation` vaut `true` des deux côtés (annotation et `StoreConfig()`) : sans validator elle ne coûte rien, poser un validator c'est
+vouloir qu'il tourne, et `false` reste l'échappatoire explicite.
 
 ## 3. La factory et la résolution
 

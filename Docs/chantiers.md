@@ -154,9 +154,12 @@ c'est fait, avec la date.
   `dependsOn(shadowJar)`, fragments commentés), commentaires pédagogiques réécrits au registre neutre, numérotation orpheline corrigée, et le
   warning `global.properties` éteint en ne configurant le dépôt Repsy que si le fichier existe (gel propre ; le sort de Repsy reste à C-18).
   Builds lib et banc verts.
-- [ ] **C-24 : accorder `withValidation` entre l'annotation et la config** (S ; C-14). Le défaut de `@StoreConfiguration` est `true` quand celui
+- [x] **C-24 : accorder `withValidation` entre l'annotation et la config** (S ; C-14). Le défaut de `@StoreConfiguration` est `true` quand celui
   de `StoreConfig()` est `false` : une classe annotée sans argument valide au chargement, une classe nue ne valide pas. Découvert en écrivant la
-  suite, épinglé dans les deux sens par `ResolutionTest` ; trancher un défaut unique à froid, puis aligner KDoc et tests.
+  suite, épinglé dans les deux sens par `ResolutionTest` ; trancher un défaut unique à froid, puis aligner KDoc et tests. **Fait le 2026-09-15,
+  décision utilisateur : `true` partout.** Sans validator, la validation ne coûte rien ; poser un validator, c'est vouloir qu'il tourne, et
+  `withValidation = false` devient l'échappatoire explicite. `StoreConfig()` passe à `true`, l'annotation y était déjà ; le test du désaccord de
+  `ResolutionTest` devient le test de l'accord ; KDoc et docs alignées.
 - [ ] **C-25 : court-circuiter la capture sans auditeur** (S ; C-22). Le pipeline d'update construit captures et opération même quand aucun
   callback d'update n'est enregistré : sous une policy observante, des copies profondes partent sans public. Court-circuiter la construction
   quand `onUpdateCallbacks` et la liste ciblée de la propriété sont vides ; fait relevé en tranchant C-22.
