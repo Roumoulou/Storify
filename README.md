@@ -12,8 +12,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - Consommation actuelle : par build composite, sans publication. Le consommateur de référence est Storibench, le banc d'essai en conditions réelles
   (un mod Fabric pour Minecraft 26.2), qui vit hors de ce dépôt, dans le classeur : `..\08-related-projects\storibench`.
 - Build et tests : verts au 2026-09-13, sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (l'encapsulation en tête). La liste complète vit
-  dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (le typage du callback ciblé, le logging, le sidecar meta). La liste
+  complète vit dans `Docs\chantiers.md`.
 - Dépôt Git : en place depuis le 2026-09-13 (branche `master`, un commit par chantier), poussé sur GitHub le jour même (`Roumoulou/Storify`, privé).
 - Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
 
@@ -29,12 +29,13 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 ## 2. Les fonctionnalités
 
 - **Deux formats de fichier fournis** : JSON (`JsonFormat`) et TOML (`TomlFormat`), résolus par l'extension du chemin quand on ne les précise
-  pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `Utils.registerFormat`.
+  pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar copiée au premier lancement.
 - **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,
   `@StoreConfiguration`, `@StoreValidator`, `@StoreDefaultResource`, `@StoreUpdatePolicy`.
-- **Accès global thread-safe** : `store.data` sous read lock, mises à jour sous write lock, callbacks notifiés hors du lock.
+- **Accès global thread-safe** : `store.data` sous read lock, mises à jour sous write lock, callbacks notifiés hors du lock et enregistrables à
+  tout moment, dispatch compris.
 - **Mises à jour typées** par référence de propriété : `set` et `setIn` (remplacer une valeur), `mutate` et `mutateIn` (modifier un objet mutable en
   place, avec navigation dans l'arborescence), `transaction` (tout ou rien, avec rollback sur exception).
 - **Callbacks** : update global, update ciblé sur une propriété (`registerOnUpdateOn`), save, reload ; chaque notification porte une `Operation`
@@ -122,7 +123,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 | `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
-| `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat` et `TomlFormat` fournis, formats tiers via `Utils.registerFormat` |
+| `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat` et `TomlFormat` fournis, formats tiers via `StoreFormats.registerFormat` |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach`) |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |

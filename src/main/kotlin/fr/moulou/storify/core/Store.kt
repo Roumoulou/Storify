@@ -13,7 +13,7 @@ interface Store<DATA : Any> : AutoCloseable {
 
     val log: Logger get() = LoggerFactory.getLogger(javaClass)
 
-    var data: DATA
+    val data: DATA
     val path: Path
     val format: StoreFormat
     val meta: StoreMeta?
@@ -28,11 +28,6 @@ interface Store<DATA : Any> : AutoCloseable {
 
     /** Valide les données en mémoire avec le validator du store (Success sans validator). */
     fun validateNow(): ValidationResult
-
-    val onSaveCallbacks: MutableList<(Operation<DATA>) -> Unit>
-    val onReloadCallbacks: MutableList<(Operation<DATA>) -> Unit>
-    val onUpdateCallbacks: MutableList<(Operation<DATA>) -> Unit>
-    val onUpdateCallbacksMap: MutableMap<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>>
 
     fun registerOnSave(callback: (Operation<DATA>) -> Unit)
     fun registerOnReload(callback: (Operation<DATA>) -> Unit)

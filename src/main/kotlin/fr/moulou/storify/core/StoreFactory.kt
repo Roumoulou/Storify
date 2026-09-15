@@ -3,7 +3,7 @@
 package fr.moulou.storify.core
 
 import fr.moulou.storify.*
-import fr.moulou.storify.utils.Utils
+import fr.moulou.storify.utils.StoreFormats
 import fr.moulou.storify.utils.deepCopyViaCbor
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.serializer
@@ -128,7 +128,7 @@ object StoreFactory {
 
         val finalPath = stringPath ?: resolved.path ?: throw IllegalArgumentException("${DATA::class.simpleName} must be annotated with @StorePath")
 
-        val finalFormat = format ?: resolved.format ?: Utils.getFormatForStringPath(finalPath)
+        val finalFormat = format ?: resolved.format ?: StoreFormats.getFormatForStringPath(finalPath)
         val finalConfig = config ?: resolved.config ?: StoreConfig()
         val finalValidator = validator ?: resolved.validator
 

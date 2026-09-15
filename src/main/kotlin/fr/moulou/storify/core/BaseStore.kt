@@ -8,6 +8,8 @@ import kotlinx.serialization.KSerializer
 import java.nio.channels.FileChannel
 import java.nio.file.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -65,7 +67,7 @@ data class StoreConfig(
  * @param DATA La data class serializable gérée par ce store.
  */
 @Suppress("PropertyName")
-class BaseStore<DATA : Any>(
+class BaseStore<DATA : Any> @PublishedApi internal constructor(
     override val path: Path,
     override val format: StoreFormat,
 
@@ -92,16 +94,18 @@ class BaseStore<DATA : Any>(
     @PublishedApi
     internal lateinit var _data: DATA
 
-    override var data: DATA
+    override val data: DATA
         get() = dataLock.read { _data }
-        set(newValue) {
-            val operation = dataLock.write {
-                val old = _data
-                _data = newValue
-                ReloadOperation(this::data, CapturedValue.DeepCopy(deepCopyFn(old)), CapturedValue.DeepCopy(deepCopyFn(newValue)))
-            }
-            onReloadCallbacks.forEach { it(operation) }
+
+    /** Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08). */
+    internal fun replaceData(newValue: DATA) {
+        val operation = dataLock.write {
+            val old = _data
+            _data = newValue
+            ReloadOperation(this::data, CapturedValue.DeepCopy(deepCopyFn(old)), CapturedValue.DeepCopy(deepCopyFn(newValue)))
         }
+        onReloadCallbacks.forEach { it(operation) }
+    }
 
     private val _dataOrigin: DataOrigin = if (path.exists()) DataOrigin.FILE else DataOrigin.DEFAULT
 
@@ -184,11 +188,11 @@ class BaseStore<DATA : Any>(
         check(!closed.get()) { "[Storify] Store '$path' is closed" }
     }
 
-    // ── Callbacks ──
-    override val onSaveCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
-    override val onReloadCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
-    override val onUpdateCallbacks: MutableList<(Operation<DATA>) -> Unit> = mutableListOf()
-    override val onUpdateCallbacksMap: MutableMap<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>> = mutableMapOf<KProperty1<*, *>, MutableList<(Operation<DATA>) -> Unit>>()
+    // ── Callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08) ──
+    private val onSaveCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
+    private val onReloadCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
+    private val onUpdateCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
+    private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<(Operation<DATA>) -> Unit>>()
 
     /** Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. */
     @PublishedApi
@@ -361,7 +365,7 @@ class BaseStore<DATA : Any>(
                 throw ValidationException(errors, "[Storify] Reload of '$path' rejected, in-memory data untouched:\n${ValidationResult.Failure(errors).formatFull()}")
             }
         }
-        data = incoming
+        replaceData(incoming)
     }
 
     override fun validateNow(): ValidationResult = dataLock.read { runValidation(_data) }
@@ -422,11 +426,7 @@ class BaseStore<DATA : Any>(
     }
 
     override fun registerOnUpdateOn(prop: KProperty1<*, *>, callback: (Operation<DATA>) -> Unit) {
-        onUpdateCallbacksMap.compute(prop) { _, value ->
-            if (value == null) mutableListOf(callback) else {
-                value.add(callback); value
-            }
-        }
+        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(callback)
     }
 
     /**
@@ -564,7 +564,8 @@ class BaseStore<DATA : Any>(
         if (outcome != null) dispatchUpdateCallbacks(outcome) else return
     }
 
-    fun transactionInternal(block: DATA.() -> Unit) {
+    @PublishedApi
+    internal fun transactionInternal(block: DATA.() -> Unit) {
         checkOpen()
         val operation: Operation<DATA> = dataLock.write {
             val backupSnapshot: DATA? = if (config.useDeepCopy) deepCopyFn(_data) else null

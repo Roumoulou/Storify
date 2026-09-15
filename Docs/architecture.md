@@ -59,7 +59,7 @@ choix de ce défaut reste ouvert au chantier C-22.
 La factory publique est `StoreFactory`. Jusqu'au 2026-09-13, deux factories cohabitaient : la refonte, un temps nommée `StoreFactoryBetter`, a
 absorbé l'ancienne au chantier C-07 (dont les variantes à path explicite ignoraient silencieusement les annotations). Toutes les variantes
 convergent vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite, puis annotation, puis repli
-(`Utils.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). Depuis C-09, elle matérialise aussi le sérialiseur de DATA à son
+(`StoreFormats.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). Depuis C-09, elle matérialise aussi le sérialiseur de DATA à son
 site réifié (`serializer<DATA>()`) et le passe au store, qui appelle le format en polymorphe : la factory ne fabrique plus d'encoders.
 
 Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de données initiales :
@@ -189,8 +189,8 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 | `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
 
-`Utils` tient le registre extension vers format (`json`, `toml`), interrogé quand aucun format n'est donné ; `registerFormat` y ajoute un format
-tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
+`StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`), interrogé quand aucun format
+n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
 les extensions enregistrées) : le repli silencieux sur JSON est mort avec le reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers
 parents avant chaque écriture : un format tiers qui oublierait de les créer ne reproduira pas le piège du constat n° 1 (la leçon C-04,
 généralisée).
@@ -208,8 +208,9 @@ fonction de la taille des collections. Le raccourci immuable du pipeline d'updat
   remplacement de racine le write lock, la sauvegarde le read lock.
 - Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
-- Non garanti à ce jour : les listes de callbacks sont des `MutableList` non synchronisées (l'enregistrement concurrent à un dispatch n'est pas
-  protégé), le sidecar meta se modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains.
+- Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
+  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. Non garanti à ce jour : le sidecar meta se modifie sans verrou
+  propre, et un encodage long sous read lock retarde tous les écrivains.
 
 ## 12. Le sidecar meta
 

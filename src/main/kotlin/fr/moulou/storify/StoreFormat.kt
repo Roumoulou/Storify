@@ -16,8 +16,8 @@ import java.nio.file.Path
  * marqués `@Contextual` à l'intérieur de DATA restent résolus par le `serializersModule` du format
  * au moment de l'encodage ou du décodage.
  *
- * Un format tiers s'enregistre par [fr.moulou.storify.utils.Utils.registerFormat] ; il est alors
- * résolu par l'extension du chemin, comme les formats fournis.
+ * Un format tiers s'enregistre par [fr.moulou.storify.utils.StoreFormats.registerFormat] ; il est
+ * alors résolu par l'extension du chemin, comme les formats fournis.
  */
 interface StoreFormat {
 

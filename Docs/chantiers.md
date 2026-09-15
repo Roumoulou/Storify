@@ -103,9 +103,16 @@ c'est fait, avec la date.
   Le nom « Better » ne doit pas survivre à la stabilisation. **Fait le 2026-09-13** : l'ancienne supprimée (ses variantes à path explicite
   ignoraient les annotations), la refonte renommée par `git mv`, consommateurs migrés (banc, MyOwnTest, Demo) ; les démos de validation n'ont pas
   bougé, leur import `core.StoreFactory` pointe désormais la bonne implémentation.
-- [ ] **C-08 : encapsulation et visibilités** (M ; LECTURE). Les `MutableList` de callbacks sont publiques dans l'interface `Store` ; le setter
+- [x] **C-08 : encapsulation et visibilités** (M ; LECTURE). Les `MutableList` de callbacks sont publiques dans l'interface `Store` ; le setter
   public de `data` est un reload déguisé (il émet une `ReloadOperation`) ; `transactionInternal` est public quand ses frères sont
-  `@PublishedApi internal` ; `internalCopyCbor` traîne en public. Fermer ce qui doit l'être, nommer ce qui reste.
+  `@PublishedApi internal` ; `internalCopyCbor` traîne en public. Fermer ce qui doit l'être, nommer ce qui reste. **Fait le 2026-09-15** :
+  l'interface `Store` au régime (les quatre conteneurs de callbacks sortent du contrat, `data` passe en lecture seule) ; les conteneurs
+  deviennent privés ET thread-safe dans `BaseStore` (`CopyOnWriteArrayList`, `ConcurrentHashMap` : un callback peut s'enregistrer pendant un
+  dispatch, le trou du chapitre 11 d'architecture.md est fermé, un test le verrouille) ; le setter de `data` meurt avec ses deux trous relevés
+  en séance (ni `checkOpen` ni `markDirty` : écriture possible après close, modification jamais auto-sauvée), remplacé par `replaceData`
+  interne au service de `reloadFromFile` ; `transactionInternal`, le constructeur de `BaseStore` et `internalCopyCbor` passent
+  `@PublishedApi internal` ; et `Utils` est renommé `StoreFormats`, le registre des formats sous un nom qui dit son métier. Aucun test existant
+  modifié hors le renommage : les 149 restent verts, plus un nouveau (150).
 - [x] **C-09 : le vrai point d'extension des formats** (M/L ; LECTURE). `Utils.registerFormat` accepte un format tiers que la factory rejette
   aussitôt (le `when` figé sur `JsonFormat`/`TomlFormat` dans les encoders). Le format doit porter lui-même son encode/decode générique ; à
   concevoir avec soin (la réification des types s'y oppose naïvement). **Fait le 2026-09-13** : `StoreFormat` porte le contrat (`fileExtension`,

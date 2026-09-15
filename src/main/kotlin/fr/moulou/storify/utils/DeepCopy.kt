@@ -6,7 +6,8 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 
 @OptIn(ExperimentalSerializationApi::class)
-val internalCopyCbor = Cbor { encodeDefaults = true }
+@PublishedApi
+internal val internalCopyCbor = Cbor { encodeDefaults = true }
 
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified T> T.deepCopyViaCbor(): T {

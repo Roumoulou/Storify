@@ -8,7 +8,7 @@ import fr.moulou.storify.TomlFormat
 import java.nio.file.Path
 import kotlin.io.path.extension
 
-object Utils {
+object StoreFormats {
 
     private val formatRegistry = mutableMapOf<String, StoreFormat>("json" to JsonFormat(), "toml" to TomlFormat())
 

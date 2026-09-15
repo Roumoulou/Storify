@@ -4,7 +4,7 @@ import fr.moulou.storify.*
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.set
-import fr.moulou.storify.utils.Utils
+import fr.moulou.storify.utils.StoreFormats
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
@@ -72,7 +72,7 @@ class CustomFormatTest {
 
     @Test
     fun `un format enregistré se résout par l'extension et fait l'aller-retour complet`() {
-        Utils.registerFormat("custom", CustomFormat())
+        StoreFormats.registerFormat("custom", CustomFormat())
         val path = newStorePath("payload.custom")
 
         StoreFactory.createFromConstructor<CustomPayload>(path.toString(), config = noAutoSave).use { store ->

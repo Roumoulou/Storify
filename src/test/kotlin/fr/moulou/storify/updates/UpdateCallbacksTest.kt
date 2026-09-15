@@ -71,6 +71,25 @@ class UpdateCallbacksTest {
     }
 
     @Test
+    fun `un callback peut en enregistrer un autre pendant le dispatch`() {
+        StoreFactory.create<PlainData>(newStorePath("during-dispatch.json").toString(), config = snapshotConfig).use { store ->
+            var lateCallbackHeard = 0
+            var registered = false
+            store.registerOnUpdate {
+                if (!registered) {
+                    registered = true
+                    store.registerOnUpdate { lateCallbackHeard++ } // s'enregistrer PENDANT un dispatch : légal depuis C-08
+                }
+            }
+
+            store.set(PlainData::name, "premier")  // déclenche l'enregistrement tardif, sans ConcurrentModificationException
+            store.set(PlainData::name, "second")   // le tardif entend celui-ci
+
+            assertEquals(1, lateCallbackHeard)
+        }
+    }
+
+    @Test
     fun `un callback peut relire le store sans interblocage`() {
         StoreFactory.create<PlainData>(newStorePath("reentrant.json").toString(), config = snapshotConfig).use { store ->
             var seenFromCallback = -1
