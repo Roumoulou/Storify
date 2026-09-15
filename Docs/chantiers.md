@@ -139,8 +139,12 @@ c'est fait, avec la date.
   vérifié au grep) et devient un champ privé de `BaseStore`, fabriqué une fois au lieu d'une recherche par accès. La tournée des messages :
   le préfixe `[Storify]` était en fait déjà systématique, posé au fil de l'eau par les chantiers depuis C-01 (vérifié au grep), et les niveaux
   sont confirmés : ticks en debug, cycle de vie en info, échecs en warn.
-- [ ] **C-12 : l'hygiène des chemins** (S ; LECTURE). Normaliser le path à l'entrée du store (`toAbsolutePath().normalize()`) : le banc affiche
+- [x] **C-12 : l'hygiène des chemins** (S ; LECTURE). Normaliser le path à l'entrée du store (`toAbsolutePath().normalize()`) : le banc affiche
   aujourd'hui `saves\New World\.\data\...`. En profiter pour fixer la politique d'affichage des données dans les logs (troncature, types).
+  **Fait le 2026-09-15** : le chemin est normalisé à la construction de `BaseStore`, l'unique point d'entrée : logs, messages d'erreur, sidecar
+  et temporaires atomiques en héritent tous, le `\.\` du banc est mort ; un test l'épingle. Le second volet se règle par un constat : la lib ne
+  journalise aucune donnée utilisateur (des chemins et des états seulement, vérifié sur la flotte des messages) ; la politique est désormais
+  écrite dans architecture.md, rien à tronquer.
 - [ ] **C-13 : `StoreMeta` sous-exploité** (S ; LECTURE). `version` jamais incrémentée, `touch()` jamais appelé par la lib, `custom` sans
   consommateur. Brancher ce qui sert (lien C-17), tailler ce qui ne sert pas.
 - [x] **C-14 : une vraie suite de tests** (L ; TESTS). Généraliser le geste du 2026-09-13 (assertions réelles, fichiers sous `build\tmp`,

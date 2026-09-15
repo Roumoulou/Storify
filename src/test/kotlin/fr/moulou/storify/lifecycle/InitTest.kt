@@ -5,13 +5,16 @@ import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.support.AnnotatedValidatedData
 import fr.moulou.storify.support.InvalidByDefaultData
 import fr.moulou.storify.support.PlainData
+import fr.moulou.storify.support.newStoreDir
 import fr.moulou.storify.support.newStorePath
 import fr.moulou.storify.validation.ValidationException
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+import java.nio.file.Paths
 import kotlin.io.path.writeText
 
 /**
@@ -52,6 +55,15 @@ class InitTest {
         val path = newStorePath("born.json")
         StoreFactory.createFromConstructor<AnnotatedValidatedData>(path.toString()).use {
             assertTrue(Files.exists(path))
+        }
+    }
+
+    @Test
+    fun `le chemin du store est absolu et normalisé dès la construction`() {
+        val dotted = newStoreDir().toString() + "/./sub/../sub/normalized.json"
+        StoreFactory.create<PlainData>(dotted, config = noAutoSave).use { store ->
+            assertTrue(store.path.isAbsolute)
+            assertEquals(Paths.get(dotted).toAbsolutePath().normalize(), store.path) // plus de points ni de détours (C-12)
         }
     }
 

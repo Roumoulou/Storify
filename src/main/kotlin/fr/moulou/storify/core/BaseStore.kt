@@ -71,7 +71,7 @@ data class StoreConfig(
  */
 @Suppress("PropertyName")
 class BaseStore<DATA : Any> @PublishedApi internal constructor(
-    override val path: Path,
+    storePath: Path,
     override val format: StoreFormat,
 
     /** Options de comportement du store. */
@@ -89,6 +89,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Validateur optionnel résolu depuis l'annotation `@StoreValidator`. */
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
+
+    /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
+    override val path: Path = storePath.toAbsolutePath().normalize()
 
     /** Le logger du store, fabriqué une fois : un détail d'implémentation, plus une pièce du contrat (C-11). */
     private val log: Logger = LoggerFactory.getLogger(BaseStore::class.java)

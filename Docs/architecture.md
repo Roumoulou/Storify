@@ -76,7 +76,8 @@ Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de donn
 
 ## 4. Le cycle de vie de BaseStore
 
-L'initialisation enchaîne six étapes, dans l'ordre du bloc `init` :
+Le chemin reçu est d'abord normalisé (`toAbsolutePath().normalize()`, C-12) : logs, erreurs, sidecar et temporaires parlent tous le même chemin
+net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init` :
 
 1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE`) ; sinon les données par défaut sont fabriquées, sans rien écrire :
    le fichier initial n'arrive qu'après la validation (C-06), des défauts invalides ne touchent jamais le disque. Exception voulue : la copie
@@ -226,7 +227,8 @@ fonction de la taille des collections. Le raccourci immuable du pipeline d'updat
 - Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
   `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch.
 - Le logging (C-11) : le logger n'appartient plus au contrat `Store`, c'est un champ privé fabriqué une fois par store ; tous les messages
-  portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn. Non garanti à ce jour : le sidecar meta se modifie sans verrou
+  portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn. Et la lib ne journalise jamais de
+  données utilisateur : des chemins et des états seulement (politique posée au C-12, vérifiée sur la flotte des messages). Non garanti à ce jour : le sidecar meta se modifie sans verrou
   propre, et un encodage long sous read lock retarde tous les écrivains.
 
 ## 12. Le sidecar meta
