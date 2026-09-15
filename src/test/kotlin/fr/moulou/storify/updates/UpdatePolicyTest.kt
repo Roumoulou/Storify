@@ -12,6 +12,7 @@ import fr.moulou.storify.support.PlainData
 import fr.moulou.storify.support.newStorePath
 import fr.moulou.storify.support.resetAnnotatedFile
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -68,6 +69,16 @@ class UpdatePolicyTest {
             store.setUpdatePolicy(PlainData::name, UpdatePolicy.SNAPSHOT)
             store.set(PlainData::name, "bavard")
             assertEquals(1, operations.size) // la policy posée au runtime parle
+        }
+    }
+
+    @Test
+    fun `belongsToDataTree connaît l'arbre, racine et imbriquées, et rejette l'étranger`() {
+        StoreFactory.create<OuterData>(newStorePath("tree.json").toString(), config = skipConfig).use { store ->
+            assertTrue(store.belongsToDataTree(OuterData::title))
+            assertTrue(store.belongsToDataTree(InnerLeaf::hits))  // imbriquée, trouvée par le scan récursif
+            assertFalse(store.belongsToDataTree(PlainData::name)) // l'arbre d'un autre store
+            assertFalse(store.belongsToDataTree(String::length))  // kotlin_* n'est l'arbre de personne
         }
     }
 

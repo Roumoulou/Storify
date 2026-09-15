@@ -193,15 +193,24 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     private val onSaveCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onReloadCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
-    private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<(Operation<DATA>) -> Unit>>()
+    private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<TargetedListener<DATA>>>()
 
     /** Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. */
     @PublishedApi
     internal val updatePolicies: MutableMap<KProperty1<*, *>, UpdatePolicy> = mutableMapOf()
 
-    /** Change la politique d'update d'une propriété au runtime. */
+    /** Les propriétés de l'arbre de DATA, collectées par le scan des policies : la garde de [setUpdatePolicy]. */
+    private val dataTreeProperties = mutableSetOf<KProperty1<*, *>>()
+
+    /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
+    internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
+
+    /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
     @Suppress("unused")
     fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
+        if (!belongsToDataTree(prop)) {
+            log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
+        }
         updatePolicies[prop] = policy
     }
 
@@ -251,6 +260,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         if (qn != null && (qn.startsWith("kotlin.") || qn.startsWith("java."))) return
 
         kClass.memberProperties.forEach { prop ->
+            dataTreeProperties.add(prop)
             prop.annotations
                 .filterIsInstance<StoreUpdatePolicy>()
                 .firstOrNull()
@@ -429,11 +439,21 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         onUpdateCallbacks.add(callback)
     }
 
-    override fun registerOnUpdateOn(prop: KProperty1<*, *>, callback: (Operation<DATA>) -> Unit) {
+    override fun registerOnUpdateOn(prop: KProperty1<DATA, *>, callback: (Operation<DATA>) -> Unit) {
+        warnIfSilent(prop)
+        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(null, callback))
+    }
+
+    override fun <R : Any> registerOnUpdateOnIn(prop: KProperty1<R, *>, receiver: DATA.() -> R, callback: (Operation<DATA>) -> Unit) {
+        warnIfSilent(prop)
+        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(receiver, callback))
+    }
+
+    /** Le garde-fou C-22 : un callback d'update enregistré sur une propriété à policy effective SKIP restera muet. */
+    private fun warnIfSilent(prop: KProperty1<*, *>) {
         if (getUpdatePolicy(prop) == UpdatePolicy.SKIP) {
             log.warn("[Storify] Update callback registered on '{}' but its effective policy is SKIP: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)", prop.name)
         }
-        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(callback)
     }
 
     /**
@@ -445,7 +465,8 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     internal data class UpdateOutcome<DATA : Any>(
         val success: Boolean,
         val operation: Operation<DATA>,
-        val prop: KProperty1<*, *>
+        val prop: KProperty1<*, *>,
+        val receiver: Any
     )
 
     /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
@@ -470,7 +491,17 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     @PublishedApi
     internal fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
         onUpdateCallbacks.forEach { it(outcome.operation) }
-        onUpdateCallbacksMap[outcome.prop]?.forEach { it(outcome.operation) }
+        onUpdateCallbacksMap[outcome.prop]?.forEach { listener ->
+            val navigate = listener.navigate
+            if (navigate == null) {
+                listener.callback(outcome.operation)
+            } else {
+                // Réévaluée à chaque notification sur les données du moment : l'écouteur survit aux
+                // reloads, et une navigation qui échoue vaut « ne matche pas ».
+                val target = runCatching { data.navigate() }.getOrNull()
+                if (target === outcome.receiver) listener.callback(outcome.operation)
+            }
+        }
     }
 
     /**
@@ -511,7 +542,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                 if (failure != null) {
                     val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
                     restoreRoot(guardBackup)
-                    return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1)
+                    return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
                 }
             }
             markDirty()
@@ -531,7 +562,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             if (failure != null) {
                 val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
                 restoreRoot(guardBackup)
-                return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1)
+                return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
             }
         }
         markDirty()
@@ -548,7 +579,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         }
 
         val operation = createOperation(oldCaptured, newCaptured)
-        UpdateOutcome(true, operation, kProperty1)
+        UpdateOutcome(true, operation, kProperty1, receiver)
     }
 
     @PublishedApi
@@ -630,6 +661,15 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             throw e
         }
     }
+
+    /**
+     * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
+     * avec navigation il n'écoute que l'instance qu'elle désigne (comparaison par identité).
+     */
+    private class TargetedListener<DATA : Any>(
+        val navigate: (DATA.() -> Any)?,
+        val callback: (Operation<DATA>) -> Unit,
+    )
 
     /** Balaye les temporaires orphelins d'un crash passé (motif strict : ceux de ce fichier et de son sidecar). */
     private fun sweepOrphanTemps() {

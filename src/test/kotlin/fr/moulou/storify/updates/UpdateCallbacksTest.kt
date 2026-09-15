@@ -5,8 +5,11 @@ import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.mutate
 import fr.moulou.storify.core.set
+import fr.moulou.storify.core.setIn
 import fr.moulou.storify.core.transaction
+import fr.moulou.storify.support.InnerLeaf
 import fr.moulou.storify.support.PlainData
+import fr.moulou.storify.support.TwinData
 import fr.moulou.storify.support.newStorePath
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -67,6 +70,50 @@ class UpdateCallbacksTest {
             store.set(PlainData::count, 8) // mis à jour via la référence locale
 
             assertEquals(1, targeted.size) // l'égalité des KProperty1 fait le lien : le mécanisme épinglé (voir C-10)
+        }
+    }
+
+    @Test
+    fun `registerOnUpdateOnIn ne réveille que l'instance visée`() {
+        StoreFactory.create<TwinData>(newStorePath("twins.json").toString(), config = snapshotConfig).use { store ->
+            var leftHeard = 0
+            var rightHeard = 0
+            store.registerOnUpdateOnIn(InnerLeaf::label, { left }) { leftHeard++ }
+            store.registerOnUpdateOnIn(InnerLeaf::label, { right }) { rightHeard++ }
+
+            store.setIn(InnerLeaf::label, "gauche") { left }
+
+            assertEquals(1, leftHeard)
+            assertEquals(0, rightHeard) // la jumelle n'a rien entendu : le ciblage est à l'instance
+        }
+    }
+
+    @Test
+    fun `l'écouteur à navigation survit au rechargement`() {
+        StoreFactory.create<TwinData>(newStorePath("twins-reload.json").toString(), config = snapshotConfig).use { store ->
+            var heard = 0
+            store.registerOnUpdateOnIn(InnerLeaf::label, { left }) { heard++ }
+
+            store.saveImmediate()
+            store.reloadFromFile() // la racine est remplacée : toutes les instances sont neuves
+
+            store.setIn(InnerLeaf::label, "après reload") { left }
+            assertEquals(1, heard) // la navigation, réévaluée au dispatch, a retrouvé la nouvelle instance
+        }
+    }
+
+    @Test
+    fun `une navigation qui échoue vaut silence, sans casser le dispatch`() {
+        StoreFactory.create<TwinData>(newStorePath("twins-broken.json").toString(), config = snapshotConfig).use { store ->
+            var brokenHeard = 0
+            var healthyHeard = 0
+            store.registerOnUpdateOnIn(InnerLeaf::label, { error("navigation cassée") }) { brokenHeard++ }
+            store.registerOnUpdateOnIn(InnerLeaf::label, { left }) { healthyHeard++ }
+
+            store.setIn(InnerLeaf::label, "x") { left } // aucune exception ne fuit du dispatch
+
+            assertEquals(0, brokenHeard)
+            assertEquals(1, healthyHeard)
         }
     }
 

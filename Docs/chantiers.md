@@ -123,8 +123,16 @@ c'est fait, avec la date.
   promet ; une extension inconnue refusée net au lieu du repli silencieux sur JSON ; `atomicWrite` garantit les dossiers parents pour tout
   format (la leçon C-04 généralisée). Quatre tests neufs (`CustomFormatTest`) : l'aller-retour d'un format tiers par le registre et en
   explicite, le refus d'extension inconnue, le sidecar JSON d'un store TOML.
-- [ ] **C-10 : `registerOnUpdateOn` typé** (S ; LECTURE). La signature `KProperty1<*, *>` accepte n'importe quelle propriété de n'importe quelle
+- [x] **C-10 : `registerOnUpdateOn` typé** (S ; LECTURE). La signature `KProperty1<*, *>` accepte n'importe quelle propriété de n'importe quelle
   classe ; typer sur DATA ce qui peut l'être, et documenter l'égalité des références de propriétés (le mécanisme repose dessus).
+  **Fait le 2026-09-15**, en mieux que prévu (S devenu M, design co-construit en séance) : `registerOnUpdateOn` typé racine
+  (`KProperty1<DATA, *>`, l'erreur de store meurt à la compilation), et la vraie trouvaille, `registerOnUpdateOnIn`, le miroir de `setIn` : la
+  navigation ancre la propriété imbriquée au store à la compilation ET désigne l'instance, réévaluée à chaque notification et comparée par
+  identité (l'écouteur survit aux reloads, une navigation qui échoue vaut silence, une instance fabriquée ne matche jamais). Le ciblage
+  d'instance est une capacité neuve : deux jumelles de la même classe s'écoutent séparément. Les policies restent arborescentes, gardées par
+  l'arbre réel (`belongsToDataTree`, collecté par le scan : `setUpdatePolicy` signale l'étranger au log). L'égalité des références est
+  documentée dans la KDoc du contrat. Quatre tests neufs ; l'option interface marqueur (`StorePart<in DATA>`) étudiée puis écartée au profit
+  de la navigation, plus précise et sans marquage des data classes.
 - [ ] **C-11 : le logging au cordeau** (S ; LECTURE). `Store.log` est un getter qui refabrique un logger à chaque accès ; le préfixe `[Storify]`
   est présent ou absent selon les messages. Un logger par store, préfixe systématique, niveaux revus (les ticks en debug, c'est bien).
 - [ ] **C-12 : l'hygiène des chemins** (S ; LECTURE). Normaliser le path à l'entrée du store (`toAbsolutePath().normalize()`) : le banc affiche

@@ -47,6 +47,17 @@ data class OuterData(
     }
 }
 
+/** Deux instances jumelles de la même classe imbriquée : la fixture du ciblage d'instance (C-10). */
+@Serializable
+data class TwinData(
+    var left: InnerLeaf = InnerLeaf(label = "left"),
+    var right: InnerLeaf = InnerLeaf(label = "right"),
+) {
+    companion object : Defaultable<TwinData> {
+        override fun getDefault(): TwinData = TwinData()
+    }
+}
+
 // ─── Le kit annoté complet ──────────────────────────────────────────────────────────────────────
 
 @Serializable

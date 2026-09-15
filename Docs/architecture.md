@@ -130,6 +130,13 @@ sécurité puis dispatche une `ValidationFailedOperation` au lieu de l'opératio
 `transaction` suit un autre chemin : copie profonde de la racine entière en secours, exécution du bloc, et en cas d'exception restauration du
 secours (rollback) avant de relancer l'exception. Sans `useDeepCopy`, pas de secours : la transaction perd son filet.
 
+Le ciblage par propriété (C-10) : `registerOnUpdateOn` est typé sur la racine (`KProperty1<DATA, *>`), l'erreur de store se refuse donc à la
+compilation ; `registerOnUpdateOnIn` est le miroir de `setIn` : sa navigation ancre la propriété imbriquée au store à la compilation, puis elle
+est réévaluée à chaque notification et comparée par identité au receiver de l'update : seul l'exemplaire visé est notifié, l'écouteur survit aux
+reloads, et une navigation qui échoue vaut « ne matche pas ». Le lien entre update et callback repose sur l'égalité des références de propriété
+(`Data::champ` venu de deux sites d'appel désigne la même clé). Les policies, elles, restent arborescentes (`KProperty1<*, *>`) :
+`setUpdatePolicy` signale au log une propriété étrangère à l'arbre de DATA, l'arbre réel étant collecté par le scan des annotations.
+
 ## 6. Policies et captures
 
 | Policy | Copie profonde des valeurs | Callbacks |

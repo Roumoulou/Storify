@@ -32,7 +32,25 @@ interface Store<DATA : Any> : AutoCloseable {
     fun registerOnSave(callback: (Operation<DATA>) -> Unit)
     fun registerOnReload(callback: (Operation<DATA>) -> Unit)
     fun registerOnUpdate(callback: (Operation<DATA>) -> Unit)
-    fun registerOnUpdateOn(prop: KProperty1<*, *>, callback: (Operation<DATA>) -> Unit)
+
+    /**
+     * Enregistre un callback ciblé sur une propriété de la racine [DATA] : il n'est notifié que
+     * des updates de cette propriété, où que l'update ait été émis. Le lien repose sur l'égalité
+     * des références de propriété (`Data::champ` venu de deux sites d'appel désigne la même clé).
+     * Une propriété imbriquée s'écoute par [registerOnUpdateOnIn] ; une classe imbriquée entière
+     * s'observe par [registerOnUpdate], filtré sur `operation.prop`.
+     */
+    fun registerOnUpdateOn(prop: KProperty1<DATA, *>, callback: (Operation<DATA>) -> Unit)
+
+    /**
+     * Enregistre un callback ciblé sur une propriété imbriquée, pour la seule instance que
+     * [receiver] désigne : le miroir de `setIn`/`mutateIn`. La navigation ancre la propriété à ce
+     * store à la compilation (aucun chemin honnête ne mène à une classe étrangère), puis elle est
+     * réévaluée à chaque notification sur les données du moment et comparée par identité au
+     * receiver de l'update : l'écouteur survit donc aux rechargements, une navigation qui échoue
+     * vaut simplement « ne matche pas », et seul l'exemplaire visé est notifié.
+     */
+    fun <R : Any> registerOnUpdateOnIn(prop: KProperty1<R, *>, receiver: DATA.() -> R, callback: (Operation<DATA>) -> Unit)
 
     fun pauseAutoSave()
 

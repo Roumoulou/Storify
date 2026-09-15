@@ -40,8 +40,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   tout moment, dispatch compris.
 - **Mises à jour typées** par référence de propriété : `set` et `setIn` (remplacer une valeur), `mutate` et `mutateIn` (modifier un objet mutable en
   place, avec navigation dans l'arborescence), `transaction` (tout ou rien, avec rollback sur exception).
-- **Callbacks** : update global, update ciblé sur une propriété (`registerOnUpdateOn`), save, reload ; chaque notification porte une `Operation`
-  avec les valeurs avant et après (`CapturedValue`).
+- **Callbacks** : update global, update ciblé sur une propriété de la racine (`registerOnUpdateOn`, typé) ou sur une **instance imbriquée**
+  précise (`registerOnUpdateOnIn`, le miroir de `setIn` : deux joueurs de la même classe s'écoutent séparément), save, reload ; chaque
+  notification porte une `Operation` avec les valeurs avant et après (`CapturedValue`).
 - **Politiques de capture par propriété** (`UpdatePolicy`) : `SNAPSHOT` (copie profonde avant et après), `SHALLOW` (références seules), `SKIP`
   (silence complet).
 - **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM,
