@@ -5,6 +5,8 @@ import fr.moulou.storify.utils.DateUtils.formatLocal
 import fr.moulou.storify.utils.deepCopyValue
 import fr.moulou.storify.validation.*
 import kotlinx.serialization.KSerializer
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.nio.channels.FileChannel
 import java.nio.file.*
 import java.util.*
@@ -87,6 +89,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Validateur optionnel résolu depuis l'annotation `@StoreValidator`. */
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
+
+    /** Le logger du store, fabriqué une fois : un détail d'implémentation, plus une pièce du contrat (C-11). */
+    private val log: Logger = LoggerFactory.getLogger(BaseStore::class.java)
 
     /** Indique si les données ont été chargées depuis un fichier ou générées par [defaultDataProvider]. */
     private enum class DataOrigin { FILE, DEFAULT }

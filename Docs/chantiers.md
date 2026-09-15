@@ -133,8 +133,12 @@ c'est fait, avec la date.
   l'arbre réel (`belongsToDataTree`, collecté par le scan : `setUpdatePolicy` signale l'étranger au log). L'égalité des références est
   documentée dans la KDoc du contrat. Quatre tests neufs ; l'option interface marqueur (`StorePart<in DATA>`) étudiée puis écartée au profit
   de la navigation, plus précise et sans marquage des data classes.
-- [ ] **C-11 : le logging au cordeau** (S ; LECTURE). `Store.log` est un getter qui refabrique un logger à chaque accès ; le préfixe `[Storify]`
+- [x] **C-11 : le logging au cordeau** (S ; LECTURE). `Store.log` est un getter qui refabrique un logger à chaque accès ; le préfixe `[Storify]`
   est présent ou absent selon les messages. Un logger par store, préfixe systématique, niveaux revus (les ticks en debug, c'est bien).
+  **Fait le 2026-09-15** : le logger sort du contrat `Store` (une pollution d'API dans l'angle mort de C-08 ; personne dehors ne l'utilisait,
+  vérifié au grep) et devient un champ privé de `BaseStore`, fabriqué une fois au lieu d'une recherche par accès. La tournée des messages :
+  le préfixe `[Storify]` était en fait déjà systématique, posé au fil de l'eau par les chantiers depuis C-01 (vérifié au grep), et les niveaux
+  sont confirmés : ticks en debug, cycle de vie en info, échecs en warn.
 - [ ] **C-12 : l'hygiène des chemins** (S ; LECTURE). Normaliser le path à l'entrée du store (`toAbsolutePath().normalize()`) : le banc affiche
   aujourd'hui `saves\New World\.\data\...`. En profiter pour fixer la politique d'affichage des données dans les logs (troncature, types).
 - [ ] **C-13 : `StoreMeta` sous-exploité** (S ; LECTURE). `version` jamais incrémentée, `touch()` jamais appelé par la lib, `custom` sans

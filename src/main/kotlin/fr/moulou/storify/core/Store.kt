@@ -4,14 +4,10 @@ import fr.moulou.storify.Operation
 import fr.moulou.storify.StoreFormat
 import fr.moulou.storify.StoreMeta
 import fr.moulou.storify.validation.ValidationResult
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.reflect.KProperty1
 
 interface Store<DATA : Any> : AutoCloseable {
-
-    val log: Logger get() = LoggerFactory.getLogger(javaClass)
 
     val data: DATA
     val path: Path

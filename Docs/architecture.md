@@ -224,7 +224,9 @@ fonction de la taille des collections. Le raccourci immuable du pipeline d'updat
 - Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
 - Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
-  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. Non garanti à ce jour : le sidecar meta se modifie sans verrou
+  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch.
+- Le logging (C-11) : le logger n'appartient plus au contrat `Store`, c'est un champ privé fabriqué une fois par store ; tous les messages
+  portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn. Non garanti à ce jour : le sidecar meta se modifie sans verrou
   propre, et un encodage long sous read lock retarde tous les écrivains.
 
 ## 12. Le sidecar meta
