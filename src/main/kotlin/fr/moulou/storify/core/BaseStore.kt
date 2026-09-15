@@ -20,6 +20,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.readText
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
@@ -353,7 +354,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             }
 
             synchronized(saveIoLock) {
-                atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) }
+                atomicWrite(path) { temp -> encodeDataTo(temp) }
                 if (config.withMeta) atomicWrite(metaPath) { temp -> metaFormat.encodeToPath(StoreMeta.serializer(), meta!!, temp) }
             }
             isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
@@ -652,6 +653,17 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     /** Écrit le fichier initial quand aucun fichier n'existait (premier lancement). */
     private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) } }
+
+    /** Encode les données vers [temp] ; un format préservant reçoit en plus le texte actuel de la cible, pour ne réécrire que ce qui change (C-26). */
+    private fun encodeDataTo(temp: Path) {
+        val preserving = format as? PreservingStoreFormat
+        if (preserving != null) {
+            val previousText = if (path.exists()) runCatching { path.readText() }.getOrNull() else null
+            preserving.encodeToPathPreserving(dataSerializer, _data, temp, previousText)
+        } else {
+            format.encodeToPath(dataSerializer, _data, temp)
+        }
+    }
 
     // ── Écriture atomique ──
     /**

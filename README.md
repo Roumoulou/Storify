@@ -30,8 +30,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 ## 2. Les fonctionnalités
 
 - **Trois formats de fichier fournis** : JSON (`JsonFormat`), TOML (`TomlFormat`) et JSON5 (`Json5Format`, le JSON des configs éditées à la
-  main : commentaires, clés nues, virgules traînantes), résolus par l'extension du chemin quand on ne les précise pas ; et un vrai point
-  d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
+  main : commentaires, clés nues, virgules traînantes, et des sauvegardes qui **préservent** les commentaires et le style), résolus par
+  l'extension du chemin quand on ne les précise pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et
+  s'enregistre par `StoreFormats.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar copiée au premier lancement.
 - **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,
@@ -150,8 +151,9 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
   la persistance, elle, est garantie quelle que soit la policy, et depuis C-22 l'enregistrement d'un callback voué au silence le signale au log ;
-- les commentaires d'un fichier JSON5 (ou JSON) édité à la main ne survivent pas à une sauvegarde : le store réécrit le fichier depuis les
-  données ; la sauvegarde préservante est le chantier C-26.
+- en JSON5, les commentaires et le style d'un fichier édité à la main survivent aux sauvegardes (C-26 : la réconciliation ne réécrit que les
+  valeurs changées ; un tableau modifié se remplace entier, ses commentaires intérieurs avec). En JSON et TOML, la sauvegarde réécrit toujours
+  le fichier entier.
 
 ## 7. La documentation
 

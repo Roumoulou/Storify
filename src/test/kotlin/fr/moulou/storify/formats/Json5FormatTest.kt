@@ -11,7 +11,6 @@ import fr.moulou.storify.support.newStoreDir
 import fr.moulou.storify.support.newStorePath
 import fr.moulou.storify.utils.StoreFormats
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -109,7 +108,7 @@ class Json5FormatTest {
     }
 
     @Test
-    fun `les commentaires meurent au save, la limite documentée`() {
+    fun `les commentaires survivent au save, seule la valeur changée se réécrit`() {
         val path = newStorePath("commented.json5")
         path.writeText(
             """
@@ -129,8 +128,9 @@ class Json5FormatTest {
         }
 
         val rewritten = path.readText()
-        assertFalse(rewritten.contains("//"))    // ... mais la sauvegarde réencode à neuf : le commentaire est mort (C-26 le sauvera)
-        assertTrue(rewritten.contains("6"))
+        assertTrue(rewritten.contains("// le précieux commentaire de l'admin")) // ... et la sauvegarde le préserve (C-26)
+        assertTrue(rewritten.contains("name: 'manuel'"))                        // le style d'origine, intact
+        assertTrue(rewritten.contains("count: 6"))
         assertEquals(6, format.decodeFromPath(PlainData.serializer(), path).count)
     }
 }

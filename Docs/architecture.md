@@ -168,7 +168,8 @@ L'écriture est atomique (C-02) : chaque sauvegarde encode vers un fichier tempo
 disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
 `saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture, et le fichier initial comme le sidecar
-meta passent par le même chemin. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
+meta passent par le même chemin. Un format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment
+d'encoder vers le temporaire : il ne réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
 remplace la racine sous write lock et notifie les callbacks de reload.
 
 ## 8. La validation
@@ -201,11 +202,19 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 |---|---|---|
 | `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
-| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults }` | Crée les dossiers parents ; les commentaires du fichier meurent au save (C-26) |
+| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
 
 `Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
 de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
 créneau étant la config et non la donnée de masse.
+
+Sa sauvegarde est préservante (C-26) : le format déclare la capacité optionnelle `PreservingStoreFormat`, que `BaseStore` détecte au save en
+fournissant le texte actuel de la cible (lu sous le verrou d'IO, pendant l'encodage vers le temporaire atomique ; le contrat `StoreFormat`
+reste intact). L'arbre encodé est différencié contre le document parsé (`parseToDocument`, l'AST aux plages source exactes et aux commentaires
+attachés), et seules les retouches s'appliquent (`set`, `putProperty`, `remove`) : les valeurs changées se réécrivent, les clés nouvelles
+s'ajoutent, les disparues s'en vont avec leurs commentaires, tout le reste du fichier reste au caractère près, et un save sans changement est
+identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un diff par index apparierait mal commentaires et éléments
+déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
 
 `StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun
 format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
