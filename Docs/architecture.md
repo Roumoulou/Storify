@@ -118,7 +118,8 @@ L'API publique est un jeu d'extensions sur `BaseStore` :
 Tout converge vers `runUpdateInternal`, le pipeline central, exécuté sous le write lock :
 
 1. lecture de la policy de la propriété (`updatePolicies`, sinon `config.defaultUpdatePolicy`) ;
-2. `SKIP` : la mutation s'applique, le dirty est posé, et la fonction rend `null` : aucun callback ;
+2. `SKIP`, ou aucun auditeur d'update (ni global ni ciblé sur la propriété, C-25) : la mutation s'applique, le dirty est posé, et la fonction
+   rend `null` : aucune capture, aucun callback ;
 3. sinon, raccourci immuable : une propriété primitive, `String` ou enum n'est jamais copiée en profondeur ;
 4. `SNAPSHOT` (et `useDeepCopy`) : copie profonde de la valeur **avant** mutation ;
 5. la mutation s'applique sur l'objet vivant ;
@@ -149,7 +150,8 @@ reloads, et une navigation qui échoue vaut « ne matche pas ». Le lien entre u
 Le drapeau dirty, lui, est posé pour toutes les policies (depuis C-03) : la policy choisit ce qu'on observe, jamais ce qui est persisté. Le choix
 pratique, chiffré par `DeepCopyBenchmark` (0,2 µs pour un petit objet, ~70 µs pour 200 records imbriqués, par copie) : `SNAPSHOT` pour observer
 avec des captures figées et sûres, `SHALLOW` pour observer sans copies (avant indisponible sur les mutations en place, après vivant), `SKIP` pour
-le silence des points chauds.
+le silence des points chauds. Et depuis C-25, ces coûts ne se paient que devant public : sans aucun callback d'update enregistré, le pipeline
+court-circuite captures et opération, quelle que soit la policy (la transaction garde toujours son secours de rollback, lui).
 
 Les callbacks reçoivent les valeurs sous forme de `CapturedValue` : `DeepCopy` (copie fiable, à ne pas muter), `Shallow` (lecture au moment de la
 capture, fiable pour les immuables seulement), `Initial` (la toute première donnée, au premier save), `Unavailable` (rien à montrer).

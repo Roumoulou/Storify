@@ -179,9 +179,15 @@ c'est fait, avec la date.
   décision utilisateur : `true` partout.** Sans validator, la validation ne coûte rien ; poser un validator, c'est vouloir qu'il tourne, et
   `withValidation = false` devient l'échappatoire explicite. `StoreConfig()` passe à `true`, l'annotation y était déjà ; le test du désaccord de
   `ResolutionTest` devient le test de l'accord ; KDoc et docs alignées.
-- [ ] **C-25 : court-circuiter la capture sans auditeur** (S ; C-22). Le pipeline d'update construit captures et opération même quand aucun
+- [x] **C-25 : court-circuiter la capture sans auditeur** (S ; C-22). Le pipeline d'update construit captures et opération même quand aucun
   callback d'update n'est enregistré : sous une policy observante, des copies profondes partent sans public. Court-circuiter la construction
-  quand `onUpdateCallbacks` et la liste ciblée de la propriété sont vides ; fait relevé en tranchant C-22.
+  quand `onUpdateCallbacks` et la liste ciblée de la propriété sont vides ; fait relevé en tranchant C-22. **Fait le 2026-09-15** : la garde
+  `hasUpdateListeners` en tête du pipeline route l'update sans public vers le chemin rapide de SKIP (mutation, dirty, rien de construit),
+  quelle que soit la policy ; la transaction ne copie plus son après sans public, son secours de rollback restant toujours pris ; le garde
+  `validateOnUpdate` est intact dans la branche rapide (elle validait et restaurait déjà). La KDoc périmée du pipeline (le vieux « TODO refaire
+  cette docs ») est réécrite au passage. Quatre tests au compteur de sérialisations : la preuve mesurée que plus rien ne se copie sans
+  auditeur. Note au procès-verbal : l'argument « des copies sans public » de la décision C-22 tombe avec ce chantier ; la décision reste
+  debout sur son premier pilier, le store type est une config que personne n'observe.
 - [ ] **C-26 : la sauvegarde JSON5 préservant les commentaires** (M ; C-21). La brique offre un éditeur chirurgical du source
   (`parseToDocument`, puis `set`, `putProperty`, `remove` par plages exactes, commentaires attachés aux nœuds) : au save, réconcilier l'arbre
   encodé avec le document parsé et n'appliquer que les différences, pour que les commentaires et le style de l'admin survivent aux sauvegardes.

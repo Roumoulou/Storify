@@ -510,18 +510,24 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         }
     }
 
+    /** Vrai si au moins un callback d'update écoute cette propriété (le global compris) ; sinon, le pipeline court-circuite les captures (C-25). */
+    @PublishedApi
+    internal fun hasUpdateListeners(prop: KProperty1<*, *>): Boolean =
+        onUpdateCallbacks.isNotEmpty() || onUpdateCallbacksMap[prop]?.isNotEmpty() == true
+
     /**
-     * Pipeline central d'update.
-     * TODO refaire cette docs
-     * Flux :
-     * 1. Acquiert le write lock
-     * 2. Consulte la [UpdatePolicy] de la propriété
-     * 3. Si policy ≠ SKIP/SNAPSHOT et [useDeepCopy] : deep-copy la valeur du champ **avant** mutation
-     * 4. Applique la mutation directement sur [_data]
-     * 5. Capture old/new comme [CapturedValue] selon la policy
+     * Le pipeline central d'update, sous le write lock.
      *
-     * Les callbacks ne sont **pas** appelés ici — c'est l'appelant qui dispatche
-     * le [UpdateOutcome] retourné via [dispatchUpdateCallbacks].
+     * 1. La policy effective de la propriété est consultée : annotation, réglage runtime, puis défaut de config.
+     * 2. `SKIP`, ou aucun auditeur (ni global ni ciblé sur la propriété, C-25) : la mutation s'applique,
+     *    le dirty se pose, et rien n'est construit : aucune capture, aucune opération.
+     * 3. Sinon : l'avant est capturé selon la policy (copie profonde en SNAPSHOT pour les mutables ; les
+     *    immuables ne sont jamais copiés), la mutation s'applique, l'après est capturé, l'opération naît.
+     * 4. Sous l'opt-in `validateOnUpdate`, la racine est validée après mutation, dans les deux branches :
+     *    un échec restaure la copie de sécurité et rend une opération d'échec à la place.
+     *
+     * Les callbacks ne sont pas appelés ici : l'appelant dispatche l'[UpdateOutcome] rendu, hors du lock,
+     * via [dispatchUpdateCallbacks].
      */
     @PublishedApi
     internal inline fun <RECEIVER : Any, reified VALUE> runUpdateInternal(
@@ -541,7 +547,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         val guardBackup: DATA? = if (config.validateOnUpdate) rootBackup() else null
         val guardOld: CapturedValue<VALUE> = if (guardBackup != null) CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver))) else CapturedValue.Unavailable
 
-        if (policy == UpdatePolicy.SKIP) {
+        if (policy == UpdatePolicy.SKIP || !hasUpdateListeners(kProperty1)) {
             applyUpdate(receiver)
             if (guardBackup != null) {
                 val failure = guardValidationFailure()
@@ -627,7 +633,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                 }
                 markDirty()
 
-                if (config.useDeepCopy && backupSnapshot != null) {
+                if (onUpdateCallbacks.isEmpty()) {
+                    TransactionOperation(CapturedValue.Unavailable, CapturedValue.Unavailable) // C-25 : pas de copie d'après sans public (le secours du rollback, lui, a déjà été pris)
+                } else if (config.useDeepCopy && backupSnapshot != null) {
                     val o = CapturedValue.DeepCopy(backupSnapshot)
                     val n = CapturedValue.DeepCopy(deepCopyFn(_data))
                     TransactionOperation(o, n)
