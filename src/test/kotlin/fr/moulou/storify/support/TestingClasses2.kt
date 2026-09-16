@@ -6,6 +6,7 @@ import fr.moulou.storify.validation.Validator
 import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import kotlin.collections.mutableMapOf
+import kotlin.time.Instant
 
 /**
  * Classe de données de test avec des types primitifs, des collections et des objets custom imbriqués.

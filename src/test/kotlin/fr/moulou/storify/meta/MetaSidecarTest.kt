@@ -53,13 +53,13 @@ class MetaSidecarTest {
         val path = newStorePath("living.json")
         StoreFactory.create<PlainData>(path.toString(), config = StoreConfig(withAutoSave = false, withMeta = true)).use { store ->
             val createdAt = store.meta!!.createdAt
-            val before = store.meta!!.lastModified
+            val before = store.meta.lastModified
 
             awaitTrue(timeoutMs = 15) { false } // laisse l'horloge avancer d'une poignée de millisecondes
             store.set(PlainData::count, 9)      // policy par défaut SKIP : le meta bouge quand même (markDirty)
 
-            assertTrue(store.meta!!.lastModified >= before) // le motif est trié lexicographiquement
-            assertEquals(createdAt, store.meta!!.createdAt)
+            assertTrue(store.meta.lastModified >= before) // le motif est trié lexicographiquement
+            assertEquals(createdAt, store.meta.createdAt)
         }
     }
 
@@ -70,12 +70,12 @@ class MetaSidecarTest {
         StoreFactory.create<PlainData>(path.toString(), config = StoreConfig(withAutoSave = false, withMeta = true)).use { store ->
             store.meta!!.setCustom("owner", "storibench")
             store.saveImmediate()
-            firstCreatedAt = store.meta!!.createdAt
+            firstCreatedAt = store.meta.createdAt
         }
 
         StoreFactory.create<PlainData>(path.toString(), config = StoreConfig(withAutoSave = false, withMeta = true)).use { reopened ->
             assertEquals("storibench", reopened.meta!!.getCustom("owner"))
-            assertEquals(firstCreatedAt, reopened.meta!!.createdAt) // le sidecar existant est relu, pas recréé
+            assertEquals(firstCreatedAt, reopened.meta.createdAt) // le sidecar existant est relu, pas recréé
         }
     }
 
