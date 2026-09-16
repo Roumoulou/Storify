@@ -205,11 +205,23 @@ c'est fait, avec la date.
 - [ ] **C-17 : versionnage et migration des fichiers** (L ; TODO-3). Un fichier de config porte la version de son schéma ; au chargement, la lib
   migre ce qu'elle sait migrer et refuse le reste avec un message net. `StoreMeta.version` est un début de piste (C-13) ; la conception (où vit la
   version, qui écrit les migrations) mérite sa propre séance.
-- [ ] **C-18 : la distribution Minecraft** (M/L ; LECTURE). Comment un mod embarque Storify : dépendance externe publiée, jar-in-jar, ou shading ;
+- [x] **C-18 : la distribution Minecraft** (M/L ; LECTURE). Comment un mod embarque Storify : dépendance externe publiée, jar-in-jar, ou shading ;
   l'articulation avec fabric-language-kotlin (qui fournit stdlib et kotlinx.serialization au runtime) ; et la publication sur Repsy à mettre en
   place (décidée le 2026-09-13) : circuit `maven-publish` remis en état, identifiants par la chaîne de secrets (BWS, `secrets-et-acces.md` de
   The Human Readme), jamais en clair ; la déprécation Gradle 10 vue dans le build s'élucidera ici si elle vient de maven-publish. Le banc a
-  réservé ce chantier dès sa naissance (section 1 de son README).
+  réservé ce chantier dès sa naissance (section 1 de son README). **Fait le 2026-09-16.** La publication : le circuit Repsy réécrit sur la
+  chaîne de secrets (le jeton `REPSY_TOKEN` arrive en variable d'environnement par `dev-secrets.ps1 -Apply`, le dépôt n'est configuré que si
+  elle est présente : plus de fichier de propriétés ni d'exec bws dans le build ; l'ancien circuit lisait un `S:/18/global.properties` mort) ;
+  version `0.1.0-SNAPSHOT` (l'ancienne `0.0.1-SNAPSHOT-02` ne finissait pas par -SNAPSHOT : une release au sens Maven, non republiable) ; POM
+  nommé et décrit. La distribution : jar-in-jar par `include`. Le fait décisif, établi en fouillant le jar de fabric-language-kotlin 1.14.1 :
+  il fournit stdlib, reflect 2.4.20, kotlinx-serialization core/json/cbor 1.11.0 et kotlinx-datetime 0.8.0, les versions exactes du catalogue,
+  et Minecraft fournit slf4j ; un mod n'embarque donc que storify, tomlkt et json5, avec le plancher `fabric-language-kotlin >= 1.14.1` en
+  depends (recette au README, section 4). Le shading relocaté écarté en voie par défaut : kotlinx et reflect sont la langue commune avec les
+  data classes des consommateurs, les relocater couperait la lib de ses mods ; la variante « Storify seule relocatée, kotlinx intouchée »
+  consignée en option avancée. Le banc reste en composite ; la preuve en conditions réelles (consommer depuis Repsy, include, serveur sans
+  Gradle) attendra la première release. La déprécation Gradle 10 élucidée et corrigée : elle ne venait pas de maven-publish mais du rename de
+  la licence dans `jar`, qui touchait `project` à l'exécution (le nom se capture désormais à la configuration). En chasse, l'hygiène des
+  tests (commit séparé) : cinq `!!` superflus de MetaSidecarTest tombés, l'`Instant` des fixtures déménagé vers `kotlin.time`.
 - [ ] **C-19 : les écrans de configuration** (L ; LECTURE). Le partage des rôles visé : l'écran édite, Storify persiste. ModMenu et Cloth Config
   attendent déjà au banc en dépendances facultatives ; c'est le volet 4 de la reprise.
 - [ ] **C-20 : le positionnement** (S ; LECTURE). L'étude comparative sérieuse (Cloth Config, owo-lib, Night Config, les configs Forge/NeoForge,

@@ -7,11 +7,12 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.0.1-SNAPSHOT-02`. Aucune release publiée : le circuit de publication (Repsy) est en veille ; sa
-  remise en état est décidée (chantier C-18 de `Docs\chantiers.md`).
-- Consommation actuelle : par build composite, sans publication. Le consommateur de référence est Storibench, le banc d'essai en conditions réelles
-  (un mod Fabric pour Minecraft 26.2), qui vit hors de ce dépôt, dans le classeur : `..\08-related-projects\storibench`.
-- Build et tests : verts au 2026-09-13, sur la stack ci-dessous.
+- Coordonnées : `fr.moulou:storify`, version `0.1.0-SNAPSHOT`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) ; le circuit de
+  publication est en place depuis C-18. Aucune release figée encore : l'API bouge, le snapshot se republie à volonté.
+- Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
+  Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
+  dépôt, dans le classeur : `..\08-related-projects\storibench`, et reste volontairement en composite.
+- Build et tests : verts au 2026-09-16, sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (le typage du callback ciblé, le logging, le sidecar meta). La liste
   complète vit dans `Docs\chantiers.md`.
 - Dépôt Git : en place depuis le 2026-09-13 (branche `master`, un commit par chantier), poussé sur GitHub le jour même (`Roumoulou/Storify`, privé).
@@ -118,7 +119,41 @@ homesStore.set(Homes::totalTeleports, homesStore.data.totalTeleports + 1)
 homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalidation, voir les limites
 ```
 
-## 4. Les notions, en un tableau
+## 4. Embarquer Storify dans un mod
+
+À la compilation, Gradle télécharge Storify depuis Repsy ; au runtime, un serveur n'a plus de Gradle : le jar du mod doit donc embarquer la
+lib. La recette Fabric tient en trois `include` (le jar-in-jar de Loom, qui wrappe tout seul les jars non-mods) :
+
+```kotlin
+repositories {
+    maven("https://repo.repsy.io/roumoulou/maven") { name = "Repsy" }
+}
+
+dependencies {
+    implementation("fr.moulou:storify:0.1.0-SNAPSHOT")  // compiler contre la lib...
+    include("fr.moulou:storify:0.1.0-SNAPSHOT")         // ... et l'embarquer dans le jar du mod
+    include("dev.eav.tomlkt:tomlkt:0.6.1")              // include n'est pas transitif :
+    include("li.songe:json5:0.8.0")                     // chaque jar se déclare
+}
+```
+
+Et dans `fabric.mod.json`, le plancher qui garantit le runtime Kotlin :
+
+```json
+"depends": { "fabric-language-kotlin": ">=1.14.1" }
+```
+
+Pourquoi trois jars seulement : fabric-language-kotlin 1.14.1 fournit au runtime la stdlib, kotlin-reflect 2.4.20, kotlinx-serialization
+core, json et cbor 1.11.0 et kotlinx-datetime 0.8.0, exactement les versions attendues par Storify, et Minecraft fournit slf4j. Un FLK plus
+vieux est refusé net par le loader (le `depends`) ; un plus récent est couvert par la rétrocompatibilité binaire de Kotlin ; et le loader
+déduplique les jars embarqués entre mods (une seule version chargée, la plus récente compatible).
+
+Le shading avec relocation est écarté comme voie par défaut : kotlinx et reflect sont la langue commune entre Storify et les data classes du
+mod (les `KSerializer` et `KProperty1` traversent l'API dans les deux sens), les relocater couperait la lib de ses consommateurs. Option
+avancée, pour un mod qui exige l'isolation totale : shader Storify seule, kotlinx et reflect intouchés ; au prix des métadonnées Kotlin
+relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Storify ne franchisse la frontière du mod.
+
+## 5. Les notions, en un tableau
 
 | Notion | Rôle |
 |---|---|
@@ -132,7 +167,7 @@ homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalid
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
 
-## 5. Construire et tester
+## 6. Construire et tester
 
 ```bash
 .\gradlew build
@@ -143,7 +178,10 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
 `.\gradlew runServer` dans `..\08-related-projects\storibench\main-project\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
-## 6. Les limites connues
+La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
+jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_TOKEN`) dans le terminal qui publie, jamais autrement.
+
+## 7. Les limites connues
 
 En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `Docs\chantiers.md` :
 
@@ -155,7 +193,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
   valeurs changées ; un tableau modifié se remplace entier, ses commentaires intérieurs avec). En JSON et TOML, la sauvegarde réécrit toujours
   le fichier entier.
 
-## 7. La documentation
+## 8. La documentation
 
 - `Docs\architecture.md` : comment la lib est faite, mécanisme par mécanisme.
 - `Docs\chantiers.md` : le bilan (forces et faiblesses) et la liste priorisée de tout ce qui est à revoir, refaire ou construire.

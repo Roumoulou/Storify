@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -57,36 +55,28 @@ publishing {
             groupId = project.group.toString()
             artifactId = project.base.archivesName.get()
             version = project.version.toString()
+
+            pom {
+                name = "Storify"
+                description = "Kotlin file-backed data and config stores for Minecraft mods and JVM " +
+                    "projects: JSON, TOML and JSON5 formats, typed updates, callbacks, validation, atomic saves."
+            }
         }
     }
 
     repositories {
-        // Dépôt Repsy en veille (C-18) : configuré seulement quand ses identifiants sont présents,
-        // pour qu'un build ordinaire ne s'encombre pas d'un avertissement tant que la publication dort.
-        val globalPropsFile = file("S:/18/global.properties")
-        if (globalPropsFile.exists()) {
+        // Le dépôt Repsy (C-18) : le jeton arrive par la chaîne de secrets (dev-secrets.ps1 -Apply
+        // REPSY_TOKEN), en variable d'environnement le temps du terminal qui publie. Sans elle, le dépôt
+        // n'est pas configuré : un build ordinaire reste muet et ne peut rien publier par accident.
+        val repsyToken = providers.environmentVariable("REPSY_TOKEN").orNull
+        if (repsyToken != null) {
             maven {
                 name = "Repsy"
                 url = uri("https://repo.repsy.io/roumoulou/maven")
 
                 credentials {
-                    val globalProps = Properties()
-                    globalPropsFile.inputStream().use { globalProps.load(it) }
-
-                    username = globalProps.getProperty("respy.io.username", "UTILISATEUR_INCONNU")
-                    val bwsUuid = globalProps.getProperty("respy.bws.uuid", "UUID_INCONNU")
-                    val bwsExePath = globalProps.getProperty("tools.bws.path")
-
-                    // Le token vit dans Bitwarden Secrets (bws), lu à la volée plutôt qu'écrit en clair.
-                    password = try {
-                        val execResult = providers.exec {
-                            commandLine(bwsExePath, "secret", "get", bwsUuid)
-                            isIgnoreExitValue = true // bws absent ou en échec ne casse pas la configuration
-                        }
-                        val output = execResult.standardOutput.asText.get()
-                        val match = "\"value\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(output)
-                        match?.groupValues?.get(1) ?: "AUCUN_TOKEN_FOURNI"
-                    } catch (_: Exception) { "ERREUR_D_EXECUTION" }
+                    username = "roumoulou"
+                    password = repsyToken
                 }
             }
         }
@@ -102,7 +92,12 @@ tasks {
 
     withType<JavaExec>().configureEach { standardInput = System.`in` }
 
-    jar { from("LICENSE") { rename { "${it}_${project.base.archivesName.get()}" } } }
+    jar {
+        // Capturé à la configuration : la closure de rename s'exécute au run de la tâche,
+        // où toucher project est déprécié (erreur en Gradle 10).
+        val archivesSuffix = project.base.archivesName.get()
+        from("LICENSE") { rename { "${it}_$archivesSuffix" } }
+    }
 
     test {
         useJUnitPlatform()
