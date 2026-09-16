@@ -179,7 +179,7 @@ exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldo
 `.\gradlew runServer` dans `..\08-related-projects\storibench\main-project\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
-jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_TOKEN`) dans le terminal qui publie, jamais autrement.
+jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.
 
 ## 7. Les limites connues
 

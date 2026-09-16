@@ -210,7 +210,7 @@ c'est fait, avec la date.
   place (décidée le 2026-09-13) : circuit `maven-publish` remis en état, identifiants par la chaîne de secrets (BWS, `secrets-et-acces.md` de
   The Human Readme), jamais en clair ; la déprécation Gradle 10 vue dans le build s'élucidera ici si elle vient de maven-publish. Le banc a
   réservé ce chantier dès sa naissance (section 1 de son README). **Fait le 2026-09-16.** La publication : le circuit Repsy réécrit sur la
-  chaîne de secrets (le jeton `REPSY_TOKEN` arrive en variable d'environnement par `dev-secrets.ps1 -Apply`, le dépôt n'est configuré que si
+  chaîne de secrets (le jeton `REPSY_MAVEN_TOKEN` arrive en variable d'environnement par `dev-secrets.ps1 -Apply`, le dépôt n'est configuré que si
   elle est présente : plus de fichier de propriétés ni d'exec bws dans le build ; l'ancien circuit lisait un `S:/18/global.properties` mort) ;
   version `0.1.0-SNAPSHOT` (l'ancienne `0.0.1-SNAPSHOT-02` ne finissait pas par -SNAPSHOT : une release au sens Maven, non republiable) ; POM
   nommé et décrit. La distribution : jar-in-jar par `include`. Le fait décisif, établi en fouillant le jar de fabric-language-kotlin 1.14.1 :

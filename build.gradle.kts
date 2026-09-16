@@ -66,9 +66,9 @@ publishing {
 
     repositories {
         // Le dépôt Repsy (C-18) : le jeton arrive par la chaîne de secrets (dev-secrets.ps1 -Apply
-        // REPSY_TOKEN), en variable d'environnement le temps du terminal qui publie. Sans elle, le dépôt
-        // n'est pas configuré : un build ordinaire reste muet et ne peut rien publier par accident.
-        val repsyToken = providers.environmentVariable("REPSY_TOKEN").orNull
+        // REPSY_MAVEN_TOKEN), en variable d'environnement le temps du terminal qui publie. Sans elle,
+        // le dépôt n'est pas configuré : un build ordinaire reste muet et ne peut rien publier par accident.
+        val repsyToken = providers.environmentVariable("REPSY_MAVEN_TOKEN").orNull
         if (repsyToken != null) {
             maven {
                 name = "Repsy"
