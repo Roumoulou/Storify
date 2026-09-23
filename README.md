@@ -11,7 +11,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   publication est en place depuis C-18. Aucune release figée encore : l'API bouge, le snapshot se republie à volonté.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
-  dépôt, dans le classeur : `..\Storibench`, et reste volontairement en composite.
+  dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
+  publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-09-23, sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : trois chantiers restent ouverts, C-17 (versionnage et migration des fichiers), C-19 (écrans de
   configuration) et C-20 (positionnement). La liste complète vit dans `Docs\chantiers.md`.

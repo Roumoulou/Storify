@@ -218,8 +218,11 @@ c'est fait, avec la date.
   et Minecraft fournit slf4j ; un mod n'embarque donc que storify, tomlkt et json5, avec le plancher `fabric-language-kotlin >= 1.14.1` en
   depends (recette au README, section 4). Le shading relocaté écarté en voie par défaut : kotlinx et reflect sont la langue commune avec les
   data classes des consommateurs, les relocater couperait la lib de ses mods ; la variante « Storify seule relocatée, kotlinx intouchée »
-  consignée en option avancée. Le banc reste en composite ; la preuve en conditions réelles (consommer depuis Repsy, include, serveur sans
-  Gradle) attendra la première release. La déprécation Gradle 10 élucidée et corrigée : elle ne venait pas de maven-publish mais du rename de
+  consignée en option avancée. Le banc reste en composite par défaut ; sa propriété `storify_source=repsy` retire le composite, résout la lib
+  depuis Repsy et l'embarque selon la recette. **Preuve en conditions réelles faite le 2026-09-23** : le jar autonome (storify, tomlkt et json5
+  imbriqués, 706 Ko) déployé dans le serveur pur avec Fabric API et FLK 1.14.1, le serveur lancé sans Gradle sur le lanceur Fabric 26.2 :
+  Fabric Loader 0.19.5 liste les trois jars imbriqués, la config TOML et les homes JSON se créent, le `stop` ferme les stores proprement (log du
+  banc, `[Storify] Store ... closed`). La déprécation Gradle 10 élucidée et corrigée : elle ne venait pas de maven-publish mais du rename de
   la licence dans `jar`, qui touchait `project` à l'exécution (le nom se capture désormais à la configuration). En chasse, l'hygiène des
   tests (commit séparé) : cinq `!!` superflus de MetaSidecarTest tombés, l'`Instant` des fixtures déménagé vers `kotlin.time`.
 - [ ] **C-19 : les écrans de configuration** (L ; LECTURE). Le partage des rôles visé : l'écran édite, Storify persiste. ModMenu et Cloth Config
