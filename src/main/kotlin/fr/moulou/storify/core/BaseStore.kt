@@ -405,7 +405,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         saveScheduler.shutdown()
         try {
             if (!saveScheduler.awaitTermination(5, TimeUnit.SECONDS)) log.warn("[Storify] Auto-save scheduler of '{}' did not stop within 5s", path)
-        } catch (e: InterruptedException) {
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
 
@@ -667,7 +667,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             FileChannel.open(temp, StandardOpenOption.WRITE).use { it.force(true) }
             try {
                 Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            } catch (e: AtomicMoveNotSupportedException) {
+            } catch (_: AtomicMoveNotSupportedException) {
                 log.warn("[Storify] Atomic move unsupported for '{}': falling back to a non-atomic replace", target)
                 Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
             }
