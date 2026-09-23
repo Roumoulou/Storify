@@ -11,7 +11,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   publication est en place depuis C-18. Aucune release figée encore : l'API bouge, le snapshot se republie à volonté.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
-  dépôt, dans le classeur : `..\08-related-projects\storibench`, et reste volontairement en composite.
+  dépôt, dans le classeur : `..\Storibench`, et reste volontairement en composite.
 - Build et tests : verts au 2026-09-16, sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (le typage du callback ciblé, le logging, le sidecar meta). La liste
   complète vit dans `Docs\chantiers.md`.
@@ -176,7 +176,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) et écrivent leurs fichiers dans
 `build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
-`.\gradlew runServer` dans `..\08-related-projects\storibench\main-project\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
+`.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
 jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.

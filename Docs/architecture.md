@@ -263,7 +263,7 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ## 14. Ce que le banc et les tests ont prouvé
 
-Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\..\08-related-projects\storibench`) et la suite de tests les ont
+Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\..\Storibench`) et la suite de tests les ont
 exercés en vrai. Les faits marquants, sources des chantiers :
 
 - `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc ; corrigé au chantier C-04).
