@@ -12,9 +12,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste volontairement en composite.
-- Build et tests : verts au 2026-09-16, sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : des chantiers d'API restent ouverts (le typage du callback ciblé, le logging, le sidecar meta). La liste
-  complète vit dans `Docs\chantiers.md`.
+- Build et tests : verts au 2026-09-23, sur la stack ci-dessous.
+- L'API n'est pas encore stabilisée : trois chantiers restent ouverts, C-17 (versionnage et migration des fichiers), C-19 (écrans de
+  configuration) et C-20 (positionnement). La liste complète vit dans `Docs\chantiers.md`.
 - Dépôt Git : en place depuis le 2026-09-13 (branche `master`, un commit par chantier), poussé sur GitHub le jour même (`Roumoulou/Storify`, privé).
 - Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
 

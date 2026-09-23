@@ -258,4 +258,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-13, jour de l'écriture, sur le code compilé et testé de `src\main` et les constats du banc.*
+*Dernière vérification : 2026-09-16, C-18 cochée sur le code compilé et testé ce jour-là ; les constats du banc à jour au 2026-09-23.*

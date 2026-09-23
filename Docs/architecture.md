@@ -9,7 +9,7 @@ doit changer est listé dans `chantiers.md`, ce document se contente de le signa
 
 ## 1. Vue d'ensemble
 
-Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), d'un fichier (JSON ou TOML) et d'un `BaseStore<DATA>` qui orchestre
+Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), d'un fichier (JSON, TOML ou JSON5) et d'un `BaseStore<DATA>` qui orchestre
 tout le reste. Le chemin type :
 
 ```
@@ -45,7 +45,7 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 | Annotation | Porte sur | Rôle |
 |---|---|---|
 | `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
-| `@StoreFileFormat(type)` | la classe | Le format (`JSON` ou `TOML`) ; sinon, résolution par l'extension du chemin |
+| `@StoreFileFormat(type)` | la classe | Le format (`JSON`, `TOML` ou `JSON5`) ; sinon, résolution par l'extension du chemin |
 | `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`) |
 | `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
@@ -280,4 +280,4 @@ exercés en vrai. Les faits marquants, sources des chantiers :
 
 ---
 
-*Dernière vérification : 2026-09-13, sur le code de `src\main` compilé et testé ce jour (Gradle 9.7.1, Kotlin 2.4.20, Java 25).*
+*Dernière vérification : 2026-09-23, chapitres 1, 2 et 9 relus contre `src\main` ; le reste tenu au fil des chantiers, jusqu'à C-26 (2026-09-15).*
