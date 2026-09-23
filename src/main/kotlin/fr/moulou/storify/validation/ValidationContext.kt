@@ -1,6 +1,5 @@
 package fr.moulou.storify.validation
 
-@Suppress("unused")
 class ValidationContext(
     private val currentPath: String = "",
     private val currentClassName: String = "",

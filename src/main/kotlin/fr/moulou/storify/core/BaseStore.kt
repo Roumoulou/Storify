@@ -213,7 +213,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
 
     /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
-    @Suppress("unused")
     fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
         if (!belongsToDataTree(prop)) {
             log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
@@ -222,7 +221,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     /** Récupère la politique d'update d'une propriété. */
-    @Suppress("unused")
     fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
 
     init {
@@ -271,16 +269,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             prop.annotations
                 .filterIsInstance<StoreUpdatePolicy>()
                 .firstOrNull()
-                ?.let { ann ->
-                    val retClass = prop.returnType.classifier as? KClass<*>
-                    if (ann.policy == UpdatePolicy.SHALLOW && retClass != null &&
-                        (retClass.java.isPrimitive || retClass == String::class || retClass.java.isEnum)
-                    ) {
-//                        error("[Storify] @StoreUpdatePolicy(${UpdatePolicy.SHALLOW.name}) on '${prop.name}' is useless — " +
-//                                "${retClass.simpleName} is immutable and already skips deep copy.")
-                    }
-                    updatePolicies[prop] = ann.policy
-                }
+                ?.let { ann -> updatePolicies[prop] = ann.policy }
 
             reachableClasses(prop.returnType).forEach { scanUpdatePolicies(it, visited) }
         }
