@@ -32,16 +32,11 @@ dependencies {
     implementation(libs.kotlinx.serialization.cbor)
     implementation(libs.slf4j.api)
 
-    // ── Test : JUnit 6 + Kotest + MockK ─────────────────────────────────
+    // ── Test : JUnit 6 ───────────────────────────────────────────────────
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.kotest.runner.junit5)
-    testImplementation(libs.kotest.assertions.core)
-    testImplementation(libs.kotest.property)
-    testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     // ── Test : Logging ───────────────────────────────────────────────────
-    testImplementation(libs.slf4j.simple)
     testRuntimeOnly(libs.slf4j.simple)
 }
 
