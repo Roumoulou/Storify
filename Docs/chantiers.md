@@ -42,7 +42,9 @@ c'est fait, avec la date.
 - **Priorités** : P1, les fondations (fiabilité et comportements par défaut) ; P2, l'API et le ménage ; P3, la vision (ce qui fait grandir).
 - **Effort** : S (une séance courte), M (une vraie séance), L (plusieurs séances ou une conception préalable).
 - **Sources** : `B1` à `B4` = constats n° 1 à 4 de la section 6 du README du banc ; `CRASH` = le crash client du 2026-09-13 à 11:30 ;
-  `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code.
+  `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
+  `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
+  point contre le code le même jour.
 
 ## 3. P1, les fondations
 
@@ -95,6 +97,25 @@ c'est fait, avec la date.
   écrase une édition disque faite pendant la session. Aligner le hook sur `close()` (`if (isDirty)`), et un test. **Fait le 2026-09-13** :
   le corps du hook extrait en `runShutdownHook()` interne (testable sans éteindre la JVM), la garde `isDirty` posée, architecture.md aligné
   (chapitres 4 et 7), constat n° 7 soldé au banc ; un test (l'édition disque d'un store propre survit au hook, le dirty reste sauvé).
+- [ ] **C-28 : le balayage strict des temporaires** (S ; AVIS). `sweepOrphanTemps` supprime à l'ouverture tout `<nom>.*.tmp` du dossier (le motif est
+  « commence par `<nom>.` et finit par `.tmp` ») : un `permissions.json.tmp` écrit par une autre application part avec les orphelins de Storify, mesuré
+  le 2026-09-28. Ne balayer que le motif propre, `<nom>.<8 hexadécimaux>.tmp`, pour le fichier et pour son sidecar `<nom>.meta.json` ; un test où le
+  temporaire étranger survit.
+- [ ] **C-29 : la copie profonde respectueuse du réglage et du format** (M ; AVIS). `useDeepCopy` n'est pas respecté partout : la racine est copiée à
+  l'ouverture (`_lastSavedData`) et au rechargement (`replaceData`) quel que soit le réglage, et le véhicule est un aller-retour CBOR. Conséquences : toute
+  data class doit survivre à CBOR, un sérialiseur écrit pour le JSON (un cast `JsonDecoder`, un `JsonTransformingSerializer`) casse à l'ouverture du
+  store, et chaque ouverture encode puis décode la racine sans public. Respecter le réglage (captures `Unavailable` ou `Shallow` quand il est faux), puis
+  remplacer CBOR par un aller-retour d'arbre `JsonElement` (le `Json` du format pour JSON et JSON5, un `Json` de copie sinon), qui copie toute valeur,
+  tolère les sérialiseurs spécifiques au JSON et retire `kotlinx-serialization-cbor` ; une stratégie enfichable en option ; `DeepCopyBenchmark` mesure le
+  coût.
+- [ ] **C-30 : le mode lecture seule, et le hook débrayable** (M ; AVIS). Rien ne déclare « ce fichier ne se réécrit jamais » : `saveImmediate()` écrit
+  sans condition, une transaction au bloc vide pose le dirty, et le hook d'arrêt est armé dans tous les cas (un `Thread` jamais démarré, mais une
+  référence forte, et une écriture si dirty). `StoreConfig(readOnly = true)`, miroir dans l'annotation : `set`, `mutate`, `transaction` et
+  `saveImmediate` refusent comme sur un store fermé, ni planificateur ni hook, `reloadFromFile` permis, `withAutoSave` ignoré et documenté ;
+  `createIfMissing` (défaut `true`) écrit une seule fois le fichier initial absent ; et `withShutdownHook` (défaut `true`), forcé à `false` par `readOnly`.
+- [ ] **C-31 : le BOM UTF-8 toléré** (S ; AVIS). Mesuré le 2026-09-28 : un fichier enregistré avec BOM échoue en JSON (`JsonDecodingException` à
+  l'offset 0) et en TOML (`UnexpectedTokenException`, ligne 1) ; JSON5 passe. Retirer les trois octets au décodage de `JsonFormat` et `TomlFormat`, un
+  test par format, et vérifier que la réconciliation JSON5 tolère un texte existant qui commence par un BOM.
 
 ## 4. P2, l'API et le ménage
 
@@ -205,12 +226,46 @@ c'est fait, avec la date.
   (`LICENSE_storify`, `LICENSE.GPL_storify`) ; chaque `.kt` de `src\main` et `src\test` porte ses deux lignes SPDX (`SPDX-FileCopyrightText`,
   `SPDX-License-Identifier`) ; le README résume ce que la licence permet à un consommateur ; le dépôt GitHub est public. Le banc, compagnon, reste tous
   droits réservés.
+- [ ] **C-32 : les lignes de validation, robustes et publiques** (M ; AVIS). Mesuré le 2026-09-28 : une erreur dont le chemin porte une clé de map entre
+  crochets (`players[steve].joinCount`, ce que `HomesDataValidator` du banc écrit) fait perdre la ligne à tout le lot, parce que le segment passe par
+  `.toInt()` et que l'exception est attrapée au niveau du lot. S'y ajoutent l'enrichisseur `internal`, JSON seul, et `validateNow()` qui n'enrichit pas.
+  Accepter les clés de map (`players[steve]`, `players["steve"]`), isoler l'échec par erreur, rendre l'enrichisseur public et couvrir JSON5 (clés nues,
+  apostrophes), et offrir une validation de fichier sans store, `StoreFormat.validateFile(path, deserializer, validator)`, qui décode, valide et enrichit.
+- [ ] **C-33 : les erreurs de décodage enveloppées** (S ; AVIS). Une syntaxe fausse ou une clé inconnue lève la `SerializationException` nue de kotlinx
+  (ou de tomlkt, ou de json5), sans le chemin du fichier. Une `StoreDecodeException(path, cause)` au chargement et au rechargement, dont le message porte
+  le chemin et celui du parseur ; un ancêtre commun `StorifyException` avec `ValidationException`, pour attraper d'un seul `catch` tout ce qui empêche
+  d'ouvrir.
+- [ ] **C-34 : l'écrivain atomique public** (S ; AVIS). `atomicWrite` est privé, et `encodeToPath` des trois formats écrit directement dans la cible :
+  tout fichier qu'un consommateur écrit hors d'un store réclame son propre écrivain. Un objet public `AtomicFiles.write(target) { temp -> ... }` aux
+  mêmes garanties (temporaire voisin, `force`, `ATOMIC_MOVE` avec repli), utilisé par `BaseStore`, et l'extension
+  `StoreFormat.encodeToPathAtomically(serializer, data, path)` avec son sucre réifié ; le motif de C-28 y vit, en une seule définition.
+- [ ] **C-35 : la surveillance du fichier** (M ; AVIS). Un store ne voit pas les modifications extérieures, alors que l'édition par une application de
+  bureau pendant que le serveur tourne est le cas d'usage du JSON. `watchFile` dans `StoreConfig` : un sondage de la date de modification et de la taille
+  sur le planificateur déjà présent (aucun fil de plus), intervalle `watchIntervalMs` ; à chaque changement, un rechargement validé avec le callback
+  `onReload` ; en échec, `warn` et mémoire intacte, jamais d'exception depuis un fil de fond ; les propres écritures du store reconnues par l'empreinte
+  relevée après chaque save ; store dirty et fichier changé : `warn` sans rechargement. `WatchService` écarté (un fil par dossier, des notifications
+  doublées par les éditeurs).
+- [ ] **C-36 : le JSON strict par défaut** (S ; AVIS). `JsonFormat()` accepte les commentaires, les chaînes sans guillemets et `NaN` (`isLenient`,
+  `allowComments`, `allowSpecialFloatingPointValues`), quand `ignoreUnknownKeys` reste faux : strict sur les clés, laxiste sur la syntaxe ; et TOML
+  tolère les clés inconnues (le curseur 5 de C-17). `JsonFormat()` strict (`isLenient` et `allowComments` à faux) et une fabrique `JsonFormat.lenient()`
+  qui rend l'actuel ; le sort d'`allowSpecialFloatingPointValues` reste à trancher (le garder évite qu'une sauvegarde échoue sur un `NaN`). Un fichier
+  JSON à commentaires cesse alors de charger : JSON5 est fait pour lui.
+- [ ] **C-37 : le logger nommé** (S ; AVIS). Le logger est nommé d'après la classe et le préfixe `[Storify]` est en dur (dix-sept fois dans `BaseStore`) :
+  les messages n'apparaissent pas sous le journal du mod. `StoreConfig.loggerName` (défaut `Storify`, miroir dans l'annotation) ; le préfixe reste, il
+  identifie la lib dans le journal d'un mod qui passe son propre nom.
+- [ ] **C-39 : la version 0.2.0-SNAPSHOT et sa republication** (S ; AVIS). Repsy ne porte que `0.1.0-SNAPSHOT`, sans étiquette Git : deux jars d'un
+  consommateur construits à deux dates peuvent embarquer deux Storify sous le même nom. L'avis proposait une `0.1.0` figée ; décision du 2026-09-28 :
+  bump direct, sans release figée. **Le bump est fait le 2026-09-28** (`mod_version=0.2.0-SNAPSHOT`, docs alignées). Reste, à la fin des chantiers : la
+  publication par l'utilisateur, avec le jeton, puis la recette du README (section 4) et le catalogue du banc (`storify`) qui passent à
+  `0.2.0-SNAPSHOT`.
 
 ## 5. P3, la vision
 
 - [ ] **C-17 : versionnage et migration des fichiers** (L ; TODO-3). Un fichier de config porte la version de son schéma ; au chargement, la lib
   migre ce qu'elle sait migrer et refuse le reste avec un message net. `StoreMeta.version` est un début de piste (C-13) ; la conception (où vit la
-  version, qui écrit les migrations) mérite sa propre séance.
+  version, qui écrit les migrations) mérite sa propre séance. Le curseur 1, le nom de la clé, est à trancher tôt, un consommateur veut l'écrire dès
+  maintenant ; proposition du 2026-09-28 (AVIS) : `schema-version`, parce qu'un identifiant Kotlin ne peut pas porter de trait d'union, donc aucune
+  collision possible avec une propriété sans `@SerialName`.
 - [x] **C-18 : la distribution Minecraft** (M/L ; LECTURE). Comment un mod embarque Storify : dépendance externe publiée, jar-in-jar, ou shading ;
   l'articulation avec fabric-language-kotlin (qui fournit stdlib et kotlinx.serialization au runtime) ; et la publication sur Repsy à mettre en
   place (décidée le 2026-09-13) : circuit `maven-publish` remis en état, identifiants par la chaîne de secrets (BWS, `secrets-et-acces.md` de
@@ -254,6 +309,11 @@ c'est fait, avec la date.
   public (fait consigné en C-25). En garde-fou, `registerOnUpdateOn` avertit quand la policy effective de la propriété est `SKIP`, et
   `registerOnUpdate` quand le store entier est voué au silence (défaut `SKIP` et aucune policy posée) : le silence qui prévient n'est plus un
   piège. Aucun test modifié, le silence sous `SKIP` restant épinglé par la suite.
+- [ ] **C-38 : les formats à la carte** (S puis L ; AVIS). Les trois formats sont toujours embarqués : `StoreFormats` instancie `JsonFormat`,
+  `TomlFormat` et `Json5Format` au premier contact, la factory les référence, tomlkt et json5 sont des dépendances `implementation`. Mesuré le
+  2026-09-28 sur les jars : storify 202 Ko, tomlkt 251 Ko, json5 181 Ko. D'abord un registre paresseux (des fabriques au lieu d'instances, l'annotation
+  résolue par le registre) : un consommateur JSON seul exclut tomlkt et json5 de sa dépendance sans `NoClassDefFoundError` tant qu'il ne demande pas ces
+  formats ; ensuite, si un second consommateur le réclame, le découpage `storify-core` plus un artefact par format.
 
 ## 6. La méthode, chantier par chantier
 
@@ -267,4 +327,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-16, C-18 cochée sur le code compilé et testé ce jour-là ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-28, C-27 cochée sur le dépôt du jour, C-28 à C-39 ouverts sur l'avis externe et ses mesures ; les constats du banc
+à jour au 2026-09-23.*

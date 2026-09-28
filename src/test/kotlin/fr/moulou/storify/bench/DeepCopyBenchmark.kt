@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import kotlin.system.measureNanoTime
 
 /**
- * Benchmarks pour mesurer le coût réel du deep copy via CBOR (serialize → deserialize).
+ * Benchmarks pour mesurer le coût réel du deep copy via CBOR (serialize puis deserialize).
  *
  * Chaque benchmark :
  * 1. Fait un warmup (1 000 itérations) pour que la JVM JIT-compile le code
@@ -80,7 +80,7 @@ class DeepCopyBenchmark {
     @Test
     fun `deep copy benchmark — all sizes`() {
         println()
-        println("Deep Copy Benchmark (CBOR serialize → deserialize)")
+        println("Deep Copy Benchmark (CBOR serialize puis deserialize)")
         println("═══════════════════════════════════════════════════════════════════")
         println("%-12s │ %8s │ %9s │ %14s │ %s".format("Object", "Avg", "Avg (ms)", "Throughput", "Iterations"))
         println("─────────────┼──────────┼───────────┼────────────────┼────────────")

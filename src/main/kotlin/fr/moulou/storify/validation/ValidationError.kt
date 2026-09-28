@@ -20,7 +20,7 @@ data class ValidationError(
         val location = "[$fullPath]"
         val rejected = if (rejectedValue != null) " (was: ${formatValue(rejectedValue)})" else ""
         val fieldPrefix = if (field != null) "$field: " else ""
-        val lineInfo = if (jsonLine != null) " → line $jsonLine" else ""
+        val lineInfo = if (jsonLine != null) " at line $jsonLine" else ""
         return "$location $fieldPrefix$message$rejected$lineInfo"
     }
 

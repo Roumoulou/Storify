@@ -13,16 +13,16 @@ package fr.moulou.storify
  * **hors du lock** de données.
  *
  * - [DeepCopy] : copie profonde, toujours fiable. **Ne pas muter.**
- * - [Shallow] : lecture shallow au moment de la capture. Fiable pour les types immutables (String, Int…).
+ * - [Shallow] : lecture shallow au moment de la capture. Fiable pour les types immuables (String, Int...).
  * - [Initial] : première donnée jamais enregistrée (premier save).
  * - [Unavailable] : aucune capture (ex: `useDeepCopy=false` + même référence avant/après).
  */
 sealed class CapturedValue<out T> {
 
-    /** Copie profonde — toujours fiable, immutable. */
+    /** Copie profonde : toujours fiable, immuable. */
     data class DeepCopy<out T>(val value: T) : CapturedValue<T>()
 
-    /** Lecture shallow au moment de la capture — fiable pour types immutables uniquement. */
+    /** Lecture shallow au moment de la capture : fiable pour les types immuables seulement. */
     data class Shallow<out T>(val value: T) : CapturedValue<T>()
 
     /** Première donnée jamais enregistrée (initial save). */

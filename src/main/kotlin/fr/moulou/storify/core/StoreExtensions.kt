@@ -6,14 +6,11 @@ package fr.moulou.storify.core
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
 
-// ══════════════════════════════════════════════════════════════════════════════
-// SYNC — Default mode. Everything runs on the calling thread.
-// ══════════════════════════════════════════════════════════════════════════════
-// ✅ Data always valid         ✅ Value available immediately
-// ⏱️ Deep copy + validation on the calling thread (blocking)
-//
-// Available: set, setIn, mutate, mutateIn, transaction
-// ══════════════════════════════════════════════════════════════════════════════
+/*
+ * Les extensions publiques d'update sur BaseStore : set et setIn (remplacer une valeur), mutate et mutateIn (modifier un objet mutable en place, avec
+ * navigation), transaction (tout ou rien, rollback sur exception). Tout s'exécute sur le fil appelant, sous le write lock du store ; les callbacks sont
+ * notifiés hors du lock (runUpdateInternal et transactionInternal, dans BaseStore).
+ */
 
 inline fun <reified DATA : Any, reified VALUE> BaseStore<DATA>.set(property: KMutableProperty1<DATA, VALUE>, value: VALUE) = setIn(property, value) { this }
 

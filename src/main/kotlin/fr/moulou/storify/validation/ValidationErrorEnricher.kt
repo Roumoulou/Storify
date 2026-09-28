@@ -31,7 +31,7 @@ internal object ValidationErrorEnricher {
     /**
      * Enrichit chaque [ValidationError] de la liste avec le numéro de ligne JSON correspondant.
      *
-     * @param format Le format du store — seul [JsonFormat] est supporté, les autres formats
+     * @param format Le format du store ; seul [JsonFormat] est supporté, les autres formats
      *               retournent la liste d'erreurs inchangée.
      * @param path   Chemin vers le fichier JSON source.
      * @param errors Liste d'erreurs de validation à enrichir.

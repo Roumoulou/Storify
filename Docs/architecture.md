@@ -280,4 +280,4 @@ exercés en vrai. Les faits marquants, sources des chantiers :
 
 ---
 
-*Dernière vérification : 2026-09-23, chapitres 1, 2 et 9 relus contre `src\main` ; le reste tenu au fil des chantiers, jusqu'à C-26 (2026-09-15).*
+*Dernière vérification : 2026-09-28, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md`, C-28 à C-39.*

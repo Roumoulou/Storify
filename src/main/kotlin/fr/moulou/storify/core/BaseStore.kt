@@ -37,9 +37,10 @@ import kotlin.reflect.full.memberProperties
  *                             elle ne coûte rien, et poser un validator c'est vouloir qu'il tourne ; `false` est l'échappatoire explicite.
  * @property withAutoSave      Persiste automatiquement les données modifiées sur disque. Défaut `true`.
  * @property withMeta          Gère un fichier sidecar `.meta.json` (lastModified, etc.). Défaut `false`.
- * @property useDeepCopy       Deep-copy les données pour capturer old/new dans les callbacks et permettre
- *                             le rollback des transactions en cas d'exception. Défaut `true`.
- *                             Désactiver améliore les performances mais les snapshots old seront indisponibles.
+ * @property useDeepCopy       Autorise les copies profondes : les captures old/new des callbacks (policy SNAPSHOT) et le secours de
+ *                             rollback des transactions. Défaut `true`. À `false`, ces captures sont `Unavailable` et la transaction
+ *                             perd son filet ; la copie de la racine à l'ouverture et au rechargement reste faite quel que soit le
+ *                             réglage, et le véhicule reste CBOR (chantier C-29 de `Docs\chantiers.md`).
  * @property defaultUpdatePolicy Politique d'update par défaut pour les propriétés sans annotation
  *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
  *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
@@ -635,7 +636,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                 } else TransactionOperation(CapturedValue.Unavailable, CapturedValue.Shallow(_data))
 
             } catch (e: Exception) {
-                log.warn("[Storify] Transaction failed with exception — rolled back: {}", e.message)
+                log.warn("[Storify] Transaction failed with exception, rolled back: {}", e.message)
                 if (backupSnapshot != null) _data = backupSnapshot
                 throw e
             }

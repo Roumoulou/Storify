@@ -53,7 +53,7 @@ class ValidationContext(
     }
 
     fun formatErrors(): String {
-        if (_errors.isEmpty()) return "Validation passed — no errors."
+        if (_errors.isEmpty()) return "Validation passed, no errors."
         return buildString {
             appendLine("Validation failed with ${_errors.size} error(s):")
             _errors.forEachIndexed { index, error ->

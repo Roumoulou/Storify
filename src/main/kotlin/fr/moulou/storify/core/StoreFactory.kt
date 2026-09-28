@@ -118,9 +118,9 @@ object StoreFactory {
      * 6. Construire le [BaseStore]
      *
      * @param stringPath      Path explicite, ou `null` pour l'extraire de `@StorePath`
-     * @param format          Format explicite (nullable — priorité sur annotation)
-     * @param config          Config explicite (nullable — priorité sur annotation)
-     * @param validator       Validator explicite (nullable — priorité sur annotation)
+     * @param format          Format explicite (nullable ; priorité sur l'annotation)
+     * @param config          Config explicite (nullable ; priorité sur l'annotation)
+     * @param validator       Validator explicite (nullable ; priorité sur l'annotation)
      * @param providerFactory Factory qui reçoit le path final, les annotations résolues et le format résolu,
      *                        et retourne le [DefaultProvider] approprié.
      *                        Appelée **après** la résolution des paramètres, ce qui permet à

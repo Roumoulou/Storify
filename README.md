@@ -1,21 +1,22 @@
 # Storify
 
 Une bibliothèque Kotlin de stores de données et de configuration sur fichier, pensée d'abord pour les mods Minecraft server-side et utilisable dans
-tout projet JVM. Un store attelle une data class sérialisable à un fichier JSON ou TOML, et fournit autour tout ce qu'un mod réclame : un accès
+tout projet JVM. Un store attelle une data class sérialisable à un fichier JSON, TOML ou JSON5, et fournit autour tout ce qu'un mod réclame : un accès
 global thread-safe, des mises à jour typées propriété par propriété, des callbacks, une sauvegarde automatique, une validation au chargement avec
 rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.1.0-SNAPSHOT`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) ; le circuit de
-  publication est en place depuis C-18. Aucune release figée encore : l'API bouge, le snapshot se republie à volonté.
+- Coordonnées : `fr.moulou:storify`, version `0.2.0-SNAPSHOT` en développement ; la dernière publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`)
+  est `0.1.0-SNAPSHOT`, et la recette de la section 4 la cite jusqu'à la republication (C-39). Aucune release figée : l'API bouge, le snapshot se
+  republie à volonté.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-09-23, sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : trois chantiers restent ouverts, C-17 (versionnage et migration des fichiers), C-19 (écrans de
-  configuration) et C-20 (positionnement). La liste complète vit dans `Docs\chantiers.md`.
+- Build et tests : verts au 2026-09-28 (171 tests), sur la stack ci-dessous.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20, et C-28 à C-39, issus de l'avis externe du 2026-09-28) vivent dans
+  `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.
@@ -118,7 +119,7 @@ homesStore.registerOnUpdateOn(Homes::totalTeleports) { log.info("le compteur a b
 homesStore.mutate(Homes::players) { players -> players.getOrPut("Steve") { mutableListOf() }.add("base") }
 homesStore.set(Homes::totalTeleports, homesStore.data.totalTeleports + 1)
 
-homesStore.reloadFromFile() // relit le fichier, notifie onReload ; sans revalidation, voir les limites
+homesStore.reloadFromFile() // relit le fichier, le revalide (mémoire intacte en échec) et notifie onReload
 ```
 
 ## 4. Embarquer Storify dans un mod
@@ -171,7 +172,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 
 ## 6. Construire et tester
 
-```bash
+```powershell
 .\gradlew build
 ```
 
