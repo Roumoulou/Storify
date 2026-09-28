@@ -10,10 +10,13 @@ import fr.moulou.storify.core.set
 import fr.moulou.storify.support.AnnotatedValidatedData
 import fr.moulou.storify.support.PlainData
 import fr.moulou.storify.support.newStorePath
+import fr.moulou.storify.updates.CountedBoxSerializer
+import fr.moulou.storify.updates.CountedData
 import fr.moulou.storify.validation.ValidationException
 import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import kotlin.io.path.readText
@@ -67,6 +70,38 @@ class ReloadTest {
 
             assertThrows(SerializationException::class.java) { store.reloadFromFile() }
             assertEquals("default", store.data.name) // le décodage a échoué AVANT toute affectation
+        }
+    }
+
+    @Test
+    fun `sans useDeepCopy, le reload notifie des captures Shallow au lieu de copier`() {
+        val path = newStorePath("reload-shallow.json")
+        StoreFactory.create<PlainData>(path.toString(), config = StoreConfig(withAutoSave = false, useDeepCopy = false)).use { store ->
+            val reloads = mutableListOf<Operation<PlainData>>()
+            store.registerOnReload { reloads.add(it) }
+
+            path.writeText(path.readText().replace("\"default\"", "\"edited\""))
+            store.reloadFromFile()
+
+            val reload = assertInstanceOf(ReloadOperation::class.java, reloads.single())
+            assertInstanceOf(CapturedValue.Shallow::class.java, reload.old)
+            assertInstanceOf(CapturedValue.Shallow::class.java, reload.new)
+            assertSame(store.data, reload.new.valueOrNull) // la référence vivante, pas une copie
+        }
+    }
+
+    @Test
+    fun `sans auditeur de reload, la racine n'est pas copiée`() {
+        val path = newStorePath("reload-silent.json")
+        StoreFactory.create<CountedData>(path.toString(), config = snapshotConfig).use { store ->
+            val silent = CountedBoxSerializer.serializations
+            store.reloadFromFile()
+            assertEquals(silent, CountedBoxSerializer.serializations) // personne n'écoute : ni copie d'avant ni copie d'après
+
+            store.registerOnReload { }
+            val heard = CountedBoxSerializer.serializations
+            store.reloadFromFile()
+            assertEquals(heard + 2, CountedBoxSerializer.serializations) // devant public : l'avant et l'après
         }
     }
 }

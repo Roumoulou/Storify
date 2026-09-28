@@ -3,6 +3,8 @@
 
 package fr.moulou.storify
 
+import fr.moulou.storify.utils.DeepCopier
+import fr.moulou.storify.utils.JsonTreeCopier
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
@@ -24,6 +26,11 @@ class JsonFormat(
         allowComments = true
     }
 ) : StoreFormat {
+
+    /** Le copieur profond des stores JSON : l'arbre JSON de ce même `Json` (C-29). */
+    private val copier = JsonTreeCopier(json)
+
+    override fun deepCopier(): DeepCopier = copier
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {

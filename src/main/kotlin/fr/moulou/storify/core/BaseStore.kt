@@ -4,9 +4,10 @@
 package fr.moulou.storify.core
 
 import fr.moulou.storify.*
-import fr.moulou.storify.utils.deepCopyValue
+import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.validation.*
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.serializer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.channels.FileChannel
@@ -37,10 +38,10 @@ import kotlin.reflect.full.memberProperties
  *                             elle ne coûte rien, et poser un validator c'est vouloir qu'il tourne ; `false` est l'échappatoire explicite.
  * @property withAutoSave      Persiste automatiquement les données modifiées sur disque. Défaut `true`.
  * @property withMeta          Gère un fichier sidecar `.meta.json` (lastModified, etc.). Défaut `false`.
- * @property useDeepCopy       Autorise les copies profondes : les captures old/new des callbacks (policy SNAPSHOT) et le secours de
- *                             rollback des transactions. Défaut `true`. À `false`, ces captures sont `Unavailable` et la transaction
- *                             perd son filet ; la copie de la racine à l'ouverture et au rechargement reste faite quel que soit le
- *                             réglage, et le véhicule reste CBOR (chantier C-29 de `Docs\chantiers.md`).
+ * @property useDeepCopy       Autorise les copies profondes, par le copieur du format (C-29) : les captures old/new des callbacks (policy
+ *                             SNAPSHOT), le secours de rollback des transactions, le snapshot du dernier save et les captures du
+ *                             rechargement. Défaut `true`. À `false`, plus aucune copie : ces captures sont `Unavailable` ou `Shallow`,
+ *                             et la transaction perd son filet.
  * @property defaultUpdatePolicy Politique d'update par défaut pour les propriétés sans annotation
  *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
  *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
@@ -86,9 +87,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Factory fournissant la [DATA] par défaut quand aucun fichier n'existe. */
     private val defaultDataProvider: () -> DATA,
 
-    /** Fonction de deep-copy (typiquement round-trip CBOR). Utilisée pour les snapshots et le rollback. */
-    private val deepCopyFn: (DATA) -> DATA,
-
     /** Validateur optionnel résolu depuis l'annotation `@StoreValidator`. */
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
@@ -98,6 +96,13 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     /** Le logger du store, fabriqué une fois : un détail d'implémentation, plus une pièce du contrat (C-11). */
     private val log: Logger = LoggerFactory.getLogger(BaseStore::class.java)
+
+    /** Le copieur profond du store, celui de son format (C-29) : toute copie de racine ou de valeur passe par lui. */
+    @PublishedApi
+    internal val copier: DeepCopier = format.deepCopier()
+
+    /** Copie la racine par le copieur du format. */
+    private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
 
     /** Indique si les données ont été chargées depuis un fichier ou générées par [defaultDataProvider]. */
     private enum class DataOrigin { FILE, DEFAULT }
@@ -109,14 +114,21 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     override val data: DATA
         get() = dataLock.read { _data }
 
-    /** Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08). */
+    /**
+     * Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08).
+     * Les captures suivent [StoreConfig.useDeepCopy] (copies profondes, sinon les références) et ne se construisent que devant public (C-25, C-29).
+     */
     internal fun replaceData(newValue: DATA) {
         val operation = dataLock.write {
             val old = _data
             _data = newValue
-            ReloadOperation(this::data, CapturedValue.DeepCopy(deepCopyFn(old)), CapturedValue.DeepCopy(deepCopyFn(newValue)))
+            when {
+                onReloadCallbacks.isEmpty() -> null
+                config.useDeepCopy -> ReloadOperation(this::data, CapturedValue.DeepCopy(copyRoot(old)), CapturedValue.DeepCopy(copyRoot(newValue)))
+                else -> ReloadOperation(this::data, CapturedValue.Shallow(old), CapturedValue.Shallow(newValue))
+            }
         }
-        onReloadCallbacks.forEach { it(operation) }
+        if (operation != null) onReloadCallbacks.forEach { it(operation) }
     }
 
     private val _dataOrigin: DataOrigin = if (path.exists()) DataOrigin.FILE else DataOrigin.DEFAULT
@@ -156,7 +168,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     /** La copie de sécurité de la racine, pour le rollback du garde. */
     @PublishedApi
-    internal fun rootBackup(): DATA = deepCopyFn(_data)
+    internal fun rootBackup(): DATA = copyRoot(_data)
 
     /** Rend l'échec de validation de la racine, ou null si tout est valide. */
     @PublishedApi
@@ -249,7 +261,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         } else {
             _data = defaultDataProvider.invoke()
         }
-        _lastSavedData = deepCopyFn(_data)
+        _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
     }
 
     /** Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06). */
@@ -352,7 +364,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             }
             isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
 
-            _lastSavedData = if (config.useDeepCopy) deepCopyFn(_data) else null
+            _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
             _hasSavedAtLeastOnce = true
 
             val newCaptured: CapturedValue<DATA> =
@@ -539,14 +551,14 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         // C-05, opt-in validateOnUpdate : copie de sécurité de la racine (seul rollback générique d'une
         // mutation en place) et capture de l'avant, pour l'opération d'échec.
         val guardBackup: DATA? = if (config.validateOnUpdate) rootBackup() else null
-        val guardOld: CapturedValue<VALUE> = if (guardBackup != null) CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver))) else CapturedValue.Unavailable
+        val guardOld: CapturedValue<VALUE> = if (guardBackup != null) CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver))) else CapturedValue.Unavailable
 
         if (policy == UpdatePolicy.SKIP || !hasUpdateListeners(kProperty1)) {
             applyUpdate(receiver)
             if (guardBackup != null) {
                 val failure = guardValidationFailure()
                 if (failure != null) {
-                    val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
+                    val attempted = CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver)))
                     restoreRoot(guardBackup)
                     return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
                 }
@@ -560,13 +572,13 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         val wantSnapshot = policy == UpdatePolicy.SNAPSHOT && config.useDeepCopy && !immutable
 
         val oldValue = kProperty1.get(receiver)
-        val oldSnapshot: VALUE = if (wantSnapshot) deepCopyValue(oldValue) else oldValue
+        val oldSnapshot: VALUE = if (wantSnapshot) copier.copy(serializer<VALUE>(), oldValue) else oldValue
 
         applyUpdate(receiver)
         if (guardBackup != null) {
             val failure = guardValidationFailure()
             if (failure != null) {
-                val attempted = CapturedValue.DeepCopy(deepCopyValue(kProperty1.get(receiver)))
+                val attempted = CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver)))
                 restoreRoot(guardBackup)
                 return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
             }
@@ -580,7 +592,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             else -> CapturedValue.Unavailable
         }
         val newCaptured: CapturedValue<VALUE> = when {
-            wantSnapshot -> CapturedValue.DeepCopy(deepCopyValue(newValue))
+            wantSnapshot -> CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), newValue))
             else -> CapturedValue.Shallow(newValue)
         }
 
@@ -612,7 +624,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     internal fun transactionInternal(block: DATA.() -> Unit) {
         checkOpen()
         val operation: Operation<DATA> = dataLock.write {
-            val backupSnapshot: DATA? = if (config.useDeepCopy) deepCopyFn(_data) else null
+            val backupSnapshot: DATA? = if (config.useDeepCopy) copyRoot(_data) else null
 
             try {
                 _data.block()
@@ -631,7 +643,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                     TransactionOperation(CapturedValue.Unavailable, CapturedValue.Unavailable) // C-25 : pas de copie d'après sans public (le secours du rollback, lui, a déjà été pris)
                 } else if (config.useDeepCopy && backupSnapshot != null) {
                     val o = CapturedValue.DeepCopy(backupSnapshot)
-                    val n = CapturedValue.DeepCopy(deepCopyFn(_data))
+                    val n = CapturedValue.DeepCopy(copyRoot(_data))
                     TransactionOperation(o, n)
                 } else TransactionOperation(CapturedValue.Unavailable, CapturedValue.Shallow(_data))
 

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// ─── La fixture au compteur : chaque copie CBOR passe par serialize, et se compte ───────────────
+// ─── La fixture au compteur : chaque copie profonde passe par serialize, et se compte ───────────────
 
 @Serializable(with = CountedBoxSerializer::class)
 class CountedBox(var value: Int = 0)
@@ -45,7 +45,7 @@ data class CountedData(var box: CountedBox = CountedBox(), var name: String = "s
 
 /**
  * C-25 : le pipeline ne capture que devant public. Le compteur de sérialisations mesure les copies
- * CBOR réellement faites : sans auditeur, un update observant n'en fait aucune ; le garde
+ * profondes réellement faites : sans auditeur, un update observant n'en fait aucune ; le garde
  * `validateOnUpdate`, lui, reste intact dans la branche rapide.
  */
 class CaptureShortcutTest {

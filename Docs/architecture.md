@@ -34,7 +34,7 @@ Les packages :
 | `fr.moulou.storify` | Le modèle public : annotations, `UpdatePolicy`, `Operation`, `CapturedValue`, `StoreMeta`, `Defaultable`, formats |
 | `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, la factory, les extensions `set`/`mutate`/`transaction` |
 | `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
-| `fr.moulou.storify.utils` | Le deep copy CBOR, le registre des formats, le formatage des dates |
+| `fr.moulou.storify.utils` | Le copieur profond (`DeepCopier`, l'arbre JSON), le registre des formats, le formatage des dates |
 | `fr.moulou.storify.serializers` | Sérialiseurs d'appoint (`JsonPrimitiveAsStringSerializer`) |
 
 ## 2. La data class et ses annotations
@@ -148,7 +148,7 @@ reloads, et une navigation qui échoue vaut « ne matche pas ». Le lien entre u
 | `SKIP` | non | non |
 
 Le drapeau dirty, lui, est posé pour toutes les policies (depuis C-03) : la policy choisit ce qu'on observe, jamais ce qui est persisté. Le choix
-pratique, chiffré par `DeepCopyBenchmark` (0,2 µs pour un petit objet, ~70 µs pour 200 records imbriqués, par copie) : `SNAPSHOT` pour observer
+pratique, chiffré par `DeepCopyBenchmark` (0,6 µs pour un petit objet, 57 µs pour 200 records imbriqués, par copie) : `SNAPSHOT` pour observer
 avec des captures figées et sûres, `SHALLOW` pour observer sans copies (avant indisponible sur les mutations en place, après vivant), `SKIP` pour
 le silence des points chauds. Et depuis C-25, ces coûts ne se paient que devant public : sans aucun callback d'update enregistré, le pipeline
 court-circuite captures et opération, quelle que soit la policy (la transaction garde toujours son secours de rollback, lui).
@@ -171,7 +171,8 @@ pas faire). La cible est donc toujours une version entière. Un verrou d'IO déd
 pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial comme le sidecar meta passent par le même chemin. Un
 format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment
 d'encoder vers le temporaire : il ne réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
-remplace la racine sous write lock et notifie les callbacks de reload.
+remplace la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`),
+construites seulement devant public (C-29).
 
 ## 8. La validation
 
@@ -197,7 +198,9 @@ les contrôles métier avant de muter.
 explicite (`decodeFromPath(deserializer, path)`, `encodeToPath(serializer, data, path)`). Le sérialiseur est matérialisé aux sites réifiés (la
 factory pour les stores, un sucre `inline reified` pour les appels directs : `format.decodeFromPath<Homes>(path)`) puis transporté par l'appel
 polymorphe : un format tiers implémente l'interface et traverse la factory sans qu'elle le connaisse. La réification ne pouvait pas être le
-mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle reste celui de la matérialisation. Les réglages en place :
+mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle reste celui de la matérialisation. Depuis C-29, le contrat porte aussi
+`deepCopier()`, le copieur profond des stores du format (chapitre 10) : l'arbre JSON, sur le `Json` du format pour JSON et JSON5, au module du
+`Toml` pour TOML, celui par défaut pour un format tiers. Les réglages en place :
 
 | Format | Réglages | Particularités |
 |---|---|---|
@@ -223,12 +226,18 @@ les extensions enregistrées) : le repli silencieux sur JSON est mort avec le re
 parents avant chaque écriture : un format tiers qui oublierait de les créer ne reproduira pas le piège du constat n° 1 (la leçon C-04,
 généralisée).
 
-## 10. Le deep copy CBOR
+## 10. Le deep copy par arbre JSON
 
-Les copies profondes (`utils\DeepCopy.kt`) sont un aller-retour de sérialisation CBOR : encodage en octets puis décodage, via une instance `Cbor`
-dédiée (`encodeDefaults = true`). C'est ce qui permet de copier n'importe quelle data class `@Serializable` sans imposer d'interface de clonage.
-Le coût se mesure avec `DeepCopyBenchmark` (dans les tests) : tailles croissantes, comparaison avec `.copy()` et l'affectation directe, courbe en
-fonction de la taille des collections. Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les primitives, chaînes et enums.
+Les copies profondes (`utils\DeepCopier.kt`, C-29) sont un aller-retour de sérialisation par arbre `JsonElement` : `encodeToJsonElement` puis
+`decodeFromJsonElement`, sans texte ni octets, sur un `Json` dérivé de celui du format (`JsonTreeCopier`), avec `encodeDefaults`,
+`allowSpecialFloatingPointValues` et `allowStructuredMapKeys` forcés pour qu'une copie n'échoue jamais sur un `NaN` ou une clé de map structurée.
+C'est ce qui permet de copier n'importe quelle data class `@Serializable` sans imposer d'interface de clonage, sérialiseurs écrits pour le JSON
+compris (un `decoder as JsonDecoder` y trouve son décodeur ; l'ancien véhicule CBOR le cassait). Chaque store tient le copieur de son format
+(`StoreFormat.deepCopier()`) et le respecte pour toutes ses copies : les captures du pipeline d'update, le secours des transactions, le snapshot
+`_lastSavedData` du save et les captures du rechargement ; `useDeepCopy = false` les supprime toutes, et la transaction perd son filet.
+Le coût se mesure avec `DeepCopyBenchmark` (dans les tests, CBOR en colonne de comparaison) : du même ordre que CBOR, un peu plus lent sur les
+petits objets (0,6 contre 0,4 µs), plus rapide sur les gros (57 contre 74 µs pour 200 records), courbe en fonction de la taille des collections.
+Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les primitives, chaînes et enums, et rien ne se copie sans public (C-25).
 
 ## 11. La concurrence
 
@@ -254,8 +263,7 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 | Dépendance | Rôle |
 |---|---|
-| `kotlinx-serialization-json` | Le format JSON, et le parsing du sérialiseur d'appoint |
-| `kotlinx-serialization-cbor` | Le véhicule des copies profondes (chapitre 10), pas un format offert à l'utilisateur |
+| `kotlinx-serialization-json` | Le format JSON, le véhicule des copies profondes (chapitre 10) et le parsing du sérialiseur d'appoint |
 | `dev.eav.tomlkt:tomlkt` | Le format TOML |
 | `li.songe:json5` | Le format JSON5 : le parse et l'écriture du texte ; le mapping passe par un pont `JsonElement` kotlinx |
 | `kotlin-reflect` | Le scan des annotations, `createInstance`, `memberProperties` (factories et policies) |

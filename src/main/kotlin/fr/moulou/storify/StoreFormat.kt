@@ -3,13 +3,14 @@
 
 package fr.moulou.storify
 
+import fr.moulou.storify.utils.DeepCopier
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.serializer
 import java.nio.file.Path
 
 /**
- * Le contrat d'un format de fichier : une extension, et l'encode/decode générique (C-09).
+ * Le contrat d'un format de fichier : une extension, l'encode/decode générique (C-09) et le copieur profond de ses stores (C-29).
  *
  * Le sérialiseur arrive en paramètre, matérialisé au site réifié de l'appelant (la factory, ou le
  * sucre ci-dessous) : c'est ce qui rend le contrat implémentable par un format tiers, là où une
@@ -35,6 +36,12 @@ interface StoreFormat {
      * d'appeler ; un format utilisé hors store doit les créer, comme le font les formats fournis.
      */
     fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path)
+
+    /**
+     * Le copieur profond des stores de ce format (C-29) : l'arbre JSON au module par défaut, sauf pour un format bâti sur un `Json`, qui rend
+     * un copieur sur ce `Json` afin que ses `@Contextual` et ses sérialiseurs écrits pour lui survivent à la copie.
+     */
+    fun deepCopier(): DeepCopier = DeepCopier.Default
 }
 
 /** Sucre réifié : matérialise le sérialiseur au site d'appel, puis passe par le contrat polymorphe. */

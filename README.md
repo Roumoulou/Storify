@@ -60,8 +60,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   d'erreur), un rapport d'erreurs détaillé enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
   fichier sur disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
-- **Copies profondes par CBOR** : les snapshots des callbacks et le rollback des transactions passent par un aller-retour de sérialisation, mesuré
-  par un benchmark dédié (`DeepCopyBenchmark`).
+- **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
+  aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
+  aucune copie ne part sans public ni sans `useDeepCopy`, et le coût est mesuré par `DeepCopyBenchmark`.
 
 ## 3. Démarrage rapide
 

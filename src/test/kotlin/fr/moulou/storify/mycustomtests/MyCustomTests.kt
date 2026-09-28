@@ -8,7 +8,7 @@ import fr.moulou.storify.StorePath
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.support.PlainData
-import fr.moulou.storify.utils.deepCopyViaCbor
+import fr.moulou.storify.utils.deepCopy
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.Test
 
@@ -28,7 +28,7 @@ class MyCustomTests {
     fun myCustomTest() {
         val store = StoreFactory.create<MyCustomConfig>()
 
-        val de = store._data.deepCopyViaCbor()
+        val de = store._data.deepCopy()
 
         
 

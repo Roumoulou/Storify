@@ -7,7 +7,6 @@ package fr.moulou.storify.core
 
 import fr.moulou.storify.*
 import fr.moulou.storify.utils.StoreFormats
-import fr.moulou.storify.utils.deepCopyViaCbor
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.serializer
 import java.nio.file.Files
@@ -142,7 +141,6 @@ object StoreFactory {
             Paths.get(finalPath), finalFormat, finalConfig,
             serializer<DATA>(),
             defaultDataProvider = { provider.provide() },
-            deepCopyFn = { it.deepCopyViaCbor() },
             validator = finalValidator
         )
     }

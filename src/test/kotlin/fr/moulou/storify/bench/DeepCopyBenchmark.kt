@@ -3,18 +3,23 @@
 
 package fr.moulou.storify.bench
 
-import fr.moulou.storify.utils.deepCopyValue
+import fr.moulou.storify.utils.deepCopy
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.cbor.Cbor
+import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Test
 import kotlin.system.measureNanoTime
 
 /**
- * Benchmarks pour mesurer le coût réel du deep copy via CBOR (serialize puis deserialize).
+ * Benchmarks pour mesurer le coût réel du deep copy par arbre JSON (encodeToJsonElement puis decodeFromJsonElement), le véhicule de Storify
+ * depuis C-29, avec l'ancien véhicule CBOR (encodeToByteArray puis decodeFromByteArray) en colonne de comparaison.
  *
  * Chaque benchmark :
  * 1. Fait un warmup (1 000 itérations) pour que la JVM JIT-compile le code
  * 2. Mesure N itérations et rapporte la moyenne par opération
  */
+@OptIn(ExperimentalSerializationApi::class)
 class DeepCopyBenchmark {
 
     // ── Data classes de test ──
@@ -57,33 +62,37 @@ class DeepCopyBenchmark {
         var metadata: Map<String, String> = (1..100).associate { "key_$it" to "value_$it" }
     )
 
+    private val cbor = Cbor { encodeDefaults = true }
+
     // ── Benchmark runner ──
 
     private inline fun <reified T> bench(label: String, iterations: Int, obj: T) {
+        val serializer = serializer<T>()
+        val viaCbor = { cbor.decodeFromByteArray(serializer, cbor.encodeToByteArray(serializer, obj)) }
+
         // Warmup
-        repeat(1_000) { deepCopyValue(obj) }
+        repeat(1_000) { obj.deepCopy(); viaCbor() }
 
         // Measure
-        val totalNs = measureNanoTime {
-            repeat(iterations) { deepCopyValue(obj) }
-        }
+        val treeNs = measureNanoTime { repeat(iterations) { obj.deepCopy() } }
+        val cborNs = measureNanoTime { repeat(iterations) { viaCbor() } }
 
-        val avgUs = (totalNs / iterations) / 1_000.0
-        val avgMs = avgUs / 1_000.0
-        val opsPerSec = if (avgUs > 0) (1_000_000.0 / avgUs).toLong() else 0
+        val treeUs = (treeNs / iterations) / 1_000.0
+        val cborUs = (cborNs / iterations) / 1_000.0
+        val opsPerSec = if (treeUs > 0) (1_000_000.0 / treeUs).toLong() else 0
 
-        println("%-12s │ %8.1f µs │ %6.3f ms │ %,10d ops/s │ %,d iterations".format(label, avgUs, avgMs, opsPerSec, iterations))
+        println("%-12s │ %8.1f µs │ %8.1f µs │ %,10d ops/s │ %,d iterations".format(label, treeUs, cborUs, opsPerSec, iterations))
     }
 
     // ── Tests ──
 
     @Test
-    fun `deep copy benchmark — all sizes`() {
+    fun `deep copy benchmark, all sizes`() {
         println()
-        println("Deep Copy Benchmark (CBOR serialize puis deserialize)")
-        println("═══════════════════════════════════════════════════════════════════")
-        println("%-12s │ %8s │ %9s │ %14s │ %s".format("Object", "Avg", "Avg (ms)", "Throughput", "Iterations"))
-        println("─────────────┼──────────┼───────────┼────────────────┼────────────")
+        println("Deep Copy Benchmark : arbre JSON (le véhicule de Storify) contre CBOR (l'ancien)")
+        println("═══════════════════════════════════════════════════════════════════════════════")
+        println("%-12s │ %8s │ %8s │ %14s │ %s".format("Object", "JSON", "CBOR", "Throughput", "Iterations"))
+        println("─────────────┼──────────┼──────────┼────────────────┼────────────")
 
         bench("Tiny",    100_000, Tiny())
         bench("Small",    50_000, Small())
@@ -91,12 +100,12 @@ class DeepCopyBenchmark {
         bench("Large",     1_000, Large())
         bench("Huge",        200, Huge())
 
-        println("═══════════════════════════════════════════════════════════════════")
+        println("═══════════════════════════════════════════════════════════════════════════════")
         println()
     }
 
     @Test
-    fun `deep copy benchmark — primitive vs object assignment`() {
+    fun `deep copy benchmark, primitive vs object assignment`() {
         println()
         println("Comparison: Deep Copy vs Direct Assignment vs .copy()")
         println("═══════════════════════════════════════════════════════════════════")
@@ -106,12 +115,12 @@ class DeepCopyBenchmark {
 
         // Warmup
         repeat(1_000) {
-            deepCopyValue(small)
+            small.deepCopy()
             small.copy()
             val x = small.level
         }
 
-        val deepCopyNs = measureNanoTime { repeat(iterations) { deepCopyValue(small) } }
+        val deepCopyNs = measureNanoTime { repeat(iterations) { small.deepCopy() } }
         val copyNs = measureNanoTime { repeat(iterations) { small.copy() } }
         val assignNs = measureNanoTime { repeat(iterations) { @Suppress("UNUSED_VARIABLE") val x = small.level } }
 
@@ -119,7 +128,7 @@ class DeepCopyBenchmark {
         val cpAvg = (copyNs / iterations) / 1_000.0
         val asAvg = (assignNs / iterations) / 1_000.0
 
-        println("%-20s │ %8.1f µs".format("deepCopyValue()", dcAvg))
+        println("%-20s │ %8.1f µs".format("deepCopy()", dcAvg))
         println("%-20s │ %8.1f µs".format(".copy() (shallow)", cpAvg))
         println("%-20s │ %8.3f µs".format("direct assignment", asAvg))
         println()
@@ -130,7 +139,7 @@ class DeepCopyBenchmark {
     }
 
     @Test
-    fun `deep copy benchmark — scaling with collection size`() {
+    fun `deep copy benchmark, scaling with collection size`() {
         println()
         println("Scaling: Deep Copy vs Collection Size")
         println("═══════════════════════════════════════════════════════════════════")
@@ -142,8 +151,8 @@ class DeepCopyBenchmark {
             data class ListWrapper(val items: List<MemberData>)
             val obj = ListWrapper((1..size).map { MemberData("P$it", it) })
             val iters = maxOf(100, 10_000 / size)
-            repeat(500) { deepCopyValue(obj) } // warmup
-            val totalNs = measureNanoTime { repeat(iters) { deepCopyValue(obj) } }
+            repeat(500) { obj.deepCopy() } // warmup
+            val totalNs = measureNanoTime { repeat(iters) { obj.deepCopy() } }
             val avgUs = (totalNs / iters) / 1_000.0
             val ops = if (avgUs > 0) (1_000_000.0 / avgUs).toLong() else 0
             println("%-12s │ %8.1f µs │ %,10d ops/s".format("$size items", avgUs, ops))

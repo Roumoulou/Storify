@@ -29,7 +29,6 @@ dependencies {
     implementation(libs.tomlkt)
     implementation(libs.json5)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.kotlinx.serialization.cbor)
     implementation(libs.slf4j.api)
 
     // ── Test : JUnit 6 ───────────────────────────────────────────────────
@@ -38,6 +37,9 @@ dependencies {
 
     // ── Test : Logging ───────────────────────────────────────────────────
     testRuntimeOnly(libs.slf4j.simple)
+
+    // CBOR ne sert plus qu'aux tests, pour la démo et la comparaison du benchmark (C-29) : la lib copie par l'arbre JSON.
+    testImplementation(libs.kotlinx.serialization.cbor)
 }
 
 java {

@@ -3,6 +3,8 @@
 
 package fr.moulou.storify
 
+import fr.moulou.storify.utils.DeepCopier
+import fr.moulou.storify.utils.JsonTreeCopier
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
@@ -41,6 +43,11 @@ class Json5Format(
     private val json: Json = Json { encodeDefaults = true },
     private val encoderConfig: Json5EncoderConfig = Json5EncoderConfig(indent = "    ")
 ) : PreservingStoreFormat {
+
+    /** Le copieur profond des stores JSON5 : l'arbre JSON du pont kotlinx, le même qui décode et encode les fichiers (C-29). */
+    private val copier = JsonTreeCopier(json)
+
+    override fun deepCopier(): DeepCopier = copier
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
         return json.decodeFromJsonElement(deserializer, Json5.parseToJsonElement(path.readText()))

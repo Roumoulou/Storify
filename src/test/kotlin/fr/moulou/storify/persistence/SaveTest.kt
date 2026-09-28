@@ -9,6 +9,8 @@ import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.core.set
 import fr.moulou.storify.support.PlainData
 import fr.moulou.storify.support.newStorePath
+import fr.moulou.storify.updates.CountedBoxSerializer
+import fr.moulou.storify.updates.CountedData
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -56,6 +58,7 @@ class SaveTest {
             store.saveImmediate()
 
             val first = assertInstanceOf(SaveOperation::class.java, saves[0])
+            assertFalse(first.old.isAvailable)                              // ni d'Initial : la racine n'est pas copiée à l'ouverture (C-29)
             assertFalse(first.new.isAvailable)                              // plus de snapshot d'après
             val second = assertInstanceOf(SaveOperation::class.java, saves[1])
             assertFalse(second.old.isAvailable)                             // et plus d'avant au save suivant
@@ -73,5 +76,13 @@ class SaveTest {
             store.set(PlainData::count, 3)
             assertTrue(store.isDirty) // et le cycle repart
         }
+    }
+
+    @Test
+    fun `sans useDeepCopy, l'ouverture ne copie pas la racine`() {
+        val before = CountedBoxSerializer.serializations
+        StoreFactory.create<CountedData>(newStorePath("counted-init.json").toString(), config = StoreConfig(withAutoSave = false, useDeepCopy = false)).use { }
+
+        assertEquals(before + 1, CountedBoxSerializer.serializations) // le fichier initial s'écrit (une sérialisation), aucune copie ne part
     }
 }

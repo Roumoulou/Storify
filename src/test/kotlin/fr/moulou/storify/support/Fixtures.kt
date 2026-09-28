@@ -6,7 +6,20 @@ package fr.moulou.storify.support
 import fr.moulou.storify.*
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /*
  * Le zoo des fixtures de la suite (C-14), nommées par intention : chaque cas annoté exige sa
@@ -236,5 +249,39 @@ data class TomlishData(
 ) {
     companion object : Defaultable<TomlishData> {
         override fun getDefault(): TomlishData = TomlishData()
+    }
+}
+
+// ─── Le sérialiseur écrit pour le JSON (C-29) : une règle à deux formes, `"allow"` ou `{ "value": ..., "note": ... }` ───────────────────────
+
+/** Une règle à deux formes JSON : la chaîne courte sans note, l'objet quand elle en porte une. */
+@Serializable(with = ShapedRuleSerializer::class)
+data class ShapedRule(val value: String, val note: String? = null)
+
+/** Il regarde la forme de l'élément avant de lire, ce qui exige un JsonDecoder : la copie par CBOR le cassait, l'arbre JSON lui convient. */
+object ShapedRuleSerializer : KSerializer<ShapedRule> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("ShapedRule")
+
+    override fun deserialize(decoder: Decoder): ShapedRule {
+        val element = (decoder as JsonDecoder).decodeJsonElement()
+        return when (element) {
+            is JsonPrimitive -> ShapedRule(element.content)
+            is JsonObject -> ShapedRule(element.getValue("value").jsonPrimitive.content, element["note"]?.jsonPrimitive?.content)
+            else -> throw SerializationException("ShapedRule expects a string or an object, got $element")
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: ShapedRule) {
+        val out = encoder as JsonEncoder
+        if (value.note == null) out.encodeJsonElement(JsonPrimitive(value.value))
+        else out.encodeJsonElement(buildJsonObject { put("value", value.value); put("note", value.note) })
+    }
+}
+
+/** Le fichier de droits d'un consommateur : une map de règles, jamais vide par défaut pour que toute copie ait à sérialiser une règle. */
+@Serializable
+data class ShapedRulesData(var rules: MutableMap<String, ShapedRule> = mutableMapOf("fly" to ShapedRule("allow"))) {
+    companion object : Defaultable<ShapedRulesData> {
+        override fun getDefault(): ShapedRulesData = ShapedRulesData()
     }
 }

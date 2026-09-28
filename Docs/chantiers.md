@@ -103,13 +103,19 @@ c'est fait, avec la date.
   temporaire étranger survit. **Fait le 2026-09-28** : le nom du temporaire et son motif de reconnaissance sortent en deux fonctions du companion de
   `BaseStore` (`tempFileName`, `ownTempPattern`), une seule définition pour l'écriture et le balayage, qui ne reconnaît plus que ce motif, pour le
   fichier et pour son sidecar ; un test où `homes.json.tmp` et `homes.json.backup.tmp` survivent à l'ouverture quand les temporaires propres disparaissent.
-- [ ] **C-29 : la copie profonde respectueuse du réglage et du format** (M ; AVIS). `useDeepCopy` n'est pas respecté partout : la racine est copiée à
+- [x] **C-29 : la copie profonde respectueuse du réglage et du format** (M ; AVIS). `useDeepCopy` n'est pas respecté partout : la racine est copiée à
   l'ouverture (`_lastSavedData`) et au rechargement (`replaceData`) quel que soit le réglage, et le véhicule est un aller-retour CBOR. Conséquences : toute
   data class doit survivre à CBOR, un sérialiseur écrit pour le JSON (un cast `JsonDecoder`, un `JsonTransformingSerializer`) casse à l'ouverture du
   store, et chaque ouverture encode puis décode la racine sans public. Respecter le réglage (captures `Unavailable` ou `Shallow` quand il est faux), puis
   remplacer CBOR par un aller-retour d'arbre `JsonElement` (le `Json` du format pour JSON et JSON5, un `Json` de copie sinon), qui copie toute valeur,
   tolère les sérialiseurs spécifiques au JSON et retire `kotlinx-serialization-cbor` ; une stratégie enfichable en option ; `DeepCopyBenchmark` mesure le
-  coût.
+  coût. **Fait le 2026-09-28** : `DeepCopier` public (`utils\DeepCopier.kt`) et son véhicule unique `JsonTreeCopier` ; `StoreFormat.deepCopier()`
+  désigne le copieur des stores du format (le `Json` de `JsonFormat` et de `Json5Format`, l'arbre JSON au module du `Toml` pour `TomlFormat`, le défaut
+  pour un format tiers) ; `BaseStore` copie tout par lui et respecte `useDeepCopy` partout (ni `Initial` ni copie à l'ouverture sans lui, captures
+  `Shallow` au rechargement, et aucune capture de rechargement sans public) ; `kotlinx-serialization-cbor` quitte le build, gardé en test pour la démo
+  et la colonne de comparaison du benchmark ; `deepCopy()` remplace `deepCopyViaCbor` et `deepCopyValue`. Mesuré : l'arbre JSON vaut CBOR (0,6 contre
+  0,4 µs sur un petit objet, 57 contre 74 µs sur 200 records). Six tests neufs et quatre refaits, dont l'ouverture, l'update observé et le rechargement
+  d'un store au sérialiseur écrit pour le JSON, la fixture `ShapedRule`.
 - [ ] **C-30 : le mode lecture seule, et le hook débrayable** (M ; AVIS). Rien ne déclare « ce fichier ne se réécrit jamais » : `saveImmediate()` écrit
   sans condition, une transaction au bloc vide pose le dirty, et le hook d'arrêt est armé dans tous les cas (un `Thread` jamais démarré, mais une
   référence forte, et une écriture si dirty). `StoreConfig(readOnly = true)`, miroir dans l'annotation : `set`, `mutate`, `transaction` et
