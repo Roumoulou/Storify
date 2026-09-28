@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025-2026 Roumoulou
+// SPDX-License-Identifier: LGPL-3.0-only
+
 package fr.moulou.storify.utils
 
 import fr.moulou.storify.utils.DateUtils.formatLocal

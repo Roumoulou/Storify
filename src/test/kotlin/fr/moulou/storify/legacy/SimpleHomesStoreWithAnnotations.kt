@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025-2026 Roumoulou
+// SPDX-License-Identifier: LGPL-3.0-only
+
 @file:Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 
 package fr.moulou.storify.legacy

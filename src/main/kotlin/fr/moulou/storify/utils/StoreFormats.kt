@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025-2026 Roumoulou
+// SPDX-License-Identifier: LGPL-3.0-only
+
 @file:Suppress("unused")
 
 package fr.moulou.storify.utils

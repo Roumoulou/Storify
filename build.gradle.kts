@@ -57,6 +57,30 @@ publishing {
                 name = "Storify"
                 description = "Kotlin file-backed data and config stores for Minecraft mods and JVM " +
                     "projects: JSON, TOML and JSON5 formats, typed updates, callbacks, validation, atomic saves."
+                url = "https://github.com/Roumoulou/Storify"
+
+                licenses {
+                    license {
+                        name = "GNU Lesser General Public License v3.0 only"
+                        url = "https://www.gnu.org/licenses/lgpl-3.0.txt"
+                        distribution = "repo"
+                        comments = "SPDX-License-Identifier: LGPL-3.0-only"
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = "roumoulou"
+                        name = "Roumoulou"
+                        url = "https://github.com/Roumoulou"
+                    }
+                }
+
+                scm {
+                    url = "https://github.com/Roumoulou/Storify"
+                    connection = "scm:git:https://github.com/Roumoulou/Storify.git"
+                    developerConnection = "scm:git:https://github.com/Roumoulou/Storify.git"
+                }
             }
         }
     }
@@ -89,11 +113,19 @@ tasks {
 
     withType<JavaExec>().configureEach { standardInput = System.`in` }
 
+    // Les deux textes de licence (C-27) entrent dans le jar et dans le jar de sources, suffixés du nom
+    // de l'artefact pour ne pas entrer en collision dans un jar-in-jar. Le nom se capture à la
+    // configuration : la closure de rename s'exécute au run de la tâche, où toucher project est
+    // déprécié (erreur en Gradle 10).
+    val archivesSuffix = project.base.archivesName.get()
+    val licenseFiles = listOf("LICENSE", "LICENSE.GPL")
+
     jar {
-        // Capturé à la configuration : la closure de rename s'exécute au run de la tâche,
-        // où toucher project est déprécié (erreur en Gradle 10).
-        val archivesSuffix = project.base.archivesName.get()
-        from("LICENSE") { rename { "${it}_$archivesSuffix" } }
+        from(licenseFiles) { rename { "${it}_$archivesSuffix" } }
+    }
+
+    named<Jar>("sourcesJar") {
+        from(licenseFiles) { rename { "${it}_$archivesSuffix" } }
     }
 
     test {

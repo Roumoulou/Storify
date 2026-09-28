@@ -199,6 +199,12 @@ c'est fait, avec la date.
   seules appliquées, commentaires et style préservés, et l'idempotence en prime : un save sans changement est identique à l'octet, épinglé.
   Décisions v1 : un tableau modifié se remplace entier (l'appariement commentaire-élément d'un diff par index mentirait), fichier absent ou
   invalide vaut encode à neuf. Six tests neufs, et le test C-21 « les commentaires meurent au save » s'est inversé en « ils survivent ».
+- [x] **C-27 : la licence LGPL-3.0-only** (S ; décision du 2026-09-28). La lib quitte « tous droits réservés » pour la GNU Lesser General Public License,
+  version 3 seulement. **Fait le 2026-09-28** : `LICENSE` porte le texte de la LGPL v3 et `LICENSE.GPL` celui de la GPL v3 qu'elle incorpore (textes pris
+  à gnu.org) ; le POM déclare la licence, l'URL du projet, le SCM et le développeur ; les deux textes entrent dans le jar et dans le jar de sources
+  (`LICENSE_storify`, `LICENSE.GPL_storify`) ; chaque `.kt` de `src\main` et `src\test` porte ses deux lignes SPDX (`SPDX-FileCopyrightText`,
+  `SPDX-License-Identifier`) ; le README résume ce que la licence permet à un consommateur ; le dépôt GitHub est public. Le banc, compagnon, reste tous
+  droits réservés.
 
 ## 5. P3, la vision
 

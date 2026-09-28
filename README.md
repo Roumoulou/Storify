@@ -16,8 +16,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - Build et tests : verts au 2026-09-23, sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : trois chantiers restent ouverts, C-17 (versionnage et migration des fichiers), C-19 (écrans de
   configuration) et C-20 (positionnement). La liste complète vit dans `Docs\chantiers.md`.
-- Dépôt Git : en place depuis le 2026-09-13 (branche `master`, un commit par chantier), poussé sur GitHub le jour même (`Roumoulou/Storify`, privé).
-- Licence : propriétaire pour l'instant (`LICENSE.txt`, tous droits réservés) ; le choix d'une licence réelle reste à trancher.
+- Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
+- Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
+  porte son en-tête SPDX.
 
 | Outil | Version |
 |---|---|
@@ -199,3 +200,13 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - `Docs\architecture.md` : comment la lib est faite, mécanisme par mécanisme.
 - `Docs\chantiers.md` : le bilan (forces et faiblesses) et la liste priorisée de tout ce qui est à revoir, refaire ou construire.
 - `Docs\info.md` et `Docs\TODO` : les documents historiques (l'ancien brief d'analyse et les premières notes), absorbés par les deux précédents.
+
+## 9. La licence
+
+Storify est distribuée sous la GNU Lesser General Public License, version 3 seulement (SPDX `LGPL-3.0-only`) ; copyright (c) 2025-2026 Roumoulou. Le
+texte fait foi : `LICENSE`, et `LICENSE.GPL` pour la GPL v3 qu'il incorpore. En résumé, pour un consommateur :
+
+- un mod ou une application qui embarque Storify sans la modifier (jar-in-jar, dépendance Maven) garde sa propre licence, quelle qu'elle soit, à
+  condition de conserver la licence et les mentions de Storify et de laisser l'utilisateur remplacer la lib par une autre version, ce que le jar-in-jar
+  et la dépendance externe permettent ;
+- une version modifiée de Storify se redistribue sous la même licence, sources comprises.
