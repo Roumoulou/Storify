@@ -665,7 +665,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
      */
     private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) {
         target.toAbsolutePath().parent?.createDirectories() // la leçon C-04, garantie ici pour tout format, tiers compris
-        val temp = target.resolveSibling("${target.fileName}.${UUID.randomUUID().toString().substring(0, 8)}.tmp")
+        val temp = target.resolveSibling(tempFileName(target.fileName.toString()))
         try {
             encodeTo(temp)
             FileChannel.open(temp, StandardOpenOption.WRITE).use { it.force(true) }
@@ -690,22 +690,29 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         val callback: (Operation<DATA>) -> Unit,
     )
 
-    /** Balaye les temporaires orphelins d'un crash passé (motif strict : ceux de ce fichier et de son sidecar). */
+    /**
+     * Balaye les temporaires orphelins d'un crash passé : ceux du fichier et de son sidecar, au motif de [tempFileName] et à lui seul (C-28) ;
+     * un temporaire étranger, `<nom>.tmp` écrit par une autre application par exemple, n'est jamais touché.
+     */
     private fun sweepOrphanTemps() {
         val directory = path.toAbsolutePath().parent ?: return
         if (!directory.exists()) return
-        val prefix = "${path.fileName}."
+        val own = listOf(path.fileName.toString(), metaPath.fileName.toString()).map { ownTempPattern(it) }
         runCatching {
-            Files.newDirectoryStream(directory) { candidate ->
-                val name = candidate.fileName.toString()
-                name.startsWith(prefix) && name.endsWith(".tmp")
-            }.use { stream -> stream.forEach { runCatching { Files.deleteIfExists(it) } } }
+            Files.newDirectoryStream(directory) { candidate -> own.any { it.matches(candidate.fileName.toString()) } }
+                .use { stream -> stream.forEach { runCatching { Files.deleteIfExists(it) } } }
         }
     }
 
     private companion object {
         /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
         val metaFormat = JsonFormat()
+
+        /** Le nom d'un temporaire atomique : `<nom>.<8 hexadécimaux>.tmp`, les huit premiers caractères d'un UUID aléatoire. */
+        fun tempFileName(fileName: String): String = "$fileName.${UUID.randomUUID().toString().substring(0, 8)}.tmp"
+
+        /** Le motif exact des temporaires que [tempFileName] produit pour [fileName] : le seul que le balayage reconnaît (C-28). */
+        fun ownTempPattern(fileName: String): Regex = Regex("^${Regex.escape(fileName)}\\.[0-9a-f]{8}\\.tmp$")
     }
 
 }

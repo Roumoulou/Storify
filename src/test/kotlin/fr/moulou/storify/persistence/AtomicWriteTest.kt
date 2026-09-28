@@ -26,7 +26,7 @@ import kotlin.io.path.outputStream
 import kotlin.io.path.writeText
 
 /**
- * L'écriture atomique (C-02) : jamais de temporaire survivant, les orphelins balayés, la tempête
+ * L'écriture atomique (C-02) : jamais de temporaire survivant, les orphelins balayés au seul motif propre (C-28), la tempête
  * concurrente relue entière, et les dossiers parents garantis même pour un format qui les oublie
  * (la leçon C-04, généralisée par C-09).
  */
@@ -107,5 +107,19 @@ class AtomicWriteTest {
         StoreFactory.create<PlainData>(path.toString(), format = ForgetfulFormat(), config = noAutoSave).use { reloaded ->
             assertTrue(reloaded.data.name == "couvert")
         }
+    }
+
+    @Test
+    fun `un temporaire étranger survit au balayage, seul le motif propre est balayé`() {
+        val path = newStorePath("homes.json")
+        val foreign = listOf("homes.json.tmp", "homes.json.backup.tmp").map { path.resolveSibling(it) }
+        foreign.forEach { it.writeText("écrit par une autre application") }
+        val own = listOf("homes.json.0badf00d.tmp", "homes.json.meta.json.0badf00d.tmp").map { path.resolveSibling(it) }
+        own.forEach { it.writeText("{ tronqué par un faux crash") }
+
+        StoreFactory.create<PlainData>(path.toString(), config = noAutoSave).use { }
+
+        foreign.forEach { assertTrue(Files.exists(it), "temporaire étranger supprimé : ${it.fileName}") }
+        own.forEach { assertFalse(Files.exists(it), "temporaire propre survivant : ${it.fileName}") }
     }
 }

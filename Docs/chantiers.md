@@ -97,10 +97,12 @@ c'est fait, avec la date.
   écrase une édition disque faite pendant la session. Aligner le hook sur `close()` (`if (isDirty)`), et un test. **Fait le 2026-09-13** :
   le corps du hook extrait en `runShutdownHook()` interne (testable sans éteindre la JVM), la garde `isDirty` posée, architecture.md aligné
   (chapitres 4 et 7), constat n° 7 soldé au banc ; un test (l'édition disque d'un store propre survit au hook, le dirty reste sauvé).
-- [ ] **C-28 : le balayage strict des temporaires** (S ; AVIS). `sweepOrphanTemps` supprime à l'ouverture tout `<nom>.*.tmp` du dossier (le motif est
+- [x] **C-28 : le balayage strict des temporaires** (S ; AVIS). `sweepOrphanTemps` supprime à l'ouverture tout `<nom>.*.tmp` du dossier (le motif est
   « commence par `<nom>.` et finit par `.tmp` ») : un `permissions.json.tmp` écrit par une autre application part avec les orphelins de Storify, mesuré
   le 2026-09-28. Ne balayer que le motif propre, `<nom>.<8 hexadécimaux>.tmp`, pour le fichier et pour son sidecar `<nom>.meta.json` ; un test où le
-  temporaire étranger survit.
+  temporaire étranger survit. **Fait le 2026-09-28** : le nom du temporaire et son motif de reconnaissance sortent en deux fonctions du companion de
+  `BaseStore` (`tempFileName`, `ownTempPattern`), une seule définition pour l'écriture et le balayage, qui ne reconnaît plus que ce motif, pour le
+  fichier et pour son sidecar ; un test où `homes.json.tmp` et `homes.json.backup.tmp` survivent à l'ouverture quand les temporaires propres disparaissent.
 - [ ] **C-29 : la copie profonde respectueuse du réglage et du format** (M ; AVIS). `useDeepCopy` n'est pas respecté partout : la racine est copiée à
   l'ouverture (`_lastSavedData`) et au rechargement (`replaceData`) quel que soit le réglage, et le véhicule est un aller-retour CBOR. Conséquences : toute
   data class doit survivre à CBOR, un sérialiseur écrit pour le JSON (un cast `JsonDecoder`, un `JsonTransformingSerializer`) casse à l'ouverture du

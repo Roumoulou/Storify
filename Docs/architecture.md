@@ -167,8 +167,9 @@ s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent
 L'écriture est atomique (C-02) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
 disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
-`saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture, et le fichier initial comme le sidecar
-meta passent par le même chemin. Un format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment
+`saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif `<fichier>.<8 hex>.tmp`,
+pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial comme le sidecar meta passent par le même chemin. Un
+format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment
 d'encoder vers le temporaire : il ne réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
 remplace la racine sous write lock et notifie les callbacks de reload.
 
