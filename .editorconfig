@@ -1,0 +1,15 @@
+# Le disque travaille en CRLF (fins de ligne de Windows), en UTF-8 sans BOM ; les scripts shell restent en LF, les .ps1 portent un BOM.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+
+[gradlew]
+end_of_line = lf
+
+[*.sh]
+end_of_line = lf
+
+[*.ps1]
+charset = utf-8-bom
