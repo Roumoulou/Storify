@@ -1,7 +1,5 @@
-# Le dépôt commite en LF, le disque travaille en CRLF (fins de ligne de Windows) ; les scripts shell restent en LF.
-* text=auto
-gradlew text eol=lf
-*.sh text eol=lf
+# Le dépôt et le disque sont en LF ; seuls les scripts de cmd.exe (.bat, .cmd) restent en CRLF.
+* text=auto eol=lf
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.jar binary
