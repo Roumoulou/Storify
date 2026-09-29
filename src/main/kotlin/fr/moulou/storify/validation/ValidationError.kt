@@ -9,7 +9,8 @@ data class ValidationError(
     val field: String? = null,
     val message: String,
     val rejectedValue: Any? = null,
-    val jsonLine: Int? = null
+    /** La ligne du fichier qui porte l'erreur, quand le format sait la localiser (C-32). */
+    val line: Int? = null
 ) {
     fun formatFull(): String {
         val fullPath = when {
@@ -20,7 +21,7 @@ data class ValidationError(
         val location = "[$fullPath]"
         val rejected = if (rejectedValue != null) " (was: ${formatValue(rejectedValue)})" else ""
         val fieldPrefix = if (field != null) "$field: " else ""
-        val lineInfo = if (jsonLine != null) " at line $jsonLine" else ""
+        val lineInfo = if (line != null) " at line $line" else ""
         return "$location $fieldPrefix$message$rejected$lineInfo"
     }
 

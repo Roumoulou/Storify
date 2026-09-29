@@ -189,12 +189,18 @@ Le contexte offre `check(condition, field, message, rejectedValue)`, `addError`,
 imbriqué, chemin `parent.champ`) et `validateEach` (collections, chemin `champ[index]`). Les erreurs (`ValidationError`) portent le chemin
 complet, la classe, le message, la valeur rejetée et, quand il est connu, le numéro de ligne du fichier.
 
-L'enrichisseur (`ValidationErrorEnricher`) retrouve ce numéro de ligne en naviguant le JSON pretty-printed ligne à ligne, en suivant la profondeur
-d'imbrication et les index de tableaux. Ses limites assumées : JSON seulement, une clé par ligne, échec silencieux. Il a fait ses preuves en
-conditions réelles : le crash du banc du 2026-09-13 affichait `[HomesData.totalTeleports] ... (was: -1) → line 19`.
+L'enrichisseur (`ValidationErrorEnricher`, public depuis C-32) retrouve ce numéro de ligne par le localisateur du format
+(`StoreFormat.lineLocator()` : `JsonLineLocator` pour JSON et JSON5, aucun pour TOML). Le chemin d'une erreur suit une grammaire (`ErrorPath`) :
+`a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map, les points permis entre crochets ; le localisateur
+parcourt le fichier ligne à ligne en suivant la profondeur des accolades et des crochets, hors chaînes et hors commentaires, reconnaît une clé sous
+ses trois graphies (`"clé"`, `'clé'`, `clé` nue) et compte les éléments d'un tableau, un par ligne. Limites assumées : une clé par ligne ; une
+valeur qui tient sur la ligne de sa clé (un tableau en ligne) rend cette ligne ; un chemin illisible laisse son erreur sans ligne, les autres
+gardent la leur.
 
-La validation joue à trois moments (C-05) : au chargement initial, au `reloadFromFile` (revalidation par défaut : l'objet relu est validé AVANT
-de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), et à la demande via `validateNow()`, public sur `Store`.
+La validation joue à quatre moments (C-05, C-32) : au chargement initial, au `reloadFromFile` (revalidation par défaut : l'objet relu est validé
+AVANT de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), à la demande sur la mémoire via `validateNow()` (sans
+lignes : une ligne ne vaut que si mémoire et fichier coïncident) et sur le fichier du disque via `validateFile()`, la mémoire intacte. Hors de tout
+store, `StoreFormat.validateFile(path, deserializer, validator)` décode, valide et enrichit un fichier édité à la main.
 S'y ajoute l'opt-in `validateOnUpdate` (défaut `false`, **non recommandé**) : chaque update copie la racine, mute, valide, et en échec restaure
 puis émet `ValidationFailedOperation` vers les callbacks (les transactions rendent `TransactionOperation(success = false)`) ; la valeur invalide
 n'entre jamais, au prix d'une copie de racine et d'un validator sous write lock à chaque geste. Il exige `useDeepCopy`, et le bon réflexe reste

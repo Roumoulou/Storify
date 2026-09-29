@@ -58,10 +58,11 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - **Mode lecture seule** : `readOnly` refuse toute écriture (`IllegalStateException`), n'arme ni planificateur ni hook, et laisse lire, valider et
   recharger, pour un fichier dont le mod n'est pas propriétaire ; `createIfMissing` décide si le fichier initial s'écrit quand il manque, et
   `withShutdownHook` débraye le hook d'arrêt seul.
-- **Validation** : au chargement, au rechargement (`reloadFromFile` revalide par défaut, mémoire intacte en échec) et à la demande
-  (`validateNow()`) ; un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
-  d'erreur), un rapport d'erreurs détaillé enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
-  fichier sur disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
+- **Validation** : au chargement, au rechargement (`reloadFromFile` revalide par défaut, mémoire intacte en échec), à la demande sur la mémoire
+  (`validateNow()`) ou sur le fichier du disque (`validateFile()`), et sans store (`format.validateFile(path, validator)`) ; un `Validator`
+  explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, maps, chemins d'erreur), un rapport d'erreurs
+  détaillé enrichi des numéros de ligne pour JSON et JSON5, clés de map comprises ; des défauts invalides ne créent jamais de fichier sur
+  disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
   aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
@@ -170,7 +171,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
-| `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach`) |
+| `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach` sur listes et maps) ; `validateFile` valide un fichier, avec ou sans store |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
 

@@ -52,6 +52,19 @@ class ValidationContext(
         validateEach(fieldName, items.toList(), validator)
     }
 
+    /** Valide chaque valeur d'une map sous le chemin `champ[clé]`, la clé telle quelle (C-32). */
+    fun <T : Any> validateEach(fieldName: String, entries: Map<String, T>, validator: Validator<T>) {
+        entries.forEach { (key, item) ->
+            val keyedPath = if (currentPath.isEmpty()) "$fieldName[$key]" else "$currentPath.$fieldName[$key]"
+            val nestedCtx = ValidationContext(
+                currentPath = keyedPath,
+                currentClassName = item::class.simpleName ?: "Unknown",
+                _errors = _errors
+            )
+            validator.validate(item, nestedCtx)
+        }
+    }
+
     fun formatErrors(): String {
         if (_errors.isEmpty()) return "Validation passed, no errors."
         return buildString {

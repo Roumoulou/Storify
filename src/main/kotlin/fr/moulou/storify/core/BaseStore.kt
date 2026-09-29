@@ -429,6 +429,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     override fun validateNow(): ValidationResult = dataLock.read { runValidation(_data) }
 
+    override fun validateFile(): ValidationResult {
+        val onDisk = format.decodeFromPath(dataSerializer, path)
+        return validator?.let { ValidationErrorEnricher.validate(format, path, onDisk, it) } ?: ValidationResult.Success
+    }
+
     // ── Contrôle auto-save ──
     override fun pauseAutoSave() {
         if (closed.get() || config.readOnly) return
@@ -521,17 +526,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
     @PublishedApi
-    internal fun runValidation(data: DATA): ValidationResult {
-        if (validator != null) {
-            val ctx = ValidationContext(
-                currentPath = data::class.simpleName ?: "Unknown",
-                currentClassName = data::class.simpleName ?: "Unknown"
-            )
-            validator.validate(data, ctx)
-            return if (ctx.hasErrors) ValidationResult.Failure(ctx.errors) else ValidationResult.Success
-        }
-        return ValidationResult.Success
-    }
+    internal fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
 
     /**
      * Dispatche une [UpdateOutcome] aux callbacks enregistrés.

@@ -4,13 +4,18 @@
 package fr.moulou.storify
 
 import fr.moulou.storify.utils.DeepCopier
+import fr.moulou.storify.validation.ErrorLineLocator
+import fr.moulou.storify.validation.ValidationErrorEnricher
+import fr.moulou.storify.validation.ValidationResult
+import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.serializer
 import java.nio.file.Path
 
 /**
- * Le contrat d'un format de fichier : une extension, l'encode/decode générique (C-09) et le copieur profond de ses stores (C-29).
+ * Le contrat d'un format de fichier : une extension, l'encode/decode générique (C-09), le copieur profond de ses stores (C-29), et la
+ * localisation des lignes d'erreur comme la validation d'un fichier (C-32).
  *
  * Le sérialiseur arrive en paramètre, matérialisé au site réifié de l'appelant (la factory, ou le
  * sucre ci-dessous) : c'est ce qui rend le contrat implémentable par un format tiers, là où une
@@ -42,6 +47,16 @@ interface StoreFormat {
      * un copieur sur ce `Json` afin que ses `@Contextual` et ses sérialiseurs écrits pour lui survivent à la copie.
      */
     fun deepCopier(): DeepCopier = DeepCopier.Default
+
+    /** Le localisateur de lignes des erreurs de validation (C-32) : `null` quand le format ne sait pas retrouver un chemin dans son texte. */
+    fun lineLocator(): ErrorLineLocator? = null
+
+    /**
+     * Valide le fichier [path] sans ouvrir de store (C-32) : décodé par ce format, validé par [validator], les erreurs enrichies des lignes
+     * quand le format sait les localiser. Un fichier qui ne se décode pas lève, comme au chargement d'un store.
+     */
+    fun <DATA : Any> validateFile(path: Path, deserializer: DeserializationStrategy<DATA>, validator: Validator<DATA>): ValidationResult =
+        ValidationErrorEnricher.validate(this, path, decodeFromPath(deserializer, path), validator)
 }
 
 /** Sucre réifié : matérialise le sérialiseur au site d'appel, puis passe par le contrat polymorphe. */
@@ -49,3 +64,6 @@ inline fun <reified DATA> StoreFormat.decodeFromPath(path: Path): DATA = decodeF
 
 /** Sucre réifié : matérialise le sérialiseur au site d'appel, puis passe par le contrat polymorphe. */
 inline fun <reified DATA> StoreFormat.encodeToPath(data: DATA, path: Path) = encodeToPath(serializer<DATA>(), data, path)
+
+/** Sucre réifié : matérialise le sérialiseur au site d'appel, puis valide le fichier par [StoreFormat.validateFile]. */
+inline fun <reified DATA : Any> StoreFormat.validateFile(path: Path, validator: Validator<DATA>): ValidationResult = validateFile(path, serializer<DATA>(), validator)

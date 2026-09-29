@@ -25,8 +25,17 @@ interface Store<DATA : Any> : AutoCloseable {
      */
     fun reloadFromFile(validate: Boolean = true)
 
-    /** Valide les données en mémoire avec le validator du store (Success sans validator). */
+    /**
+     * Valide les données en mémoire avec le validator du store (Success sans validator), sans numéros de ligne : une ligne de fichier ne vaut
+     * que si la mémoire et le fichier coïncident ; pour le fichier lui-même, voir [validateFile].
+     */
     fun validateNow(): ValidationResult
+
+    /**
+     * Valide le fichier du store tel qu'il est sur le disque, sans toucher la mémoire (C-32) : décodé, validé, les erreurs enrichies des
+     * lignes quand le format sait les localiser. Un fichier qui ne se décode pas lève, comme au rechargement.
+     */
+    fun validateFile(): ValidationResult
 
     fun registerOnSave(callback: (Operation<DATA>) -> Unit)
     fun registerOnReload(callback: (Operation<DATA>) -> Unit)

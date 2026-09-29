@@ -254,11 +254,19 @@ c'est fait, avec la date.
   (`LICENSE_storify`, `LICENSE.GPL_storify`) ; chaque `.kt` de `src\main` et `src\test` porte ses deux lignes SPDX (`SPDX-FileCopyrightText`,
   `SPDX-License-Identifier`) ; le README résume ce que la licence permet à un consommateur ; le dépôt GitHub est public. Le banc, compagnon, reste tous
   droits réservés.
-- [ ] **C-32 : les lignes de validation, robustes et publiques** (M ; AVIS). Mesuré le 2026-09-28 : une erreur dont le chemin porte une clé de map entre
+- [x] **C-32 : les lignes de validation, robustes et publiques** (M ; AVIS). Mesuré le 2026-09-28 : une erreur dont le chemin porte une clé de map entre
   crochets (`players[steve].joinCount`, ce que `HomesDataValidator` du banc écrit) fait perdre la ligne à tout le lot, parce que le segment passe par
   `.toInt()` et que l'exception est attrapée au niveau du lot. S'y ajoutent l'enrichisseur `internal`, JSON seul, et `validateNow()` qui n'enrichit pas.
   Accepter les clés de map (`players[steve]`, `players["steve"]`), isoler l'échec par erreur, rendre l'enrichisseur public et couvrir JSON5 (clés nues,
   apostrophes), et offrir une validation de fichier sans store, `StoreFormat.validateFile(path, deserializer, validator)`, qui décode, valide et enrichit.
+  **Fait le 2026-09-29** : `validation\ErrorLineLocator.kt` (la grammaire `ErrorPath` et `PathSegment`, l'interface `ErrorLineLocator` et
+  `JsonLineLocator`, le parcours ligne à ligne aveugle aux chaînes et aux commentaires, les trois graphies de clé, les index sur objets et
+  primitives, la valeur en ligne rendue au mieux) ; `StoreFormat.lineLocator()` (JSON et JSON5 le rendent, TOML non) et
+  `StoreFormat.validateFile(path, deserializer, validator)` avec son sucre réifié ; `Store.validateFile()` inspecte le disque sans toucher la
+  mémoire, `validateNow()` reste sans lignes et le dit ; `ValidationErrorEnricher` public, l'échec isolé par erreur, `ValidationError.jsonLine`
+  devient `line` ; `Validator.evaluate(data)` partagé par le store et la validation de fichier ; `validateEach` sur les maps dans
+  `ValidationContext`. Seize tests neufs ou refaits (`ErrorEnricherTest`, `ValidateFileTest`, `ValidationContextTest`) ; le banc gagne ses lignes
+  sur `players[<uuid>]` sans changer.
 - [ ] **C-33 : les erreurs de décodage enveloppées** (S ; AVIS). Une syntaxe fausse ou une clé inconnue lève la `SerializationException` nue de kotlinx
   (ou de tomlkt, ou de json5), sans le chemin du fichier. Une `StoreDecodeException(path, cause)` au chargement et au rechargement, dont le message porte
   le chemin et celui du parseur ; un ancêtre commun `StorifyException` avec `ValidationException`, pour attraper d'un seul `catch` tout ce qui empêche

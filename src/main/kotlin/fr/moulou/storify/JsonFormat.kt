@@ -6,6 +6,8 @@ package fr.moulou.storify
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
 import fr.moulou.storify.utils.withoutUtf8Bom
+import fr.moulou.storify.validation.ErrorLineLocator
+import fr.moulou.storify.validation.JsonLineLocator
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
@@ -32,6 +34,8 @@ class JsonFormat(
     private val copier = JsonTreeCopier(json)
 
     override fun deepCopier(): DeepCopier = copier
+
+    override fun lineLocator(): ErrorLineLocator = JsonLineLocator
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {

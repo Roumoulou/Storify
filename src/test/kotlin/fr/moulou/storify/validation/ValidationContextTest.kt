@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * `ValidationContext` en unitaire pur : l'accumulation, les chemins composés de l'imbrication
- * (`parent.champ`) et des collections (`champ[index]`), et les deux formats de sortie.
+ * (`parent.champ`), des collections (`champ[index]`) et des maps (`champ[clé]`), et les deux formats de sortie.
  */
 class ValidationContextTest {
 
@@ -68,6 +68,16 @@ class ValidationContextTest {
         assertEquals("Root.items[0]", ctx.errors[0].path)
         assertEquals("Root.items[1]", ctx.errors[1].path)
         assertEquals("Root.array[0]", ctx.errors[2].path)
+    }
+
+    @Test
+    fun `validateEach sur une map met la clé entre crochets`() {
+        val ctx = ValidationContext(currentPath = "Root", currentClassName = "Root")
+
+        ctx.validateEach("players", mapOf("steve" to InnerLeaf(), "my.home" to InnerLeaf()), alwaysFailing)
+
+        assertEquals("Root.players[steve]", ctx.errors[0].path)
+        assertEquals("Root.players[my.home]", ctx.errors[1].path)
     }
 
     @Test

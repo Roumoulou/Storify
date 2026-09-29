@@ -16,7 +16,7 @@ class ValidationErrorTest {
 
     @Test
     fun `formatFull assemble chemin, champ, message, valeur et ligne`() {
-        val error = ValidationError(path = "Root.child", className = "C", field = "name", message = "bad", rejectedValue = "x", jsonLine = 7)
+        val error = ValidationError(path = "Root.child", className = "C", field = "name", message = "bad", rejectedValue = "x", line = 7)
         val full = error.formatFull()
 
         assertTrue(full.contains("[Root.child.name]"))
