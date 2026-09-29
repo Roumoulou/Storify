@@ -5,6 +5,7 @@ package fr.moulou.storify
 
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
+import fr.moulou.storify.utils.withoutUtf8Bom
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
@@ -34,7 +35,7 @@ class JsonFormat(
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return path.inputStream().use { stream -> json.decodeFromStream(deserializer, stream) }
+        return path.inputStream().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
     }
 
     @OptIn(ExperimentalSerializationApi::class)

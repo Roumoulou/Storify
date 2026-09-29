@@ -5,6 +5,7 @@ package fr.moulou.storify.lifecycle
 
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
+import fr.moulou.storify.core.set
 import fr.moulou.storify.support.AnnotatedValidatedData
 import fr.moulou.storify.support.InvalidByDefaultData
 import fr.moulou.storify.support.PlainData
@@ -79,5 +80,20 @@ class InitTest {
             val leftovers = Files.list(path.parent).use { stream -> stream.filter { p -> p.fileName.toString().endsWith(".tmp") }.toList() }
             assertTrue(leftovers.isEmpty()) // l'ouverture a fait le ménage
         }
+    }
+
+    @Test
+    fun `un store s'ouvre sur un fichier enregistré avec un BOM, et le réécrit sans`() {
+        val path = newStorePath("notepad.json")
+        path.writeText("\uFEFF{\n  \"name\": \"bloc-notes\",\n  \"count\": 1,\n  \"tags\": []\n}")
+
+        StoreFactory.create<PlainData>(path.toString(), config = noAutoSave).use { store ->
+            assertEquals("bloc-notes", store.data.name)
+            store.set(PlainData::count, 2)
+            store.saveImmediate()
+        }
+
+        assertFalse(Files.readAllBytes(path).take(3) == listOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())) // réécrit sans BOM (C-31)
+        StoreFactory.create<PlainData>(path.toString(), config = noAutoSave).use { reloaded -> assertEquals(2, reloaded.data.count) }
     }
 }

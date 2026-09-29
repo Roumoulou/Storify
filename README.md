@@ -35,8 +35,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 - **Trois formats de fichier fournis** : JSON (`JsonFormat`), TOML (`TomlFormat`) et JSON5 (`Json5Format`, le JSON des configs éditées à la
   main : commentaires, clés nues, virgules traînantes, et des sauvegardes qui **préservent** les commentaires et le style), résolus par
-  l'extension du chemin quand on ne les précise pas ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et
-  s'enregistre par `StoreFormats.registerFormat`.
+  l'extension du chemin quand on ne les précise pas ; un BOM UTF-8 en tête de fichier (le Bloc-notes en pose un) est toléré à la lecture et jamais
+  écrit ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar copiée au premier lancement.
 - **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,

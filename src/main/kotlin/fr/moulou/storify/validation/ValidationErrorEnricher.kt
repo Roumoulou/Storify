@@ -5,6 +5,7 @@ package fr.moulou.storify.validation
 
 import fr.moulou.storify.JsonFormat
 import fr.moulou.storify.StoreFormat
+import fr.moulou.storify.utils.withoutUtf8Bom
 import java.nio.file.Path
 
 /**
@@ -40,7 +41,7 @@ internal object ValidationErrorEnricher {
     fun enrich(format: StoreFormat, path: Path, errors: List<ValidationError>): List<ValidationError> {
         if (format !is JsonFormat) return errors
         return try {
-            val fileLines = path.toFile().readLines()
+            val fileLines = path.toFile().readLines().mapIndexed { index, line -> if (index == 0) line.withoutUtf8Bom() else line }
             errors.map { error ->
                 val line = findLineInFile(fileLines, error)
                 if (line != null) error.copy(jsonLine = line) else error

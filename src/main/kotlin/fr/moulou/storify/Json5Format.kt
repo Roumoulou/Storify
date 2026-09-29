@@ -5,6 +5,7 @@ package fr.moulou.storify
 
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
+import fr.moulou.storify.utils.withoutUtf8Bom
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
@@ -50,7 +51,7 @@ class Json5Format(
     override fun deepCopier(): DeepCopier = copier
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return json.decodeFromJsonElement(deserializer, Json5.parseToJsonElement(path.readText()))
+        return json.decodeFromJsonElement(deserializer, Json5.parseToJsonElement(path.readText().withoutUtf8Bom()))
     }
 
     override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
@@ -61,7 +62,7 @@ class Json5Format(
     override fun <DATA> encodeToPathPreserving(serializer: SerializationStrategy<DATA>, data: DATA, path: Path, previousText: String?) {
         path.parent?.createDirectories()
         val newElement = json.encodeToJsonElement(serializer, data)
-        val reconciled = previousText?.let { reconcile(it, newElement) }
+        val reconciled = previousText?.withoutUtf8Bom()?.let { reconcile(it, newElement) }
         path.writeText(reconciled ?: Json5.encodeToString(newElement, encoderConfig))
     }
 

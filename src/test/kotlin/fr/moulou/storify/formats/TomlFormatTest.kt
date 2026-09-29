@@ -50,4 +50,15 @@ class TomlFormatTest {
         assertTrue(Files.exists(path))
         assertEquals("toml", format.fileExtension())
     }
+
+    @Test
+    fun `un fichier enregistré avec un BOM UTF-8 se décode`() {
+        val path = newStorePath("bom.toml")
+        path.writeText("\uFEFFtitle = \"bom\"\nlevel = 4\n")
+
+        val decoded = format.decodeFromPath(TomlishData.serializer(), path)
+
+        assertEquals("bom", decoded.title)
+        assertEquals(4, decoded.level)
+    }
 }

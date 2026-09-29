@@ -136,9 +136,14 @@ c'est fait, avec la date.
   internes `isAutoSaveScheduled` et `isShutdownHookArmed`), `close()` fait sa sauvegarde d'adieu même sans hook, `persistInitialData` conditionné
   par `createIfMissing`, interrupteurs d'auto-save inertes en lecture seule, une ligne `info` « opened read-only ». `createFromResource` copie
   toujours sa ressource, documenté. Sept tests dans `lifecycle\ReadOnlyTest`, un dans `ResolutionTest`.
-- [ ] **C-31 : le BOM UTF-8 toléré** (S ; AVIS). Mesuré le 2026-09-28 : un fichier enregistré avec BOM échoue en JSON (`JsonDecodingException` à
+- [x] **C-31 : le BOM UTF-8 toléré** (S ; AVIS). Mesuré le 2026-09-28 : un fichier enregistré avec BOM échoue en JSON (`JsonDecodingException` à
   l'offset 0) et en TOML (`UnexpectedTokenException`, ligne 1) ; JSON5 passe. Retirer les trois octets au décodage de `JsonFormat` et `TomlFormat`, un
-  test par format, et vérifier que la réconciliation JSON5 tolère un texte existant qui commence par un BOM.
+  test par format, et vérifier que la réconciliation JSON5 tolère un texte existant qui commence par un BOM. **Fait le 2026-09-29** :
+  `utils\Utf8Bom.kt`, `InputStream.withoutUtf8Bom()` (un `PushbackInputStream`, les trois octets avalés s'ils valent `EF BB BF`, remis sinon) et
+  `String.withoutUtf8Bom()`, internes ; `JsonFormat` et `TomlFormat` décodent à travers, `Json5Format` retire le BOM du texte décodé et du texte
+  existant avant la réconciliation, l'enrichisseur l'ôte de sa première ligne ; Storify lit avec ou sans BOM et écrit toujours sans. Cinq tests : les
+  trois formats, la sauvegarde préservante qui garde ses commentaires et ressort sans BOM, le store qui s'ouvre sur un fichier du Bloc-notes et le
+  réécrit sans, l'enrichisseur.
 
 ## 4. P2, l'API et le ménage
 

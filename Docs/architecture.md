@@ -208,7 +208,8 @@ factory pour les stores, un sucre `inline reified` pour les appels directs : `fo
 polymorphe : un format tiers implémente l'interface et traverse la factory sans qu'elle le connaisse. La réification ne pouvait pas être le
 mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle reste celui de la matérialisation. Depuis C-29, le contrat porte aussi
 `deepCopier()`, le copieur profond des stores du format (chapitre 10) : l'arbre JSON, sur le `Json` du format pour JSON et JSON5, au module du
-`Toml` pour TOML, celui par défaut pour un format tiers. Les réglages en place :
+`Toml` pour TOML, celui par défaut pour un format tiers. Les trois formats fournis tolèrent un BOM UTF-8 en tête de fichier à la lecture
+(`withoutUtf8Bom`, C-31 ; un format tiers s'en charge lui-même) et n'en écrivent jamais. Les réglages en place :
 
 | Format | Réglages | Particularités |
 |---|---|---|

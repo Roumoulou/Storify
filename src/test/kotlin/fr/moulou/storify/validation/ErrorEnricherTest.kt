@@ -68,4 +68,14 @@ class ErrorEnricherTest {
 
         assertNull(enriched.single().jsonLine)
     }
+
+    @Test
+    fun `un BOM en tête du fichier ne dérange pas les lignes`() {
+        val file = newStorePath("bom.json")
+        file.writeText("\uFEFF{\n  \"name\": \"x\"\n}")
+
+        val enriched = ValidationErrorEnricher.enrich(JsonFormat(), file, listOf(error("Root", "name")))
+
+        assertEquals(2, enriched.single().jsonLine)
+    }
 }

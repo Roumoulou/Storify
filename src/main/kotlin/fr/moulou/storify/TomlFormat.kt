@@ -8,13 +8,14 @@ import dev.eav.tomlkt.decodeFromNativeReader
 import dev.eav.tomlkt.encodeToNativeWriter
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
+import fr.moulou.storify.utils.withoutUtf8Bom
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
 import java.nio.file.Path
-import kotlin.io.path.bufferedReader
 import kotlin.io.path.bufferedWriter
 import kotlin.io.path.createDirectories
+import kotlin.io.path.inputStream
 
 class TomlFormat(
     private val toml: Toml = Toml { ignoreUnknownKeys = true }
@@ -29,7 +30,7 @@ class TomlFormat(
     override fun deepCopier(): DeepCopier = copier
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return path.bufferedReader().use { reader -> toml.decodeFromNativeReader(deserializer, reader) }
+        return path.inputStream().withoutUtf8Bom().bufferedReader().use { reader -> toml.decodeFromNativeReader(deserializer, reader) }
     }
 
     override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {

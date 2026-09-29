@@ -83,4 +83,18 @@ class Json5PreservingSaveTest {
 
         assertEquals("neuf", format.decodeFromPath(PlainData.serializer(), path).name)
     }
+
+    @Test
+    fun `un existant avec BOM se réconcilie, garde ses commentaires et ressort sans BOM`() {
+        val path = newStorePath("bom.json5")
+        val previous = "\uFEFF{\n  // enregistré par le Bloc-notes\n  name: 'manuel',\n  count: 5,\n  tags: [],\n}"
+
+        preserve(PlainData(name = "manuel", count = 6, tags = mutableListOf()), path, previous)
+
+        val text = path.readText()
+        assertTrue(text.contains("// enregistré par le Bloc-notes"))
+        assertTrue(text.contains("count: 6"))
+        assertFalse(text.startsWith("\uFEFF")) // Storify écrit toujours sans BOM
+        assertEquals("manuel", format.decodeFromPath(PlainData.serializer(), path).name)
+    }
 }

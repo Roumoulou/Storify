@@ -67,4 +67,12 @@ class JsonFormatTest {
         assertTrue(Files.exists(path))
         assertEquals("json", format.fileExtension())
     }
+
+    @Test
+    fun `un fichier enregistré avec un BOM UTF-8 se décode`() {
+        val path = newStorePath("bom.json")
+        path.writeText("\uFEFF{\n  \"name\": \"bom\",\n  \"count\": 1,\n  \"tags\": []\n}")
+
+        assertEquals("bom", format.decodeFromPath(PlainData.serializer(), path).name)
+    }
 }
