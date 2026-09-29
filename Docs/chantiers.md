@@ -289,7 +289,10 @@ c'est fait, avec la date.
   `onReload` ; en échec, `warn` et mémoire intacte, jamais d'exception depuis un fil de fond ; les propres écritures du store reconnues par l'empreinte
   relevée après chaque save ; store dirty et fichier changé : `warn` sans rechargement. `WatchService` écarté (un fil par dossier, des notifications
   doublées par les éditeurs). **En attente avec C-30 (2026-09-29)** : même condition, un programme externe propriétaire du fichier ; avec le mod
-  propriétaire, le rituel éditer puis `/reload` couvre le besoin.
+  propriétaire, le rituel éditer puis `/reload` couvre le besoin. **Décision du 2026-09-29 au soir** : reste en attente et peut ne jamais se faire,
+  AegisPerms pouvant surveiller ses fichiers lui-même (son brouillon le faisait pour sa base, `watch_database`). Si le chantier s'ouvre un jour,
+  quatre points s'ajoutent au design : un callback d'échec de rechargement, le planificateur à créer pour un store en lecture seule, le retour sur
+  le fil du serveur laissé au consommateur, et la règle des deux écrivains, qui appartient au consommateur.
 - [x] **C-36 : le JSON strict par défaut** (S ; AVIS). `JsonFormat()` accepte les commentaires, les chaînes sans guillemets et `NaN` (`isLenient`,
   `allowComments`, `allowSpecialFloatingPointValues`), quand `ignoreUnknownKeys` reste faux : strict sur les clés, laxiste sur la syntaxe ; et TOML
   tolère les clés inconnues (le curseur 5 de C-17). `JsonFormat()` strict (`isLenient` et `allowComments` à faux) et une fabrique `JsonFormat.lenient()`
@@ -373,7 +376,8 @@ c'est fait, avec la date.
   2026-09-29** : le gain est la taille du jar d'un mod JSON seul (432 Ko sur des jars de plusieurs Mo, avec un loader qui déduplique les jars
   imbriqués), personne ne l'a demandé, et la preuve coûte plus que le code (un classloader filtré ou une configuration Gradle à part, une seconde
   recette au README, une panne de plus à documenter) pour une demi-mesure : le POM déclarerait toujours tomlkt et json5. S'ouvre le jour où un
-  consommateur a besoin de la taille, et se fait alors en une fois, registre paresseux compris, par le découpage en artefacts.
+  consommateur a besoin de la taille, ou d'un consommateur Maven hors Minecraft, et se fait alors en une fois par la solution complète,
+  `storify-core` plus un artefact par format ; le registre paresseux seul, une demi-mesure, est abandonné (décision confirmée le 2026-09-29 au soir).
 
 ## 6. La méthode, chantier par chantier
 
