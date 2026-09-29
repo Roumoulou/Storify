@@ -93,9 +93,9 @@ net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init`
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
    C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
 6. **initShutdownHook** : si `withShutdownHook` et hors lecture seule (C-30), un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick
-   en cours et, si le store est dirty, sauvegarde
-   (C-23 : un store resté propre ne réécrit rien à l'extinction) : le filet anti-crash des stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
-   des données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
+   en cours et, si le store est dirty, sauvegarde (C-23 : un store resté propre ne réécrit rien à l'extinction) : le filet anti-crash des stores
+   encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter des
+   données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
 
 La fin de vie (C-01) : `close()`, idempotent, annule le tick, arrête le planificateur (`awaitTermination` 5 s : un tick en vol se termine avant la
 suite), désarme le hook, puis fait la sauvegarde d'adieu si le store est dirty (`SaveTrigger.CLOSE`). Un store fermé reste lisible, refuse toute
@@ -178,10 +178,10 @@ disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MO
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
 `saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif `<fichier>.<8 hex>.tmp`,
 pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial comme le sidecar meta passent par le même chemin. Un
-format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment
-d'encoder vers le temporaire : il ne réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis
-remplace la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`),
-construites seulement devant public (C-29).
+format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment d'encoder vers le temporaire : il ne
+réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis remplace
+la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`), construites
+seulement devant public (C-29).
 
 ## 8. La validation
 
@@ -249,10 +249,10 @@ identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un
 déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
 
 `StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun
-format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension inconnue est refusée net (`IllegalArgumentException` qui nomme
-les extensions enregistrées) : le repli silencieux sur JSON est mort avec le reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers
-parents avant chaque écriture : un format tiers qui oublierait de les créer ne reproduira pas le piège du constat n° 1 (la leçon C-04,
-généralisée).
+format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension
+inconnue est refusée net (`IllegalArgumentException` qui nomme les extensions enregistrées) : le repli silencieux sur JSON est mort avec le
+reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers parents avant chaque écriture : un format tiers qui oublierait de les créer ne
+reproduira pas le piège du constat n° 1 (la leçon C-04, généralisée).
 
 ## 10. Le deep copy par arbre JSON
 
@@ -319,4 +319,5 @@ exercés en vrai. Les faits marquants, sources des chantiers :
 
 ---
 
-*Dernière vérification : 2026-09-28, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md`, C-28 à C-39.*
+*Dernière vérification : 2026-09-29, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35
+et C-38 en attente ; C-39 en cours).*

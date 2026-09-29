@@ -367,7 +367,11 @@ c'est fait, avec la date.
   `TomlFormat` et `Json5Format` au premier contact, la factory les référence, tomlkt et json5 sont des dépendances `implementation`. Mesuré le
   2026-09-28 sur les jars : storify 202 Ko, tomlkt 251 Ko, json5 181 Ko. D'abord un registre paresseux (des fabriques au lieu d'instances, l'annotation
   résolue par le registre) : un consommateur JSON seul exclut tomlkt et json5 de sa dépendance sans `NoClassDefFoundError` tant qu'il ne demande pas ces
-  formats ; ensuite, si un second consommateur le réclame, le découpage `storify-core` plus un artefact par format.
+  formats ; ensuite, si un second consommateur le réclame, le découpage `storify-core` plus un artefact par format. **En attente, décision du
+  2026-09-29** : le gain est la taille du jar d'un mod JSON seul (432 Ko sur des jars de plusieurs Mo, avec un loader qui déduplique les jars
+  imbriqués), personne ne l'a demandé, et la preuve coûte plus que le code (un classloader filtré ou une configuration Gradle à part, une seconde
+  recette au README, une panne de plus à documenter) pour une demi-mesure : le POM déclarerait toujours tomlkt et json5. S'ouvre le jour où un
+  consommateur a besoin de la taille, et se fait alors en une fois, registre paresseux compris, par le découpage en artefacts.
 
 ## 6. La méthode, chantier par chantier
 
@@ -381,5 +385,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-28, C-27 cochée sur le dépôt du jour, C-28 à C-39 ouverts sur l'avis externe et ses mesures ; les constats du banc
-à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-29, C-28 à C-34, C-36 et C-37 cochés, C-35 et C-38 en attente, C-39 en cours ; les constats du banc à jour au
+2026-09-23.*
