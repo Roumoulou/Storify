@@ -11,6 +11,7 @@ import fr.moulou.storify.support.AnnotatedMetaData
 import fr.moulou.storify.support.AnnotatedTomlData
 import fr.moulou.storify.support.AnnotatedValidatedData
 import fr.moulou.storify.support.BareValidatedData
+import fr.moulou.storify.support.LoggerNameAnnotatedData
 import fr.moulou.storify.support.NotSerializableData
 import fr.moulou.storify.support.PlainData
 import fr.moulou.storify.support.ReadOnlyAnnotatedData
@@ -120,6 +121,16 @@ class ResolutionTest {
         StoreFactory.createFromConstructor<ReadOnlyAnnotatedData>(newStorePath("ro-explicit.json").toString(), config = noAutoSave).use { store ->
             assertFalse(store.isReadOnly) // l'explicite gagne, même quand il ne parle pas de lecture seule
             store.saveImmediate()
+        }
+    }
+
+    @Test
+    fun `l'annotation loggerName se résout, et une config explicite la bat`() {
+        StoreFactory.createFromConstructor<LoggerNameAnnotatedData>(newStorePath("log-annotated.json").toString()).use { store ->
+            assertEquals("annotated-mod", store.loggerName)
+        }
+        StoreFactory.createFromConstructor<LoggerNameAnnotatedData>(newStorePath("log-explicit.json").toString(), config = noAutoSave).use { store ->
+            assertEquals("Storify", store.loggerName) // l'explicite gagne, avec son défaut
         }
     }
 

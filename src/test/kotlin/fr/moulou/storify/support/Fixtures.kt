@@ -291,3 +291,9 @@ data class ShapedRulesData(var rules: MutableMap<String, ShapedRule> = mutableMa
 @Serializable
 @StoreConfiguration(readOnly = true)
 data class ReadOnlyAnnotatedData(var name: String = "lecture seule")
+
+// ─── Le logger nommé par annotation (C-37) ──────────────────────────────────────────────────────
+
+@Serializable
+@StoreConfiguration(withAutoSave = false, loggerName = "annotated-mod")
+data class LoggerNameAnnotatedData(var name: String = "journal")

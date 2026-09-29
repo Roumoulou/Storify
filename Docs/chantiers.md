@@ -301,9 +301,12 @@ c'est fait, avec la date.
   fautif (mesuré : `saveImmediate()` puis `close()` lèvent, le fichier reste intact), quand un `NaN` écrit se relit ; `allowStructuredMapKeys`
   gardé, il ne tolère aucune syntaxe. Le strict s'accorde avec ce que Storify écrit et avec AegisPerms, qui construisait son propre `Json` strict
   pour l'obtenir. Trois tests (`JsonFormatTest`, `DecodeErrorTest`).
-- [ ] **C-37 : le logger nommé** (S ; AVIS). Le logger est nommé d'après la classe et le préfixe `[Storify]` est en dur (dix-sept fois dans `BaseStore`) :
+- [x] **C-37 : le logger nommé** (S ; AVIS). Le logger est nommé d'après la classe et le préfixe `[Storify]` est en dur (dix-sept fois dans `BaseStore`) :
   les messages n'apparaissent pas sous le journal du mod. `StoreConfig.loggerName` (défaut `Storify`, miroir dans l'annotation) ; le préfixe reste, il
-  identifie la lib dans le journal d'un mod qui passe son propre nom.
+  identifie la lib dans le journal d'un mod qui passe son propre nom. **Fait le 2026-09-29** : `StoreConfig.loggerName` (défaut `Storify`) et
+  son miroir dans `@StoreConfiguration`, résolus par la factory ; `BaseStore` fabrique son logger sur ce nom, les messages et leur préfixe
+  inchangés ; `AtomicFiles.write` reçoit en option le logger de son repli non atomique, et le store lui passe le sien (l'écrivain de C-34 avait
+  un logger à lui, sous lequel les sauvegardes d'un store auraient parlé). Trois tests (`LoggerNameTest`, `ResolutionTest`).
 - [ ] **C-39 : la version 0.2.0-SNAPSHOT et sa republication** (S ; AVIS). Repsy ne porte que `0.1.0-SNAPSHOT`, sans étiquette Git : deux jars d'un
   consommateur construits à deux dates peuvent embarquer deux Storify sous le même nom. L'avis proposait une `0.1.0` figée ; décision du 2026-09-28 :
   bump direct, sans release figée. **Le bump est fait le 2026-09-28** (`mod_version=0.2.0-SNAPSHOT`, docs alignées). Reste, à la fin des chantiers : la

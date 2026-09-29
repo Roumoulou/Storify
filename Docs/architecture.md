@@ -46,7 +46,7 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 |---|---|---|
 | `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
 | `@StoreFileFormat(type)` | la classe | Le format (`JSON`, `TOML` ou `JSON5`) ; sinon, résolution par l'extension du chemin |
-| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`), `readOnly` (`false`), `withShutdownHook` (`true`), `createIfMissing` (`true`) |
+| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`), `readOnly` (`false`), `withShutdownHook` (`true`), `createIfMissing` (`true`), `loggerName` (`Storify`) |
 | `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
@@ -276,10 +276,12 @@ Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
 - Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
   `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch.
-- Le logging (C-11) : le logger n'appartient plus au contrat `Store`, c'est un champ privé fabriqué une fois par store ; tous les messages
-  portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn. Et la lib ne journalise jamais de
-  données utilisateur : des chemins et des états seulement (politique posée au C-12, vérifiée sur la flotte des messages). Non garanti à ce jour : le sidecar meta se modifie sans verrou
-  propre, et un encodage long sous read lock retarde tous les écrivains.
+- Le logging (C-11) : le logger n'appartient pas au contrat `Store`, c'est un champ privé fabriqué une fois par store, nommé `Storify` par
+  défaut ou du nom que `StoreConfig.loggerName` lui donne (C-37), celui du mod pour que ses stores paraissent sous son journal ; tous les
+  messages portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn, et l'écrivain atomique
+  annonce son repli non atomique sous le logger du store (sous le sien hors store). La lib ne journalise jamais de données utilisateur : des
+  chemins et des états seulement (politique posée au C-12, vérifiée sur la flotte des messages). Non garanti à ce jour : le sidecar meta se
+  modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains.
 
 ## 12. Le sidecar meta
 

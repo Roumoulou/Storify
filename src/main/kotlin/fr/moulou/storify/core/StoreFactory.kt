@@ -92,7 +92,8 @@ object StoreFactory {
                 validateOnUpdate = it.validateOnUpdate,
                 readOnly = it.readOnly,
                 withShutdownHook = it.withShutdownHook,
-                createIfMissing = it.createIfMissing
+                createIfMissing = it.createIfMissing,
+                loggerName = it.loggerName
             )
         }
 

@@ -28,7 +28,8 @@ annotation class StoreConfiguration(
     val validateOnUpdate: Boolean = false,
     val readOnly: Boolean = false,
     val withShutdownHook: Boolean = true,
-    val createIfMissing: Boolean = true
+    val createIfMissing: Boolean = true,
+    val loggerName: String = "Storify"
 )
 
 enum class StoreFileFormatType { JSON, TOML, JSON5 }

@@ -3,6 +3,7 @@
 
 package fr.moulou.storify.utils
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.channels.FileChannel
 import java.nio.file.AtomicMoveNotSupportedException
@@ -21,14 +22,16 @@ import kotlin.io.path.exists
  */
 object AtomicFiles {
 
-    private val log = LoggerFactory.getLogger(AtomicFiles::class.java)
+    private val ownLog: Logger = LoggerFactory.getLogger(AtomicFiles::class.java)
 
     /**
      * Écrit [target] via un temporaire voisin unique (`<nom>.<8 hexadécimaux>.tmp`), force le flush disque, puis remplace la cible par
      * déplacement atomique (repli non atomique loggué si le système de fichiers ne sait pas faire). Les dossiers parents sont garantis avant
-     * d'appeler [writeTo] ; si [writeTo] lève, le temporaire est supprimé, la cible reste intacte, et l'exception remonte.
+     * d'appeler [writeTo] ; si [writeTo] lève, le temporaire est supprimé, la cible reste intacte, et l'exception remonte. L'avertissement du
+     * repli part sur [log] : celui d'`AtomicFiles` par défaut, celui du store pour ses sauvegardes (C-37), celui du consommateur pour un fichier
+     * écrit sous son journal.
      */
-    fun write(target: Path, writeTo: (Path) -> Unit) {
+    fun write(target: Path, log: Logger = ownLog, writeTo: (Path) -> Unit) {
         target.toAbsolutePath().parent?.createDirectories()
         val temp = target.resolveSibling(tempFileName(target.fileName.toString()))
         try {

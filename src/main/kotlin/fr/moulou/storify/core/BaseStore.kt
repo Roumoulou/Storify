@@ -57,6 +57,8 @@ import kotlin.reflect.full.memberProperties
  * @property createIfMissing   Écrit le fichier initial né des défauts quand il manque, la validation passée. À `false`, les défauts vivent en
  *                             mémoire et rien n'est écrit à l'ouverture (un `saveImmediate` ultérieur crée le fichier). `createFromResource`
  *                             copie toujours sa ressource, cette copie étant sa définition. Défaut `true`.
+ * @property loggerName        Le nom du logger SLF4J du store (C-37) : le nom du mod (`aegisperms`) range les lignes du store sous son journal,
+ *                             préfixe `[Storify]` gardé. Défaut `Storify`.
  */
 data class StoreConfig(
     val withValidation: Boolean = true,
@@ -68,7 +70,8 @@ data class StoreConfig(
     val validateOnUpdate: Boolean = false,
     val readOnly: Boolean = false,
     val withShutdownHook: Boolean = true,
-    val createIfMissing: Boolean = true
+    val createIfMissing: Boolean = true,
+    val loggerName: String = "Storify"
 )
 
 /**
@@ -105,8 +108,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
     override val path: Path = storePath.toAbsolutePath().normalize()
 
-    /** Le logger du store, fabriqué une fois : un détail d'implémentation, plus une pièce du contrat (C-11). */
-    private val log: Logger = LoggerFactory.getLogger(BaseStore::class.java)
+    /** Le logger du store, fabriqué une fois (C-11), au nom que la config donne (C-37) : celui du mod range les lignes sous son journal. */
+    private val log: Logger = LoggerFactory.getLogger(config.loggerName)
+
+    /** Le nom du logger du store, pour les tests. */
+    internal val loggerName: String get() = log.name
 
     /** Le copieur profond du store, celui de son format (C-29) : toute copie de racine ou de valeur passe par lui. */
     @PublishedApi
@@ -702,8 +708,8 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     // ── Écriture atomique ──
-    /** Écrit par [AtomicFiles.write] (C-02, public depuis C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière. */
-    private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) = AtomicFiles.write(target, encodeTo)
+    /** Écrit par [AtomicFiles.write] (C-02, public depuis C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière, et le repli non atomique s'annonce sous le logger du store (C-37). */
+    private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) = AtomicFiles.write(target, log, encodeTo)
 
     /**
      * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
