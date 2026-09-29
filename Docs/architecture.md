@@ -46,7 +46,7 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 |---|---|---|
 | `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
 | `@StoreFileFormat(type)` | la classe | Le format (`JSON`, `TOML` ou `JSON5`) ; sinon, résolution par l'extension du chemin |
-| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`) |
+| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`), `readOnly` (`false`), `withShutdownHook` (`true`), `createIfMissing` (`true`) |
 | `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
@@ -87,17 +87,25 @@ net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init`
 3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs sont enrichies des
    numéros de ligne JSON dès qu'un fichier existe (chargé, ou copié d'une ressource), puis une `ValidationException` est levée. Le store ne se
    construit pas.
-4. **persistInitialData** : les données nées par défaut écrivent enfin leur fichier initial, la validation étant passée (C-06).
-5. **initAutoSave** : si `withAutoSave`, un scheduler single-thread (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
+4. **persistInitialData** : les données nées par défaut écrivent enfin leur fichier initial, la validation étant passée (C-06), sauf
+   `createIfMissing = false`, où rien n'est écrit (C-30).
+5. **initAutoSave** : si `withAutoSave` et hors lecture seule (C-30), un scheduler (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
    C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
-6. **initShutdownHook** : un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick en cours et, si le store est dirty, sauvegarde
+6. **initShutdownHook** : si `withShutdownHook` et hors lecture seule (C-30), un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick
+   en cours et, si le store est dirty, sauvegarde
    (C-23 : un store resté propre ne réécrit rien à l'extinction) : le filet anti-crash des stores encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter
    des données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
 
 La fin de vie (C-01) : `close()`, idempotent, annule le tick, arrête le planificateur (`awaitTermination` 5 s : un tick en vol se termine avant la
 suite), désarme le hook, puis fait la sauvegarde d'adieu si le store est dirty (`SaveTrigger.CLOSE`). Un store fermé reste lisible, refuse toute
 écriture (`IllegalStateException`), et ses interrupteurs d'auto-save deviennent inertes. Les stores sont `AutoCloseable` : `use { }` fonctionne.
+
+Le mode lecture seule (C-30, `readOnly`) : le store lit, valide et relit, et refuse toute écriture par `checkWritable()` en tête du pipeline
+d'update, de la transaction et de `saveImmediate` (`IllegalStateException`, comme sur un store fermé) ; ni planificateur ni hook, les interrupteurs
+d'auto-save inertes, le sidecar meta lu mais jamais écrit ; sa seule écriture possible est le fichier initial, si `createIfMissing`. La garantie est
+à l'exécution, pas à la compilation. `Store.isReadOnly` le dit au consommateur. Sans hook armé (`withShutdownHook = false`, ou lecture seule),
+`close()` fait toujours sa sauvegarde d'adieu quand le store est dirty.
 
 Jusqu'au chantier C-03, le marquage dirty était lui-même un callback onUpdate : une mise à jour `SKIP` coupait donc aussi la persistance. Depuis,
 `markDirty` vit dans le pipeline d'update et toutes les policies persistent ; `SKIP`, toujours le défaut, ne gouverne plus que le silence des

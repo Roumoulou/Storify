@@ -285,3 +285,9 @@ data class ShapedRulesData(var rules: MutableMap<String, ShapedRule> = mutableMa
         override fun getDefault(): ShapedRulesData = ShapedRulesData()
     }
 }
+
+// ─── La lecture seule par annotation (C-30) ─────────────────────────────────────────────────────
+
+@Serializable
+@StoreConfiguration(readOnly = true)
+data class ReadOnlyAnnotatedData(var name: String = "lecture seule")

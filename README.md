@@ -55,6 +55,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   fichier tronqué, même en cas de crash en pleine écriture).
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
+- **Mode lecture seule** : `readOnly` refuse toute écriture (`IllegalStateException`), n'arme ni planificateur ni hook, et laisse lire, valider et
+  recharger, pour un fichier dont le mod n'est pas propriétaire ; `createIfMissing` décide si le fichier initial s'écrit quand il manque, et
+  `withShutdownHook` débraye le hook d'arrêt seul.
 - **Validation** : au chargement, au rechargement (`reloadFromFile` revalide par défaut, mémoire intacte en échec) et à la demande
   (`validateNow()`) ; un `Validator` explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, chemins
   d'erreur), un rapport d'erreurs détaillé enrichi des numéros de ligne pour les fichiers JSON ; des défauts invalides ne créent jamais de
@@ -162,7 +165,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | Notion | Rôle |
 |---|---|
 | `BaseStore<DATA>` | Le store : chargement, verrous, updates, callbacks, persistance ; implémente l'interface `Store<DATA>` |
-| `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut |
+| `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut, lecture seule, hook d'arrêt, fichier initial |
 | `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |

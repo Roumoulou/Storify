@@ -49,6 +49,16 @@ import kotlin.reflect.full.memberProperties
  * @property validateOnUpdate  Valide la racine à CHAQUE update, avec rollback et [ValidationFailedOperation] en échec.
  *                             NON RECOMMANDÉ : copie de la racine entière et validator sous write lock à chaque geste ;
  *                             préférez des contrôles métier avant de muter. Exige [useDeepCopy]. Défaut `false`.
+ * @property readOnly          Le store lit, valide et relit son fichier, et n'écrit jamais (C-30) : `set`, `mutate`, `transaction` et
+ *                             `saveImmediate` lèvent [IllegalStateException], ni planificateur d'auto-save (quel que soit [withAutoSave]) ni
+ *                             hook d'arrêt, `pauseAutoSave` et `resumeAutoSave` inertes, le sidecar meta lu mais jamais écrit. Sa seule
+ *                             écriture possible est le fichier initial, si [createIfMissing]. Défaut `false`.
+ * @property withShutdownHook  Arme le hook d'arrêt de la JVM, le filet anti-crash qui sauve un store encore dirty à l'extinction. `false`
+ *                             pour un store que le consommateur ferme lui-même ; `close()` fait toujours sa sauvegarde d'adieu. Forcé à
+ *                             `false` par [readOnly]. Défaut `true`.
+ * @property createIfMissing   Écrit le fichier initial né des défauts quand il manque, la validation passée. À `false`, les défauts vivent en
+ *                             mémoire et rien n'est écrit à l'ouverture (un `saveImmediate` ultérieur crée le fichier). `createFromResource`
+ *                             copie toujours sa ressource, cette copie étant sa définition. Défaut `true`.
  */
 data class StoreConfig(
     val withValidation: Boolean = true,
@@ -57,7 +67,10 @@ data class StoreConfig(
     val useDeepCopy: Boolean = true,
     val defaultUpdatePolicy: UpdatePolicy = UpdatePolicy.SKIP,
     val autoSaveIntervalMs: Long = 300_000L,
-    val validateOnUpdate: Boolean = false
+    val validateOnUpdate: Boolean = false,
+    val readOnly: Boolean = false,
+    val withShutdownHook: Boolean = true,
+    val createIfMissing: Boolean = true
 )
 
 /**
@@ -186,6 +199,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Handle vers la tâche planifiée d'auto-save (pour annulation). */
     private var autoSaveFuture: ScheduledFuture<*>? = null
 
+    /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
+    internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
+
     /** Scheduler single-thread pour l'auto-save périodique. */
     private val saveScheduler = Executors.newSingleThreadScheduledExecutor()
 
@@ -197,8 +213,13 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     override val isClosed: Boolean get() = closed.get()
 
+    override val isReadOnly: Boolean get() = config.readOnly
+
     /** Le hook d'arrêt JVM, gardé en champ pour que [close] puisse le désarmer. */
     private val shutdownHook = Thread { runShutdownHook() }
+
+    /** `true` quand le hook est enregistré auprès de la JVM : [close] ne désarme que lui, et les tests le lisent (C-30). */
+    internal val isShutdownHookArmed: Boolean = config.withShutdownHook && !config.readOnly
 
     /** Le corps du hook, testable sans éteindre la JVM : annule le tick en vol et, comme la sauvegarde d'adieu de [close], ne sauve que dirty (C-23). */
     internal fun runShutdownHook() {
@@ -206,10 +227,17 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         if (isDirty) save(SaveTrigger.SHUTDOWN)
     }
 
-    /** Refuse toute écriture sur un store fermé. */
+    /** Refuse tout accès à un store fermé. */
     @PublishedApi
     internal fun checkOpen() {
         check(!closed.get()) { "[Storify] Store '$path' is closed" }
+    }
+
+    /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
+    @PublishedApi
+    internal fun checkWritable() {
+        checkOpen()
+        check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
     }
 
     // ── Callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08) ──
@@ -247,6 +275,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         persistInitialData()
         initAutoSave()
         initShutdownHook()
+        if (config.readOnly) log.info("[Storify] Store '{}' opened read-only", path)
     }
 
     /**
@@ -264,9 +293,12 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
     }
 
-    /** Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06). */
+    /**
+     * Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06).
+     * Sauf `createIfMissing = false` : les défauts vivent en mémoire et rien n'est écrit (C-30).
+     */
     private fun persistInitialData() {
-        if (_dataOrigin == DataOrigin.DEFAULT) writeInitialFile()
+        if (_dataOrigin == DataOrigin.DEFAULT && config.createIfMissing) writeInitialFile()
     }
 
     /** Scanne les annotations [@StoreUpdatePolicy] sur les propriétés de [DATA] et ses classes imbriquées. */
@@ -313,9 +345,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         }
     }
 
-    /** Enregistre la tâche planifiée d'auto-save. Le marquage dirty, lui, vit dans le pipeline d'update : voir [markDirty]. */
+    /** Enregistre la tâche planifiée d'auto-save, hors lecture seule (C-30). Le marquage dirty, lui, vit dans le pipeline d'update : voir [markDirty]. */
     private fun initAutoSave() {
-        if (!config.withAutoSave) return
+        if (!config.withAutoSave || config.readOnly) return
 
         autoSaveFuture = saveScheduler.scheduleAtFixedRate({
             try {
@@ -332,9 +364,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         }, config.autoSaveIntervalMs, config.autoSaveIntervalMs, TimeUnit.MILLISECONDS)
     }
 
-    /** Arme le filet anti-crash : la persistance à l'arrêt de la JVM, tant que le store n'est pas fermé. */
+    /** Arme le filet anti-crash, la persistance à l'arrêt de la JVM tant que le store n'est pas fermé, si [isShutdownHookArmed] le veut (C-30). */
     private fun initShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(shutdownHook)
+        if (isShutdownHookArmed) Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
 
     // ── Persistance ──
@@ -343,6 +375,10 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
      * écrit le sidecar meta, et déclenche les [onSaveCallbacks] **hors du lock**.
      */
     private fun save(trigger: SaveTrigger) {
+        if (config.readOnly) {
+            if (trigger == SaveTrigger.IMMEDIATE) checkWritable() // lève : closed d'abord, read-only sinon
+            return // ni tick ni hook en lecture seule, et un tel store n'est jamais dirty : rien à faire pour les autres déclencheurs
+        }
         if (closed.get()) {
             when (trigger) {
                 SaveTrigger.IMMEDIATE -> throw IllegalStateException("[Storify] Store '$path' is closed")
@@ -395,13 +431,13 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     // ── Contrôle auto-save ──
     override fun pauseAutoSave() {
-        if (closed.get()) return
+        if (closed.get() || config.readOnly) return
         autoSavePaused.set(true)
         log.info("[Storify] Auto-save PAUSED")
     }
 
     override fun resumeAutoSave() {
-        if (closed.get()) return
+        if (closed.get() || config.readOnly) return
         autoSavePaused.set(false)
         log.info("[Storify] Auto-save RESUMED")
     }
@@ -425,13 +461,15 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             Thread.currentThread().interrupt()
         }
 
-        val hookRemoved = try {
+        // Sans hook armé, la sauvegarde d'adieu est toujours due ; avec, seulement si le hook a pu être désarmé (sinon la JVM s'éteint déjà :
+        // le hook fait ou fera la sauvegarde, inutile de doubler).
+        val farewellDue = !isShutdownHookArmed || try {
             Runtime.getRuntime().removeShutdownHook(shutdownHook)
         } catch (_: IllegalStateException) {
-            false // la JVM s'éteint déjà : le hook fait ou fera la sauvegarde, inutile de doubler
+            false
         }
 
-        if (hookRemoved && isDirty) save(SaveTrigger.CLOSE)
+        if (farewellDue && isDirty) save(SaveTrigger.CLOSE)
         log.info("[Storify] Store '{}' closed.", path)
     }
 
@@ -542,7 +580,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         noinline applyUpdate: (RECEIVER) -> Unit,
         createOperation: (old: CapturedValue<VALUE>, new: CapturedValue<VALUE>) -> Operation<DATA>
     ): UpdateOutcome<DATA>? = dataLock.write {
-        checkOpen()
+        checkWritable()
 
         val receiver = _data.getReceiver()
 
@@ -622,7 +660,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     @PublishedApi
     internal fun transactionInternal(block: DATA.() -> Unit) {
-        checkOpen()
+        checkWritable()
         val operation: Operation<DATA> = dataLock.write {
             val backupSnapshot: DATA? = if (config.useDeepCopy) copyRoot(_data) else null
 

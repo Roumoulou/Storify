@@ -57,6 +57,9 @@ interface Store<DATA : Any> : AutoCloseable {
 
     fun isAutoSavePaused(): Boolean
 
+    /** `true` pour un store en lecture seule (C-30) : il lit, valide et relit, et refuse toute écriture. */
+    val isReadOnly: Boolean
+
     /** `true` après [close] : le store reste lisible, mais fermé aux écritures. */
     val isClosed: Boolean
 

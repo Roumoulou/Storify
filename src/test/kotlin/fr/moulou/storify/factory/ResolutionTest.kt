@@ -13,6 +13,7 @@ import fr.moulou.storify.support.AnnotatedValidatedData
 import fr.moulou.storify.support.BareValidatedData
 import fr.moulou.storify.support.NotSerializableData
 import fr.moulou.storify.support.PlainData
+import fr.moulou.storify.support.ReadOnlyAnnotatedData
 import fr.moulou.storify.support.RejectingByAnnotationData
 import fr.moulou.storify.support.TomlishData
 import fr.moulou.storify.support.newStorePath
@@ -105,6 +106,20 @@ class ResolutionTest {
         // Le contrôle : sans validator explicite, l'annoté tourne et refuse.
         assertThrows(ValidationException::class.java) {
             StoreFactory.createFromConstructor<RejectingByAnnotationData>(newStorePath("who2.json").toString())
+        }
+    }
+
+    // ─── La lecture seule (C-30) ───
+
+    @Test
+    fun `l'annotation readOnly se résout, et une config explicite la bat`() {
+        StoreFactory.createFromConstructor<ReadOnlyAnnotatedData>(newStorePath("ro-annotated.json").toString()).use { store ->
+            assertTrue(store.isReadOnly)
+            assertThrows(IllegalStateException::class.java) { store.saveImmediate() }
+        }
+        StoreFactory.createFromConstructor<ReadOnlyAnnotatedData>(newStorePath("ro-explicit.json").toString(), config = noAutoSave).use { store ->
+            assertFalse(store.isReadOnly) // l'explicite gagne, même quand il ne parle pas de lecture seule
+            store.saveImmediate()
         }
     }
 

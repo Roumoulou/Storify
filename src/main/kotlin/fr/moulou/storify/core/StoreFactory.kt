@@ -89,7 +89,10 @@ object StoreFactory {
                 useDeepCopy = it.useDeepCopy,
                 autoSaveIntervalMs = it.autoSaveIntervalMs,
                 defaultUpdatePolicy = it.defaultUpdatePolicy,
-                validateOnUpdate = it.validateOnUpdate
+                validateOnUpdate = it.validateOnUpdate,
+                readOnly = it.readOnly,
+                withShutdownHook = it.withShutdownHook,
+                createIfMissing = it.createIfMissing
             )
         }
 

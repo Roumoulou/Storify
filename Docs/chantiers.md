@@ -116,7 +116,7 @@ c'est fait, avec la date.
   et la colonne de comparaison du benchmark ; `deepCopy()` remplace `deepCopyViaCbor` et `deepCopyValue`. Mesuré : l'arbre JSON vaut CBOR (0,6 contre
   0,4 µs sur un petit objet, 57 contre 74 µs sur 200 records). Six tests neufs et quatre refaits, dont l'ouverture, l'update observé et le rechargement
   d'un store au sérialiseur écrit pour le JSON, la fixture `ShapedRule`.
-- [ ] **C-30 : le mode lecture seule, et le hook débrayable** (M ; AVIS). Rien ne déclare « ce fichier ne se réécrit jamais » : `saveImmediate()` écrit
+- [x] **C-30 : le mode lecture seule, et le hook débrayable** (M ; AVIS). Rien ne déclare « ce fichier ne se réécrit jamais » : `saveImmediate()` écrit
   sans condition, une transaction au bloc vide pose le dirty, et le hook d'arrêt est armé dans tous les cas (un `Thread` jamais démarré, mais une
   référence forte, et une écriture si dirty). `StoreConfig(readOnly = true)`, miroir dans l'annotation : `set`, `mutate`, `transaction` et
   `saveImmediate` refusent comme sur un store fermé, ni planificateur ni hook, `reloadFromFile` permis, `withAutoSave` ignoré et documenté ;
@@ -130,6 +130,12 @@ c'est fait, avec la date.
   jetable, hors dépôt, a montré le 2026-09-29 les trois gestes anodins qui écrasent une édition externe (une transaction au bloc vide, un
   `saveImmediate` sans modification, le hook d'arrêt sur un store dirty). La garantie serait à l'exécution (une exception), pas à la compilation : un
   type sans méthodes d'écriture demanderait une refonte de `Store`, écartée. S'ouvre le jour où un consommateur a un écrivain externe.
+  **Rouvert et fait le 2026-09-29, décision de l'utilisateur** : `readOnly`, `withShutdownHook` et `createIfMissing` dans `StoreConfig` et dans
+  l'annotation (leurs défauts sont le comportement d'avant), `Store.isReadOnly` ; `checkWritable()` en tête du pipeline d'update, de la transaction
+  et de `save(IMMEDIATE)`, `save` muet sur les autres déclencheurs en lecture seule, `initAutoSave` et `initShutdownHook` conditionnés (témoins
+  internes `isAutoSaveScheduled` et `isShutdownHookArmed`), `close()` fait sa sauvegarde d'adieu même sans hook, `persistInitialData` conditionné
+  par `createIfMissing`, interrupteurs d'auto-save inertes en lecture seule, une ligne `info` « opened read-only ». `createFromResource` copie
+  toujours sa ressource, documenté. Sept tests dans `lifecycle\ReadOnlyTest`, un dans `ResolutionTest`.
 - [ ] **C-31 : le BOM UTF-8 toléré** (S ; AVIS). Mesuré le 2026-09-28 : un fichier enregistré avec BOM échoue en JSON (`JsonDecodingException` à
   l'offset 0) et en TOML (`UnexpectedTokenException`, ligne 1) ; JSON5 passe. Retirer les trois octets au décodage de `JsonFormat` et `TomlFormat`, un
   test par format, et vérifier que la réconciliation JSON5 tolère un texte existant qui commence par un BOM.
