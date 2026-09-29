@@ -56,7 +56,7 @@ interface StoreFormat {
      * quand le format sait les localiser. Un fichier qui ne se décode pas lève, comme au chargement d'un store.
      */
     fun <DATA : Any> validateFile(path: Path, deserializer: DeserializationStrategy<DATA>, validator: Validator<DATA>): ValidationResult =
-        ValidationErrorEnricher.validate(this, path, decodeFromPath(deserializer, path), validator)
+        ValidationErrorEnricher.validate(this, path, decodeFile(deserializer, path), validator)
 }
 
 /** Sucre réifié : matérialise le sérialiseur au site d'appel, puis passe par le contrat polymorphe. */
@@ -67,3 +67,18 @@ inline fun <reified DATA> StoreFormat.encodeToPath(data: DATA, path: Path) = enc
 
 /** Sucre réifié : matérialise le sérialiseur au site d'appel, puis valide le fichier par [StoreFormat.validateFile]. */
 inline fun <reified DATA : Any> StoreFormat.validateFile(path: Path, validator: Validator<DATA>): ValidationResult = validateFile(path, serializer<DATA>(), validator)
+
+/**
+ * Décode [path] par ce format, toute panne de lecture ou de parseur enveloppée dans une [StoreDecodeException] qui nomme le fichier (C-33) :
+ * la voie de tout décodage fait pour un consommateur (ouverture, rechargement, `validateFile`, sidecar, ressource). Le contrat brut
+ * [StoreFormat.decodeFromPath] reste tel quel.
+ */
+@PublishedApi
+internal fun <DATA> StoreFormat.decodeFile(deserializer: DeserializationStrategy<DATA>, path: Path): DATA =
+    try {
+        decodeFromPath(deserializer, path)
+    } catch (e: StorifyException) {
+        throw e
+    } catch (e: Exception) {
+        throw StoreDecodeException(path, this, e)
+    }

@@ -68,7 +68,8 @@ class ReloadTest {
         StoreFactory.create<PlainData>(path.toString(), config = snapshotConfig).use { store ->
             path.writeText("{ tronqué, pas du JSON")
 
-            assertThrows(SerializationException::class.java) { store.reloadFromFile() }
+            val failure = assertThrows(StoreDecodeException::class.java) { store.reloadFromFile() }
+            assertInstanceOf(SerializationException::class.java, failure.cause) // la cause du parseur, conservée (C-33)
             assertEquals("default", store.data.name) // le décodage a échoué AVANT toute affectation
         }
     }

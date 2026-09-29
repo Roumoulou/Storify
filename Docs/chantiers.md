@@ -267,10 +267,14 @@ c'est fait, avec la date.
   devient `line` ; `Validator.evaluate(data)` partagé par le store et la validation de fichier ; `validateEach` sur les maps dans
   `ValidationContext`. Seize tests neufs ou refaits (`ErrorEnricherTest`, `ValidateFileTest`, `ValidationContextTest`) ; le banc gagne ses lignes
   sur `players[<uuid>]` sans changer.
-- [ ] **C-33 : les erreurs de décodage enveloppées** (S ; AVIS). Une syntaxe fausse ou une clé inconnue lève la `SerializationException` nue de kotlinx
+- [x] **C-33 : les erreurs de décodage enveloppées** (S ; AVIS). Une syntaxe fausse ou une clé inconnue lève la `SerializationException` nue de kotlinx
   (ou de tomlkt, ou de json5), sans le chemin du fichier. Une `StoreDecodeException(path, cause)` au chargement et au rechargement, dont le message porte
   le chemin et celui du parseur ; un ancêtre commun `StorifyException` avec `ValidationException`, pour attraper d'un seul `catch` tout ce qui empêche
-  d'ouvrir.
+  d'ouvrir. **Fait le 2026-09-29, en version petite** : `StorifyException` (une `RuntimeException`, ancêtre des fautes du fichier ;
+  `ValidationException` quitte `IllegalStateException` pour la rejoindre) et `StoreDecodeException(path, format, cause)`, le chemin, le format,
+  la ligne au mieux (l'offset de kotlinx et l'index de json5 convertis en ligne, le `(L2)` de tomlkt), la cause conservée ; levée par
+  `StoreFormat.decodeFile`, la voie de tout décodage fait pour un consommateur (ouverture, rechargement, les deux `validateFile`, sidecar meta,
+  ressource embarquée), le contrat brut `decodeFromPath` intact. Cinq tests dans `lifecycle\DecodeErrorTest`, deux existants adaptés.
 - [ ] **C-34 : l'écrivain atomique public** (S ; AVIS). `atomicWrite` est privé, et `encodeToPath` des trois formats écrit directement dans la cible :
   tout fichier qu'un consommateur écrit hors d'un store réclame son propre écrivain. Un objet public `AtomicFiles.write(target) { temp -> ... }` aux
   mêmes garanties (temporaire voisin, `force`, `ATOMIC_MOVE` avec repli), utilisé par `BaseStore`, et l'extension

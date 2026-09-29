@@ -63,6 +63,10 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   explicite ou résolu par annotation, un `ValidationContext` riche (imbrication, collections, maps, chemins d'erreur), un rapport d'erreurs
   détaillé enrichi des numéros de ligne pour JSON et JSON5, clés de map comprises ; des défauts invalides ne créent jamais de fichier sur
   disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
+- **Des fautes de fichier lisibles** : un fichier qui ne se lit pas ou ne se décode pas lève `StoreDecodeException` (le chemin, le format, la
+  ligne quand elle se lit dans le message du parseur, la cause conservée) ; elle et `ValidationException` descendent de `StorifyException`, un
+  seul `catch` pour tout ce qui vient du fichier ; les fautes du code (écrire sur un store fermé ou en lecture seule) restent des
+  `IllegalStateException`.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
   aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
@@ -172,6 +176,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach` sur listes et maps) ; `validateFile` valide un fichier, avec ou sans store |
+| `StorifyException` | L'ancêtre des fautes du fichier : `StoreDecodeException` (lecture ou décodage, chemin et ligne au mieux) et `ValidationException` |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
 

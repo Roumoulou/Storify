@@ -4,6 +4,7 @@
 package fr.moulou.storify.validation
 
 import fr.moulou.storify.JsonFormat
+import fr.moulou.storify.StoreDecodeException
 import fr.moulou.storify.TomlFormat
 import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
@@ -90,6 +91,8 @@ class ValidateFileTest {
         val path = newStorePath("broken.json")
         path.writeText("{ cassé")
 
-        assertThrows(SerializationException::class.java) { JsonFormat().validateFile(path, RosterValidator()) }
+        val failure = assertThrows(StoreDecodeException::class.java) { JsonFormat().validateFile(path, RosterValidator()) }
+        assertInstanceOf(SerializationException::class.java, failure.cause)
+        assertTrue(failure.message!!.contains("broken.json"))
     }
 }

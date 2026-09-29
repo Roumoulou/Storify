@@ -79,7 +79,8 @@ Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de donn
 Le chemin reçu est d'abord normalisé (`toAbsolutePath().normalize()`, C-12) : logs, erreurs, sidecar et temporaires parlent tous le même chemin
 net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init` :
 
-1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE`) ; sinon les données par défaut sont fabriquées, sans rien écrire :
+1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE` ; une panne de lecture ou de parseur devient `StoreDecodeException`,
+   C-33) ; sinon les données par défaut sont fabriquées, sans rien écrire :
    le fichier initial n'arrive qu'après la validation (C-06), des défauts invalides ne touchent jamais le disque. Exception voulue : la copie
    d'une ressource embarquée (`createFromResource`) existe déjà à ce stade et reste sur disque même invalide, éditable, erreurs pointées à la ligne.
 2. **initUpdatePolicies** : parcours récursif de `DATA::class` par réflexion (`memberProperties`), avec un ensemble `visited` contre les cycles et
@@ -201,6 +202,12 @@ La validation joue à quatre moments (C-05, C-32) : au chargement initial, au `r
 AVANT de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), à la demande sur la mémoire via `validateNow()` (sans
 lignes : une ligne ne vaut que si mémoire et fichier coïncident) et sur le fichier du disque via `validateFile()`, la mémoire intacte. Hors de tout
 store, `StoreFormat.validateFile(path, deserializer, validator)` décode, valide et enrichit un fichier édité à la main.
+
+Les fautes du fichier ont une famille (C-33) : `StorifyException`, ancêtre de `ValidationException` (bien formé mais invalide) et de
+`StoreDecodeException` (illisible ou mal formé : le chemin, le format, la ligne quand elle se lit dans le message du parseur, l'offset de kotlinx
+et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, et la cause conservée). Tout décodage fait pour un consommateur passe par
+`StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut `decodeFromPath` restant
+intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`.
 S'y ajoute l'opt-in `validateOnUpdate` (défaut `false`, **non recommandé**) : chaque update copie la racine, mute, valide, et en échec restaure
 puis émet `ValidationFailedOperation` vers les callbacks (les transactions rendent `TransactionOperation(success = false)`) ; la valeur invalide
 n'entre jamais, au prix d'une copie de racine et d'un validator sous write lock à chaque geste. Il exige `useDeepCopy`, et le bon réflexe reste

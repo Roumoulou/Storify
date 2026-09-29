@@ -161,7 +161,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Chemin vers le fichier sidecar `.meta.json`. */
     private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
 
-    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaFormat.decodeFromPath(StoreMeta.serializer(), metaPath) else StoreMeta() else null
+    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaFormat.decodeFile(StoreMeta.serializer(), metaPath) else StoreMeta() else null
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` par le tick d'auto-save. Interne pour les tests. */
     @Volatile
@@ -285,7 +285,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     private fun initData() {
         sweepOrphanTemps()
         if (path.exists()) {
-            _data = format.decodeFromPath(dataSerializer, path)
+            _data = format.decodeFile(dataSerializer, path)
             _hasSavedAtLeastOnce = true
         } else {
             _data = defaultDataProvider.invoke()
@@ -416,7 +416,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     override fun reloadFromFile(validate: Boolean) {
         checkOpen()
-        val incoming = format.decodeFromPath(dataSerializer, path)
+        val incoming = format.decodeFile(dataSerializer, path)
         if (validate && config.withValidation) {
             val result = runValidation(incoming)
             if (result is ValidationResult.Failure) {
@@ -430,7 +430,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     override fun validateNow(): ValidationResult = dataLock.read { runValidation(_data) }
 
     override fun validateFile(): ValidationResult {
-        val onDisk = format.decodeFromPath(dataSerializer, path)
+        val onDisk = format.decodeFile(dataSerializer, path)
         return validator?.let { ValidationErrorEnricher.validate(format, path, onDisk, it) } ?: ValidationResult.Success
     }
 

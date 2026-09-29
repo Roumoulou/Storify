@@ -55,7 +55,7 @@ object StoreFactory {
                     storePath.parent?.createDirectories()
                     val inputStream = DATA::class.java.classLoader.getResourceAsStream(resourcePath) ?: throw IllegalArgumentException("Resource not found: $resourcePath")
                     Files.copy(inputStream, storePath)
-                    format.decodeFromPath(deserializer, storePath)
+                    format.decodeFile(deserializer, storePath)
                 }
             }
         }
