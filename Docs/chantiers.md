@@ -121,6 +121,15 @@ c'est fait, avec la date.
   référence forte, et une écriture si dirty). `StoreConfig(readOnly = true)`, miroir dans l'annotation : `set`, `mutate`, `transaction` et
   `saveImmediate` refusent comme sur un store fermé, ni planificateur ni hook, `reloadFromFile` permis, `withAutoSave` ignoré et documenté ;
   `createIfMissing` (défaut `true`) écrit une seule fois le fichier initial absent ; et `withShutdownHook` (défaut `true`), forcé à `false` par `readOnly`.
+  **En attente, décision du 2026-09-29** : la question est celle du propriétaire du fichier, et elle se tranche dans le design du consommateur, pas
+  dans Storify. Si le mod est propriétaire (il écrit, les éditions extérieures passent par lui ou par le rituel éditer puis `/reload`), la règle dirty
+  d'aujourd'hui suffit (rien n'est écrit à l'arrêt sans modification en mémoire) et `readOnly` ne sert à rien. Si un programme externe devient
+  propriétaire (le mod ne fait que lire, valider et recharger), `readOnly` transforme la discipline « ne jamais écrire » en contrat vérifié par la lib :
+  c'est le seul cas qui justifie le chantier, et rien ne le confirme pour AegisPerms. Le design est prêt : les trois réglages ci-dessus, `Store.isReadOnly`,
+  un `checkWritable()` en tête du pipeline d'update, de la transaction et de `save(IMMEDIATE)`, les tests dans `lifecycle\ReadOnlyTest` ; une démo
+  jetable, hors dépôt, a montré le 2026-09-29 les trois gestes anodins qui écrasent une édition externe (une transaction au bloc vide, un
+  `saveImmediate` sans modification, le hook d'arrêt sur un store dirty). La garantie serait à l'exécution (une exception), pas à la compilation : un
+  type sans méthodes d'écriture demanderait une refonte de `Store`, écartée. S'ouvre le jour où un consommateur a un écrivain externe.
 - [ ] **C-31 : le BOM UTF-8 toléré** (S ; AVIS). Mesuré le 2026-09-28 : un fichier enregistré avec BOM échoue en JSON (`JsonDecodingException` à
   l'offset 0) et en TOML (`UnexpectedTokenException`, ligne 1) ; JSON5 passe. Retirer les trois octets au décodage de `JsonFormat` et `TomlFormat`, un
   test par format, et vérifier que la réconciliation JSON5 tolère un texte existant qui commence par un BOM.
@@ -252,7 +261,8 @@ c'est fait, avec la date.
   sur le planificateur déjà présent (aucun fil de plus), intervalle `watchIntervalMs` ; à chaque changement, un rechargement validé avec le callback
   `onReload` ; en échec, `warn` et mémoire intacte, jamais d'exception depuis un fil de fond ; les propres écritures du store reconnues par l'empreinte
   relevée après chaque save ; store dirty et fichier changé : `warn` sans rechargement. `WatchService` écarté (un fil par dossier, des notifications
-  doublées par les éditeurs).
+  doublées par les éditeurs). **En attente avec C-30 (2026-09-29)** : même condition, un programme externe propriétaire du fichier ; avec le mod
+  propriétaire, le rituel éditer puis `/reload` couvre le besoin.
 - [ ] **C-36 : le JSON strict par défaut** (S ; AVIS). `JsonFormat()` accepte les commentaires, les chaînes sans guillemets et `NaN` (`isLenient`,
   `allowComments`, `allowSpecialFloatingPointValues`), quand `ignoreUnknownKeys` reste faux : strict sur les clés, laxiste sur la syntaxe ; et TOML
   tolère les clés inconnues (le curseur 5 de C-17). `JsonFormat()` strict (`isLenient` et `allowComments` à faux) et une fabrique `JsonFormat.lenient()`
