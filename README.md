@@ -192,8 +192,11 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 
 Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) et écrivent leurs fichiers dans
 `build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
-exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
-`.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
+exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
+les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
+décodage, écriture atomique, JSON strict, logger nommé) : des tests ordonnés par étape, qui impriment ce que la lib fait avant et après. Le
+benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc : `.\gradlew runServer` dans
+`..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
 jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.
