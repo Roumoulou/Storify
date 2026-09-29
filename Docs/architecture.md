@@ -320,4 +320,4 @@ exercés en vrai. Les faits marquants, sources des chantiers :
 ---
 
 *Dernière vérification : 2026-09-29, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35
-et C-38 en attente ; C-39 en cours).*
+et C-38 en attente).*

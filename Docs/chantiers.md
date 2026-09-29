@@ -307,11 +307,13 @@ c'est fait, avec la date.
   son miroir dans `@StoreConfiguration`, résolus par la factory ; `BaseStore` fabrique son logger sur ce nom, les messages et leur préfixe
   inchangés ; `AtomicFiles.write` reçoit en option le logger de son repli non atomique, et le store lui passe le sien (l'écrivain de C-34 avait
   un logger à lui, sous lequel les sauvegardes d'un store auraient parlé). Trois tests (`LoggerNameTest`, `ResolutionTest`).
-- [ ] **C-39 : la version 0.2.0-SNAPSHOT et sa republication** (S ; AVIS). Repsy ne porte que `0.1.0-SNAPSHOT`, sans étiquette Git : deux jars d'un
+- [x] **C-39 : la version 0.2.0-SNAPSHOT et sa republication** (S ; AVIS). Repsy ne porte que `0.1.0-SNAPSHOT`, sans étiquette Git : deux jars d'un
   consommateur construits à deux dates peuvent embarquer deux Storify sous le même nom. L'avis proposait une `0.1.0` figée ; décision du 2026-09-28 :
   bump direct, sans release figée. **Le bump est fait le 2026-09-28** (`mod_version=0.2.0-SNAPSHOT`, docs alignées). Reste, à la fin des chantiers : la
   publication par l'utilisateur, avec le jeton, puis la recette du README (section 4) et le catalogue du banc (`storify`) qui passent à
-  `0.2.0-SNAPSHOT`.
+  `0.2.0-SNAPSHOT`. **Fait le 2026-09-29** : publiée sur Repsy par l'utilisateur, avec le jeton, après un build propre sans cache de build (le cache
+  restaurait dans le jar un dossier vide, reste du sérialiseur retiré) ; la recette du README et le catalogue du banc citent `0.2.0-SNAPSHOT`, et le
+  banc en mode `repsy` construit sur l'artefact publié.
 
 ## 5. P3, la vision
 
@@ -385,5 +387,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-29, C-28 à C-34, C-36 et C-37 cochés, C-35 et C-38 en attente, C-39 en cours ; les constats du banc à jour au
-2026-09-23.*
+*Dernière vérification : 2026-09-29, C-28 à C-34, C-36, C-37 et C-39 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
