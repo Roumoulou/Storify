@@ -35,7 +35,6 @@ Les packages :
 | `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, la factory, les extensions `set`/`mutate`/`transaction` |
 | `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
 | `fr.moulou.storify.utils` | Le copieur profond (`DeepCopier`, l'arbre JSON), l'écrivain atomique (`AtomicFiles`), le registre des formats, le formatage des dates |
-| `fr.moulou.storify.serializers` | Sérialiseurs d'appoint (`JsonPrimitiveAsStringSerializer`) |
 
 ## 2. La data class et ses annotations
 
@@ -294,7 +293,7 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 | Dépendance | Rôle |
 |---|---|
-| `kotlinx-serialization-json` | Le format JSON, le véhicule des copies profondes (chapitre 10) et le parsing du sérialiseur d'appoint |
+| `kotlinx-serialization-json` | Le format JSON, le pont d'arbre de JSON5 et le véhicule des copies profondes (chapitre 10) |
 | `dev.eav.tomlkt:tomlkt` | Le format TOML |
 | `li.songe:json5` | Le format JSON5 : le parse et l'écriture du texte ; le mapping passe par un pont `JsonElement` kotlinx |
 | `kotlin-reflect` | Le scan des annotations, `createInstance`, `memberProperties` (factories et policies) |
