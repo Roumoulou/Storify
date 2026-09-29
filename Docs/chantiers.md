@@ -275,10 +275,14 @@ c'est fait, avec la date.
   la ligne au mieux (l'offset de kotlinx et l'index de json5 convertis en ligne, le `(L2)` de tomlkt), la cause conservée ; levée par
   `StoreFormat.decodeFile`, la voie de tout décodage fait pour un consommateur (ouverture, rechargement, les deux `validateFile`, sidecar meta,
   ressource embarquée), le contrat brut `decodeFromPath` intact. Cinq tests dans `lifecycle\DecodeErrorTest`, deux existants adaptés.
-- [ ] **C-34 : l'écrivain atomique public** (S ; AVIS). `atomicWrite` est privé, et `encodeToPath` des trois formats écrit directement dans la cible :
+- [x] **C-34 : l'écrivain atomique public** (S ; AVIS). `atomicWrite` est privé, et `encodeToPath` des trois formats écrit directement dans la cible :
   tout fichier qu'un consommateur écrit hors d'un store réclame son propre écrivain. Un objet public `AtomicFiles.write(target) { temp -> ... }` aux
   mêmes garanties (temporaire voisin, `force`, `ATOMIC_MOVE` avec repli), utilisé par `BaseStore`, et l'extension
   `StoreFormat.encodeToPathAtomically(serializer, data, path)` avec son sucre réifié ; le motif de C-28 y vit, en une seule définition.
+  **Fait le 2026-09-29** : `utils\AtomicFiles` (`write`, `tempFileName`, `ownTempPattern`, `sweepOrphanTemps`), `BaseStore` délègue son
+  `atomicWrite` et son balayage sans changer de comportement, `encodeToPathAtomically` et son sucre réifié sur `StoreFormat`. Trois tests dans
+  `AtomicWriteTest`, dont le premier de la suite sur la panne au milieu de l'écriture : le fichier précédent reste entier, par le store comme par
+  `AtomicFiles.write`, sans temporaire.
 - [ ] **C-35 : la surveillance du fichier** (M ; AVIS). Un store ne voit pas les modifications extérieures, alors que l'édition par une application de
   bureau pendant que le serveur tourne est le cas d'usage du JSON. `watchFile` dans `StoreConfig` : un sondage de la date de modification et de la taille
   sur le planificateur déjà présent (aucun fil de plus), intervalle `watchIntervalMs` ; à chaque changement, un rechargement validé avec le callback

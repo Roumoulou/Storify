@@ -3,6 +3,7 @@
 
 package fr.moulou.storify
 
+import fr.moulou.storify.utils.AtomicFiles
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.validation.ErrorLineLocator
 import fr.moulou.storify.validation.ValidationErrorEnricher
@@ -82,3 +83,12 @@ internal fun <DATA> StoreFormat.decodeFile(deserializer: DeserializationStrategy
     } catch (e: Exception) {
         throw StoreDecodeException(path, this, e)
     }
+
+/**
+ * Encode [data] vers [path] par [AtomicFiles.write] (C-34) : temporaire voisin, flush, déplacement atomique ; le fichier est toujours une
+ * version entière, comme une sauvegarde de store. Le contrat [StoreFormat.encodeToPath], lui, écrit directement.
+ */
+fun <DATA> StoreFormat.encodeToPathAtomically(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) = AtomicFiles.write(path) { temp -> encodeToPath(serializer, data, temp) }
+
+/** Sucre réifié : matérialise le sérialiseur au site d'appel, puis écrit par [encodeToPathAtomically]. */
+inline fun <reified DATA> StoreFormat.encodeToPathAtomically(data: DATA, path: Path) = encodeToPathAtomically(serializer<DATA>(), data, path)

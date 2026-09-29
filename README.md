@@ -52,7 +52,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   (silence complet).
 - **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM,
   rechargement depuis le fichier (`reloadFromFile`), et écriture atomique partout (fichier temporaire puis déplacement atomique : jamais de
-  fichier tronqué, même en cas de crash en pleine écriture).
+  fichier tronqué, même en cas de crash en pleine écriture) ; le même écrivain est public pour un fichier écrit hors store, `AtomicFiles.write`
+  et `format.encodeToPathAtomically`.
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
 - **Mode lecture seule** : `readOnly` refuse toute écriture (`IllegalStateException`), n'arme ni planificateur ni hook, et laisse lire, valider et
@@ -175,6 +176,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
+| `AtomicFiles` | L'écrivain atomique des stores, public : `write(target) { temp -> }`, le balayage des temporaires orphelins ; `encodeToPathAtomically` sur tout format |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach` sur listes et maps) ; `validateFile` valide un fichier, avec ou sans store |
 | `StorifyException` | L'ancêtre des fautes du fichier : `StoreDecodeException` (lecture ou décodage, chemin et ligne au mieux) et `ValidationException` |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |

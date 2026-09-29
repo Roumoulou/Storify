@@ -34,7 +34,7 @@ Les packages :
 | `fr.moulou.storify` | Le modèle public : annotations, `UpdatePolicy`, `Operation`, `CapturedValue`, `StoreMeta`, `Defaultable`, formats |
 | `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, la factory, les extensions `set`/`mutate`/`transaction` |
 | `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
-| `fr.moulou.storify.utils` | Le copieur profond (`DeepCopier`, l'arbre JSON), le registre des formats, le formatage des dates |
+| `fr.moulou.storify.utils` | Le copieur profond (`DeepCopier`, l'arbre JSON), l'écrivain atomique (`AtomicFiles`), le registre des formats, le formatage des dates |
 | `fr.moulou.storify.serializers` | Sérialiseurs d'appoint (`JsonPrimitiveAsStringSerializer`) |
 
 ## 2. La data class et ses annotations
@@ -173,7 +173,8 @@ réussi. La sauvegarde
 s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
 (qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
 
-L'écriture est atomique (C-02) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
+L'écriture est atomique (C-02, `AtomicFiles.write`, public depuis C-34 pour tout fichier écrit hors store, `encodeToPathAtomically` sur les
+formats) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
 disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
 `saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif `<fichier>.<8 hex>.tmp`,

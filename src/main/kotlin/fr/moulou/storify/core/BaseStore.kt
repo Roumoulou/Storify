@@ -4,15 +4,14 @@
 package fr.moulou.storify.core
 
 import fr.moulou.storify.*
+import fr.moulou.storify.utils.AtomicFiles
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.validation.*
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.nio.channels.FileChannel
 import java.nio.file.*
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
@@ -22,7 +21,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.reflect.KClass
@@ -704,27 +702,8 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     // ── Écriture atomique ──
-    /**
-     * Écrit via un fichier temporaire unique et voisin, force le flush disque, puis remplace la cible par
-     * déplacement atomique : elle est toujours une version entière, un crash en pleine écriture ne la touche jamais.
-     */
-    private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) {
-        target.toAbsolutePath().parent?.createDirectories() // la leçon C-04, garantie ici pour tout format, tiers compris
-        val temp = target.resolveSibling(tempFileName(target.fileName.toString()))
-        try {
-            encodeTo(temp)
-            FileChannel.open(temp, StandardOpenOption.WRITE).use { it.force(true) }
-            try {
-                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            } catch (_: AtomicMoveNotSupportedException) {
-                log.warn("[Storify] Atomic move unsupported for '{}': falling back to a non-atomic replace", target)
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } catch (e: Exception) {
-            runCatching { Files.deleteIfExists(temp) }
-            throw e
-        }
-    }
+    /** Écrit par [AtomicFiles.write] (C-02, public depuis C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière. */
+    private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) = AtomicFiles.write(target, encodeTo)
 
     /**
      * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
@@ -735,29 +714,12 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         val callback: (Operation<DATA>) -> Unit,
     )
 
-    /**
-     * Balaye les temporaires orphelins d'un crash passé : ceux du fichier et de son sidecar, au motif de [tempFileName] et à lui seul (C-28) ;
-     * un temporaire étranger, `<nom>.tmp` écrit par une autre application par exemple, n'est jamais touché.
-     */
-    private fun sweepOrphanTemps() {
-        val directory = path.toAbsolutePath().parent ?: return
-        if (!directory.exists()) return
-        val own = listOf(path.fileName.toString(), metaPath.fileName.toString()).map { ownTempPattern(it) }
-        runCatching {
-            Files.newDirectoryStream(directory) { candidate -> own.any { it.matches(candidate.fileName.toString()) } }
-                .use { stream -> stream.forEach { runCatching { Files.deleteIfExists(it) } } }
-        }
-    }
+    /** Balaye les temporaires orphelins d'un crash passé, ceux du fichier et de son sidecar, au seul motif propre (C-28, [AtomicFiles.sweepOrphanTemps]). */
+    private fun sweepOrphanTemps() = AtomicFiles.sweepOrphanTemps(path, metaPath)
 
     private companion object {
         /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
         val metaFormat = JsonFormat()
-
-        /** Le nom d'un temporaire atomique : `<nom>.<8 hexadécimaux>.tmp`, les huit premiers caractères d'un UUID aléatoire. */
-        fun tempFileName(fileName: String): String = "$fileName.${UUID.randomUUID().toString().substring(0, 8)}.tmp"
-
-        /** Le motif exact des temporaires que [tempFileName] produit pour [fileName] : le seul que le balayage reconnaît (C-28). */
-        fun ownTempPattern(fileName: String): Regex = Regex("^${Regex.escape(fileName)}\\.[0-9a-f]{8}\\.tmp$")
     }
 
 }
