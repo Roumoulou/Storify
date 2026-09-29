@@ -3,6 +3,7 @@
 
 package fr.moulou.storify.lifecycle
 
+import fr.moulou.storify.JsonFormat
 import fr.moulou.storify.StoreDecodeException
 import fr.moulou.storify.StorifyException
 import fr.moulou.storify.core.StoreConfig
@@ -51,6 +52,17 @@ class DecodeErrorTest {
 
         assertEquals(3, failure.line)
         assertTrue(failure.message!!.contains("'colour'"))
+    }
+
+    @Test
+    fun `un commentaire dans un fichier JSON est une faute du fichier, avec sa ligne`() {
+        val path = newStorePath("commented.json")
+        path.writeText("{\n  \"name\": \"s\",\n  // le compteur\n  \"count\": 1,\n  \"tags\": []\n}")
+
+        val failure = assertThrows(StoreDecodeException::class.java) { StoreFactory.create<PlainData>(path.toString(), config = noAutoSave) }
+
+        assertEquals(3, failure.line) // le JSON standard n'a pas de commentaires (C-36) : JSON5 est fait pour lui
+        assertEquals("s", StoreFactory.create<PlainData>(path.toString(), format = JsonFormat.lenient(), config = noAutoSave).use { it.data.name })
     }
 
     @Test

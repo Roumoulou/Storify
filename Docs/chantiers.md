@@ -290,11 +290,17 @@ c'est fait, avec la date.
   relevée après chaque save ; store dirty et fichier changé : `warn` sans rechargement. `WatchService` écarté (un fil par dossier, des notifications
   doublées par les éditeurs). **En attente avec C-30 (2026-09-29)** : même condition, un programme externe propriétaire du fichier ; avec le mod
   propriétaire, le rituel éditer puis `/reload` couvre le besoin.
-- [ ] **C-36 : le JSON strict par défaut** (S ; AVIS). `JsonFormat()` accepte les commentaires, les chaînes sans guillemets et `NaN` (`isLenient`,
+- [x] **C-36 : le JSON strict par défaut** (S ; AVIS). `JsonFormat()` accepte les commentaires, les chaînes sans guillemets et `NaN` (`isLenient`,
   `allowComments`, `allowSpecialFloatingPointValues`), quand `ignoreUnknownKeys` reste faux : strict sur les clés, laxiste sur la syntaxe ; et TOML
   tolère les clés inconnues (le curseur 5 de C-17). `JsonFormat()` strict (`isLenient` et `allowComments` à faux) et une fabrique `JsonFormat.lenient()`
   qui rend l'actuel ; le sort d'`allowSpecialFloatingPointValues` reste à trancher (le garder évite qu'une sauvegarde échoue sur un `NaN`). Un fichier
-  JSON à commentaires cesse alors de charger : JSON5 est fait pour lui.
+  JSON à commentaires cesse alors de charger : JSON5 est fait pour lui. **Fait le 2026-09-29** : le `Json` par défaut perd `isLenient` et
+  `allowComments`, un commentaire ou une clé sans guillemets lèvent `StoreDecodeException` avec la ligne, comme une virgule finale ou une clé
+  inconnue déjà ; `JsonFormat.lenient()` rend le lecteur tolérant ; le registre, l'annotation et le sidecar meta prennent le défaut.
+  `allowSpecialFloatingPointValues` gardé, décision de l'utilisateur : refuser le `NaN` ferait échouer chaque sauvegarde du store loin du code
+  fautif (mesuré : `saveImmediate()` puis `close()` lèvent, le fichier reste intact), quand un `NaN` écrit se relit ; `allowStructuredMapKeys`
+  gardé, il ne tolère aucune syntaxe. Le strict s'accorde avec ce que Storify écrit et avec AegisPerms, qui construisait son propre `Json` strict
+  pour l'obtenir. Trois tests (`JsonFormatTest`, `DecodeErrorTest`).
 - [ ] **C-37 : le logger nommé** (S ; AVIS). Le logger est nommé d'après la classe et le préfixe `[Storify]` est en dur (dix-sept fois dans `BaseStore`) :
   les messages n'apparaissent pas sous le journal du mod. `StoreConfig.loggerName` (défaut `Storify`, miroir dans l'annotation) ; le préfixe reste, il
   identifie la lib dans le journal d'un mod qui passe son propre nom.

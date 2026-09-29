@@ -227,9 +227,15 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 
 | Format | Réglages | Particularités |
 |---|---|---|
-| `JsonFormat` | prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments | Crée les dossiers parents à l'écriture |
+| `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
 | `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
+
+`JsonFormat` lit le JSON standard et rien d'autre (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une
+virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` avec la ligne. `NaN` et les infinis restent tolérés, à l'écriture comme
+à la lecture, parce qu'un refus ferait échouer chaque sauvegarde du store loin du code qui a produit la valeur, quand un `NaN` écrit se relit ;
+`allowStructuredMapKeys` ne tolère aucune syntaxe (une map à clés textuelles écrite en tableau est refusée), il permet une map à clés structurées.
+`JsonFormat.lenient()` rend le lecteur tolérant, et le constructeur accepte tout `Json`.
 
 `Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
 de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
