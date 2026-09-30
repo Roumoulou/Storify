@@ -71,7 +71,7 @@ Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de donn
 | `create` | Le companion object de DATA, qui doit implémenter `Defaultable<DATA>` |
 | `createFromConstructor` | `DATA::class.createInstance()` : le constructeur sans argument (tous les champs ont un défaut) |
 | `createFromDefaultable<DATA, D>` | Une classe `Defaultable` externe, instanciée par constructeur sans argument |
-| `createFromResource` | La ressource du classpath copiée vers le fichier cible, puis décodée |
+| `createFromResource` | La ressource du classpath copiée telle quelle vers le fichier cible, par l'écrivain atomique, puis décodée (C-40) |
 
 ## 4. Le cycle de vie de BaseStore
 
@@ -79,16 +79,19 @@ Le chemin reçu est d'abord normalisé (`toAbsolutePath().normalize()`, C-12) : 
 net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init` :
 
 1. **initData** : si le fichier existe, il est décodé (`_dataOrigin = FILE` ; une panne de lecture ou de parseur devient `StoreDecodeException`,
-   C-33) ; sinon les données par défaut sont fabriquées, sans rien écrire :
+   C-33) ; sinon les données par défaut sont fabriquées, sans rien écrire (`DEFAULT`) :
    le fichier initial n'arrive qu'après la validation (C-06), des défauts invalides ne touchent jamais le disque. Exception voulue : la copie
-   d'une ressource embarquée (`createFromResource`) existe déjà à ce stade et reste sur disque même invalide, éditable, erreurs pointées à la ligne.
+   d'une ressource embarquée (`createFromResource`, origine `RESOURCE`) est posée à ce stade, à l'octet et par l'écrivain atomique (C-40) ; elle
+   reste sur disque même invalide, éditable, erreurs pointées à la ligne.
 2. **initUpdatePolicies** : parcours récursif de `DATA::class` par réflexion (`memberProperties`), avec un ensemble `visited` contre les cycles et
    une garde qui ignore les classes `kotlin.*` et `java.*` ; chaque `@StoreUpdatePolicy` rencontrée entre dans la map `updatePolicies`.
 3. **initValidation** : si `withValidation`, le validator tourne sur les données chargées ; en cas d'échec, les erreurs sont enrichies des
-   numéros de ligne JSON dès qu'un fichier existe (chargé, ou copié d'une ressource), puis une `ValidationException` est levée. Le store ne se
-   construit pas.
-4. **persistInitialData** : les données nées par défaut écrivent enfin leur fichier initial, la validation étant passée (C-06), sauf
-   `createIfMissing = false`, où rien n'est écrit (C-30).
+   numéros de ligne JSON dès qu'un fichier existe (chargé, ou copié d'une ressource), puis une `ValidationException` est levée, dont le
+   message nomme l'origine des données, là où est le remède : le fichier, la copie de la ressource, ou les défauts du code (C-40). Le store
+   ne se construit pas.
+4. **persistInitialData** : les données nées par défaut (`DEFAULT`) écrivent enfin leur fichier initial, la validation étant passée (C-06),
+   sauf `createIfMissing = false`, où rien n'est écrit (C-30). La copie d'une ressource n'est jamais réécrite : le fichier du premier
+   lancement est la ressource du jar, commentaires compris (C-40).
 5. **initAutoSave** : si `withAutoSave` et hors lecture seule (C-30), un scheduler (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
    levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
    C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
@@ -103,9 +106,9 @@ suite), désarme le hook, puis fait la sauvegarde d'adieu si le store est dirty 
 
 Le mode lecture seule (C-30, `readOnly`) : le store lit, valide et relit, et refuse toute écriture par `checkWritable()` en tête du pipeline
 d'update, de la transaction et de `saveImmediate` (`IllegalStateException`, comme sur un store fermé) ; ni planificateur ni hook, les interrupteurs
-d'auto-save inertes, le sidecar meta lu mais jamais écrit ; sa seule écriture possible est le fichier initial, si `createIfMissing`. La garantie est
-à l'exécution, pas à la compilation. `Store.isReadOnly` le dit au consommateur. Sans hook armé (`withShutdownHook = false`, ou lecture seule),
-`close()` fait toujours sa sauvegarde d'adieu quand le store est dirty.
+d'auto-save inertes, le sidecar meta lu mais jamais écrit ; sa seule écriture possible est le fichier initial, si `createIfMissing`, ou la
+copie de sa ressource embarquée. La garantie est à l'exécution, pas à la compilation. `Store.isReadOnly` le dit au consommateur. Sans hook
+armé (`withShutdownHook = false`, ou lecture seule), `close()` fait toujours sa sauvegarde d'adieu quand le store est dirty.
 
 Jusqu'au chantier C-03, le marquage dirty était lui-même un callback onUpdate : une mise à jour `SKIP` coupait donc aussi la persistance. Depuis,
 `markDirty` vit dans le pipeline d'update et toutes les policies persistent ; `SKIP`, toujours le défaut, ne gouverne plus que le silence des
@@ -177,7 +180,8 @@ formats) : chaque sauvegarde encode vers un fichier temporaire unique et voisin 
 disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
 pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
 `saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif `<fichier>.<8 hex>.tmp`,
-pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial comme le sidecar meta passent par le même chemin. Un
+pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial, la copie d'une ressource embarquée (C-40) comme
+le sidecar meta passent par le même chemin. Un
 format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment d'encoder vers le temporaire : il ne
 réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis remplace
 la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`), construites

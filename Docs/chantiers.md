@@ -144,6 +144,18 @@ c'est fait, avec la date.
   existant avant la réconciliation, l'enrichisseur l'ôte de sa première ligne ; Storify lit avec ou sans BOM et écrit toujours sans. Cinq tests : les
   trois formats, la sauvegarde préservante qui garde ses commentaires et ressort sans BOM, le store qui s'ouvre sur un fichier du Bloc-notes et le
   réécrit sans, l'enrichisseur.
+- [x] **C-40 : la ressource embarquée copiée telle quelle** (S ; LECTURE). `createFromResource` copie sa ressource puis la réécrit : l'origine des
+  données est arrêtée à la construction du store, avant la copie, et vaut `DEFAULT` ; la validation passée, `persistInitialData` réencode donc le
+  fichier par le format. Mesuré le 2026-09-30 : une ressource JSON ressort réindentée (42 octets devenus 45), une ressource JSON5 ou TOML commentée
+  perd tous ses commentaires dès le premier lancement (258 octets devenus 41, 236 devenus 30), et la copie ne reste intacte qu'invalide, ou avec
+  `createIfMissing = false`. S'y ajoute la copie elle-même, seule écriture de la lib hors de l'écrivain atomique, au flux jamais fermé. Poser
+  l'origine après l'appel du fournisseur, ne plus réécrire la copie, et la faire passer par `AtomicFiles.write`. **Fait le 2026-09-30** : trois
+  origines (`FILE`, `RESOURCE`, `DEFAULT`), posées par `initData` une fois le fournisseur appelé ; `persistInitialData` n'écrit que pour `DEFAULT`,
+  la copie reste la ressource à l'octet, et la première sauvegarde JSON5 en préserve les commentaires ; le message d'une ressource invalide dit
+  `copied from the default resource` ; la copie passe par `AtomicFiles.write`, flux fermé, sous le logger du store (la fabrique du fournisseur
+  reçoit la config résolue), et sa logique sort de l'inline (`DefaultProvider.resourceProvider`) ; `createIfMissing` est sans effet sur
+  `createFromResource`. Quatre tests neufs et un étendu dans `CreateFromResourceTest`, dont la copie qui casse en route sans laisser ni fichier
+  tronqué ni temporaire (vu échouer sur la copie directe) ; la démo `ResourceCopyDemo.kt`.
 
 ## 4. P2, l'API et le ménage
 
@@ -391,4 +403,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-29, C-28 à C-34, C-36, C-37 et C-39 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 et C-40 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

@@ -1,0 +1,7 @@
+# La config par défaut, livrée dans le jar : ses commentaires guident l'admin.
+
+# D'où viennent ces données : "resource" tant que personne n'a édité le fichier.
+origin = "resource"
+
+# Le niveau de départ, de 0 à 100.
+level = 42

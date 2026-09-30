@@ -55,8 +55,9 @@ import kotlin.reflect.full.memberProperties
  *                             pour un store que le consommateur ferme lui-même ; `close()` fait toujours sa sauvegarde d'adieu. Forcé à
  *                             `false` par [readOnly]. Défaut `true`.
  * @property createIfMissing   Écrit le fichier initial né des défauts quand il manque, la validation passée. À `false`, les défauts vivent en
- *                             mémoire et rien n'est écrit à l'ouverture (un `saveImmediate` ultérieur crée le fichier). `createFromResource`
- *                             copie toujours sa ressource, cette copie étant sa définition. Défaut `true`.
+ *                             mémoire et rien n'est écrit à l'ouverture (un `saveImmediate` ultérieur crée le fichier). Sans effet sur
+ *                             `createFromResource`, qui copie toujours sa ressource, telle quelle (C-40) : cette copie est sa définition.
+ *                             Défaut `true`.
  * @property loggerName        Le nom du logger SLF4J du store (C-37) : le nom du mod (`aegisperms`) range les lignes du store sous son journal,
  *                             préfixe `[Storify]` gardé. Défaut `Storify`.
  */
@@ -121,8 +122,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /** Copie la racine par le copieur du format. */
     private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
 
-    /** Indique si les données ont été chargées depuis un fichier ou générées par [defaultDataProvider]. */
-    private enum class DataOrigin { FILE, DEFAULT }
+    /**
+     * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de
+     * copier à sa place (`RESOURCE`), ou les défauts du code, sans fichier (`DEFAULT`).
+     */
+    private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
 
     /** Objet de données vivant. Tout accès DOIT passer par [dataLock]. */
     @PublishedApi
@@ -148,7 +152,8 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         if (operation != null) onReloadCallbacks.forEach { it(operation) }
     }
 
-    private val _dataOrigin: DataOrigin = if (path.exists()) DataOrigin.FILE else DataOrigin.DEFAULT
+    /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
+    private var _dataOrigin: DataOrigin = DataOrigin.DEFAULT
 
     /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
     @PublishedApi
@@ -283,23 +288,27 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     /**
-     * Charge les données depuis le fichier s'il existe, sinon les crée depuis [defaultDataProvider],
-     * sans rien écrire : la validation passe d'abord, le fichier initial vient après ([persistInitialData], C-06).
+     * Charge les données depuis le fichier s'il existe, sinon les demande à [defaultDataProvider]. Les défauts du code n'écrivent rien ici :
+     * la validation passe d'abord, le fichier initial vient après ([persistInitialData], C-06). Le fournisseur d'une ressource embarquée,
+     * lui, pose sa copie avant de la décoder : l'origine le retient, et cette copie ne sera jamais réécrite (C-40).
      */
     private fun initData() {
         sweepOrphanTemps()
         if (path.exists()) {
             _data = format.decodeFile(dataSerializer, path)
+            _dataOrigin = DataOrigin.FILE
             _hasSavedAtLeastOnce = true
         } else {
             _data = defaultDataProvider.invoke()
+            _dataOrigin = if (path.exists()) DataOrigin.RESOURCE else DataOrigin.DEFAULT
         }
         _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
     }
 
     /**
      * Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06).
-     * Sauf `createIfMissing = false` : les défauts vivent en mémoire et rien n'est écrit (C-30).
+     * Sauf `createIfMissing = false` : les défauts vivent en mémoire et rien n'est écrit (C-30). La copie d'une ressource embarquée n'est pas
+     * concernée : elle est déjà le fichier initial, et reste la ressource à l'octet (C-40).
      */
     private fun persistInitialData() {
         if (_dataOrigin == DataOrigin.DEFAULT && config.createIfMissing) writeInitialFile()
@@ -337,6 +346,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     /**
      * Valide les données chargées ou nées par défaut au démarrage.
      * Enrichit les erreurs des numéros de ligne JSON dès qu'un fichier existe : chargé, ou copié depuis une ressource (C-06).
+     * Le message nomme l'origine des données, qui dit où est le remède : le fichier, la copie de la ressource, ou le code (C-40).
      * @throws ValidationException si les données sont invalides.
      */
     private fun initValidation() {
@@ -344,7 +354,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
         val result = runValidation(_data)
         if (result is ValidationResult.Failure) {
             val errors = if (path.exists()) ValidationErrorEnricher.enrich(format, path, result.errors) else result.errors
-            val source = if (_dataOrigin == DataOrigin.FILE) "loaded from file" else "default data"
+            val source = when (_dataOrigin) {
+                DataOrigin.FILE -> "loaded from file"
+                DataOrigin.RESOURCE -> "copied from the default resource"
+                DataOrigin.DEFAULT -> "default data"
+            }
             throw ValidationException(errors, "[Storify] Store '${path}' ($source) is invalid:\n${ValidationResult.Failure(errors).formatFull()}")
         }
     }
