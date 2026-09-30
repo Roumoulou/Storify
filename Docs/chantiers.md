@@ -38,7 +38,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
   POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
 - **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
-- **Le banc ne se vérifie qu'à la main** : ses deux étages de test sont vides, et rien ne se prouve en jeu sans un log lu (C-49).
+- **Le banc ne se vérifie en jeu que côté serveur** : ses étages 0 et 1 sont vides, et le cycle solo du client, un monde fermé puis un autre
+  ouvert dans la même session, n'a pas de gametest (les gametests clients de Fabric, un étage de plus à décider).
 - **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
   que l'utilisateur demande (C-35, en attente).
 - **Ni écran de configuration ni positionnement écrit** (C-19, C-20).
@@ -424,7 +425,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   64 Ko), même texte, même atomicité ; TOML tamponnait déjà, JSON5 lit et écrit le texte entier. Mesuré après : l'encodage 4,7 ms, la
   sauvegarde 6,7 ms, le `mutate` concurrent 6,6 ms d'attente ; la lecture passe de 2,1 à 1,6 ms. Aucun test de temps dans la suite, qui serait
   fragile ; la correction est couverte par les tests JSON existants, et la démo garde les chiffres d'avant et d'après.
-- [ ] **C-49 : les gametests du banc, l'étage 2** (L ; décision du 2026-09-30). La couverture automatisée de « ça marche en jeu » est nulle : la
+- [x] **C-49 : les gametests du banc, l'étage 2** (L ; décision du 2026-09-30). La couverture automatisée de « ça marche en jeu » est nulle : la
   lib a ses tests hors du jeu, le banc déclare deux étages de test, `src\test` et `src\testMC`, que `build` joue en NO-SOURCE parce que les
   dossiers n'existent pas, et tout ce qu'un vrai serveur fait, l'ouverture des stores à `SERVER_STARTING`, les commandes, le fichier sur le
   disque, la fermeture, ne se vérifie qu'à la main, par le log. Le design, décalqué du troisième étage d'AegisPermsDraft (`mod\build.gradle.kts`,
@@ -438,8 +439,16 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   (`maxTicks` relevé), qui ferme et rouvre les homes par les fonctions du banc ; et `runGameTest -Pstorify_source=repsy` rejoue tout sur l'artefact
   publié. Hors périmètre : le cycle solo du client (un monde fermé, un autre ouvert), qui relève des gametests clients de Fabric
   (`enableClientGameTests`, module 6.0.2), un étage de plus à décider après celui-ci ; l'emboîtement jar-in-jar, prouvé par le serveur pur.
-  Décidé le 2026-09-30 : le banc passe à Fabric API 0.161.0, la dernière publiée pour 26.2 et celle d'AegisPermsDraft. À trancher : qui lance
-  `runGameTest`, branché sur `check` il tourne à chaque build, y compris ceux de l'IA. Mené dans sa propre session, sur son plan.
+  **Fait le 2026-09-30, commencé dans la session sur décision** : le banc passe à Fabric API 0.161.0, la dernière publiée pour 26.2 et celle
+  d'AegisPermsDraft ; `fabricApi.configureTests` dans le build, le mod de test `storibench-gametest`, `runGameTest` dans `build\run\gameTest`,
+  remis à neuf avant chaque run et branché sur `check` par Loom ; un seul `@GameTest` en quatorze étapes qui se suivent, les stores étant partagés :
+  les deux stores ouverts, `/sethome` et sa limite, `/home` et le callback ciblé en `Shallow`, `/delhome`, deux saves avec `Initial` puis `DeepCopy`,
+  le fichier édité qui gagne au rechargement, la valeur invalide puis le fichier malformé refusés, le tick d'auto-save observé, le store rechargé
+  laissé en paix par le tick suivant, la fermeture et la réouverture des homes, la config écrite depuis le jeu. Trois découvertes du premier run :
+  le joueur simulé passe par le hook de connexion du banc ; le serveur GameTest ne cadence pas ses ticks, les attentes se comptent en temps réel,
+  sondées à chaque tick, et l'auto-save des homes descend à 3 s par `-Dstoribench.autoSaveMs` ; le jeu range ses tâches planifiées par identité,
+  replanifier le même `Runnable` le perd. Vert en composite et en mode `repsy` sur l'artefact publié, 18 s par run ; `runGameTest` est lancé par
+  l'IA à chaque build, décision de l'utilisateur. Le cycle solo du client reste un étage de plus, à décider.
 
 ## 5. P3, la vision
 
@@ -514,4 +523,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-49 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
