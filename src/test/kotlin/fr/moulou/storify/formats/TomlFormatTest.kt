@@ -14,8 +14,8 @@ import java.nio.file.Files
 import kotlin.io.path.writeText
 
 /**
- * `TomlFormat` : l'aller-retour sur une fixture aux types que TOML représente sans détour,
- * et le réglage `ignoreUnknownKeys` de son instance.
+ * `TomlFormat` : l'aller-retour sur une fixture aux types que TOML représente sans détour, flottants
+ * spéciaux compris (C-42), et le réglage `ignoreUnknownKeys` de son instance.
  */
 class TomlFormatTest {
 
@@ -41,6 +41,17 @@ class TomlFormatTest {
 
         assertEquals("y", decoded.title) // la clé en trop est ignorée, le reste suit les défauts
         assertEquals(3, decoded.level)
+    }
+
+    @Test
+    fun `les flottants spéciaux font l'aller-retour, nan et les infinis`() {
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            val path = newStorePath("special.toml")
+
+            format.encodeToPath(TomlishData.serializer(), TomlishData(ratio = value), path)
+
+            assertEquals(value, format.decodeFromPath(TomlishData.serializer(), path).ratio) // TOML les écrit nan, inf et -inf
+        }
     }
 
     @Test

@@ -41,9 +41,18 @@ import kotlin.io.path.writeText
  * l'admin survivent, et un save sans changement laisse le fichier identique à l'octet. Limites
  * assumées : un tableau modifié se remplace entier (ses commentaires intérieurs meurent), et un
  * fichier cible absent ou invalide vaut encode à neuf.
+ *
+ * Le pont par défaut garde `encodeDefaults` (un fichier qui porte tous ses champs) et
+ * `allowSpecialFloatingPointValues` (C-42) : `NaN`, `Infinity` et `-Infinity`, du JSON5 valide,
+ * s'écrivent et se relisent, comme en JSON (C-36) ; les refuser ferait échouer chaque sauvegarde du
+ * store, loin du code qui a produit la valeur. Le constructeur accepte tout `Json` : celui d'un
+ * consommateur est pris tel quel.
  */
 class Json5Format(
-    private val json: Json = Json { encodeDefaults = true },
+    private val json: Json = Json {
+        encodeDefaults = true
+        allowSpecialFloatingPointValues = true
+    },
     private val encoderConfig: Json5EncoderConfig = Json5EncoderConfig(indent = "    ")
 ) : PreservingStoreFormat {
 

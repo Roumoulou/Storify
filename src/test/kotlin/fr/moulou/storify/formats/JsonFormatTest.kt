@@ -61,14 +61,14 @@ class JsonFormatTest {
     }
 
     @Test
-    fun `les flottants spéciaux font l'aller-retour`() {
-        val path = newStorePath("nan.json")
-        val original = TomlishData(ratio = Double.NaN)
+    fun `les flottants spéciaux font l'aller-retour, NaN et les infinis`() {
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            val path = newStorePath("special.json")
 
-        format.encodeToPath(TomlishData.serializer(), original, path)
-        val decoded = format.decodeFromPath(TomlishData.serializer(), path)
+            format.encodeToPath(TomlishData.serializer(), TomlishData(ratio = value), path)
 
-        assertTrue(decoded.ratio.isNaN())
+            assertEquals(value, format.decodeFromPath(TomlishData.serializer(), path).ratio)
+        }
     }
 
     @Test

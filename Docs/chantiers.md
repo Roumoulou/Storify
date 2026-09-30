@@ -341,6 +341,14 @@ c'est fait, avec la date.
   déjà modifié reçoit `Unavailable` en `old` à son premier save. Le README et `architecture.md` disent vrai : aucune capture sans public ni sans
   `useDeepCopy`, seul le secours de rollback des transactions se prend toujours. Cinq tests neufs et un refait dans `SaveTest`, au compteur ; la
   démo `SaveSnapshotDemo.kt`.
+- [x] **C-42 : `NaN` et les infinis en JSON5** (S ; LECTURE). C-36 a gardé `allowSpecialFloatingPointValues` dans `JsonFormat` pour qu'un `NaN` ne
+  fasse pas échouer chaque sauvegarde du store loin du code fautif ; le pont `Json` de `Json5Format` ne l'a pas. Mesuré le 2026-09-30 sur `NaN`,
+  `+Infinity` et `-Infinity` : JSON et TOML les sauvent et les relisent ; en JSON5, `saveImmediate()` lève `JsonEncodingException` (le fichier
+  garde l'ancienne valeur), et un fichier où la valeur est écrite à la main, du JSON5 pourtant valide, ne s'ouvre pas (`StoreDecodeException`).
+  **Fait le 2026-09-30** : le pont par défaut de `Json5Format` gagne `allowSpecialFloatingPointValues` ; les trois valeurs se sauvent, se
+  relisent et se chargent écrites à la main (`+Infinity` compris), et un save sans changement laisse le fichier identique à l'octet ; un `Json`
+  passé par le consommateur reste pris tel quel. Trois tests neufs dans `Json5FormatTest`, un dans `TomlFormatTest`, celui de `JsonFormatTest`
+  étendu aux infinis : la règle est épinglée pour les trois formats ; la démo `SpecialFloatsDemo.kt`.
 
 ## 5. P3, la vision
 
@@ -415,4 +423,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37 et C-39 à C-41 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37 et C-39 à C-42 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

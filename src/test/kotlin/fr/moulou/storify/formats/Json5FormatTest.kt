@@ -24,8 +24,8 @@ import kotlin.io.path.writeText
 /**
  * `Json5Format` (C-21) : le JSON des configs éditées à la main, par le pont `JsonElement`.
  * Le confort se décode, la sortie est idiomatique et se relit, la résolution passe par le
- * registre et par l'annotation ; et la limite assumée est épinglée : les commentaires du fichier
- * ne survivent pas à une sauvegarde (la préservation est le chantier C-26).
+ * registre et par l'annotation ; les commentaires du fichier survivent à une sauvegarde (C-26) ;
+ * et `NaN` comme les infinis s'écrivent et se relisent, comme en JSON (C-42).
  */
 class Json5FormatTest {
 
@@ -135,5 +135,45 @@ class Json5FormatTest {
         assertTrue(rewritten.contains("name: 'manuel'"))                        // le style d'origine, intact
         assertTrue(rewritten.contains("count: 6"))
         assertEquals(6, format.decodeFromPath(PlainData.serializer(), path).count)
+    }
+
+    // ─── NaN et les infinis (C-42) : du JSON5 valide, qui ne doit pas faire échouer la sauvegarde d'un store ───
+
+    @Test
+    fun `NaN et les infinis se sauvent et se relisent par un store, comme en JSON`() {
+        for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            val path = newStorePath("special.json5")
+            StoreFactory.create<TomlishData>(path.toString(), config = noAutoSave).use { store ->
+                store.set(TomlishData::ratio, value)
+                store.saveImmediate() // un refus ferait échouer chaque sauvegarde du store, loin du code qui a produit la valeur
+            }
+            StoreFactory.create<TomlishData>(path.toString(), config = noAutoSave).use { reloaded ->
+                assertEquals(value, reloaded.data.ratio)
+            }
+        }
+    }
+
+    @Test
+    fun `NaN et les infinis écrits à la main se décodent, le signe plus compris`() {
+        val handWritten = listOf("NaN" to Double.NaN, "Infinity" to Double.POSITIVE_INFINITY, "+Infinity" to Double.POSITIVE_INFINITY, "-Infinity" to Double.NEGATIVE_INFINITY)
+        for ((literal, expected) in handWritten) {
+            val path = newStorePath("handwritten-special.json5").also { it.writeText("{\n  title: 'x',\n  ratio: $literal,\n}") }
+            assertEquals(expected, format.decodeFromPath(TomlishData.serializer(), path).ratio)
+        }
+    }
+
+    @Test
+    fun `un save sans changement laisse un fichier à valeur spéciale identique à l'octet`() {
+        val path = newStorePath("special-idempotent.json5")
+        StoreFactory.create<TomlishData>(path.toString(), config = noAutoSave).use { store ->
+            store.set(TomlishData::ratio, Double.NaN)
+            store.saveImmediate()
+            val first = path.readText()
+
+            store.saveImmediate() // la réconciliation (C-26) ne voit pas de changement entre NaN et NaN
+
+            assertTrue(first.contains("ratio: NaN"))
+            assertEquals(first, path.readText())
+        }
     }
 }

@@ -235,7 +235,7 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 |---|---|---|
 | `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
-| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
+| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
 
 `JsonFormat` lit le JSON standard et rien d'autre (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une
 virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` avec la ligne. `NaN` et les infinis restent tolérés, à l'écriture comme
@@ -246,6 +246,11 @@ virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` av
 `Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
 de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
 créneau étant la config et non la donnée de masse.
+
+La règle des flottants spéciaux vaut pour les trois formats (C-42) : un `NaN` ou un infini présent en mémoire se sauve et se relit, et la même
+valeur écrite à la main dans le fichier se charge. JSON les écrit `NaN`, `Infinity` et `-Infinity`, JSON5 de même (ils sont dans sa grammaire,
+`+Infinity` compris à la lecture), TOML `nan`, `inf` et `-inf`. Un `Json` passé par le consommateur au constructeur de `JsonFormat` ou de
+`Json5Format` est pris tel quel, son refus éventuel compris.
 
 Sa sauvegarde est préservante (C-26) : le format déclare la capacité optionnelle `PreservingStoreFormat`, que `BaseStore` détecte au save en
 fournissant le texte actuel de la cible (lu sous le verrou d'IO, pendant l'encodage vers le temporaire atomique ; le contrat `StoreFormat`
