@@ -28,6 +28,9 @@ import kotlin.io.path.outputStream
  * a produit la valeur).
  *
  * [lenient] rend le lecteur tolérant, et le constructeur accepte tout `Json` : un consommateur qui veut ses propres réglages le passe.
+ *
+ * Le fichier se lit et s'écrit par un flux tamponné (C-48) : kotlinx produit et consomme le texte par petits morceaux, et chacun partirait
+ * au système d'exploitation en appel séparé sur le flux nu ; mesuré, l'écriture de 794 Ko passe de 94 ms à 4 ms.
  */
 class JsonFormat(
     private val json: Json = standardJson()
@@ -57,13 +60,13 @@ class JsonFormat(
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return path.inputStream().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
+        return path.inputStream().buffered().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
         path.parent?.createDirectories()
-        path.outputStream().use { stream -> json.encodeToStream(serializer, data, stream) }
+        path.outputStream().buffered().use { stream -> json.encodeToStream(serializer, data, stream) }
     }
 
     override fun fileExtension(): String = "json"

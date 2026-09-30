@@ -244,7 +244,7 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 
 | Format | Réglages | Particularités |
 |---|---|---|
-| `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture |
+| `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture ; lit et écrit par un flux tamponné (C-48) |
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
 | `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
 
@@ -305,7 +305,8 @@ public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Se
   messages portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn, et l'écrivain atomique
   annonce son repli non atomique sous le logger du store (sous le sien hors store). La lib ne journalise jamais de données utilisateur : des
   chemins et des états seulement (politique posée au C-12, vérifiée sur la flotte des messages). Non garanti à ce jour : le sidecar meta se
-  modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains.
+  modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains (mesuré sur 5 000 joueurs, 794 Ko : 6,7 ms par
+  sauvegarde JSON depuis C-48, contre 97 ms quand `JsonFormat` écrivait sur le flux nu du fichier ; le flush disque n'y pèse que 1 à 2 ms).
 
 ## 12. Le sidecar meta
 

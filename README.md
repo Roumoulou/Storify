@@ -196,9 +196,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
-ouverture d'un store, rechargement d'un store modifié) : des tests ordonnés par étape, qui impriment ce que la lib fait avant et après. Le
-benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc : `.\gradlew runServer` dans
-`..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
+ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou) : des tests ordonnés par étape, qui impriment ce que la lib
+fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
+`.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
 jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.

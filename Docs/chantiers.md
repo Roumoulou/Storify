@@ -389,6 +389,15 @@ c'est fait, avec la date.
   rechargée (la règle de C-41) ; le sidecar meta n'est pas relu. Quatre tests dans `ReloadTest` (la modification écartée et le dirty retombé, la
   sauvegarde d'adieu qui ne part plus et le fichier de l'admin intact, l'`old` du save après rechargement, la ligne de log) ; la démo passe à
   sa forme « avant, depuis ».
+- [x] **C-48 : l'écriture JSON tamponnée** (S ; LECTURE). Le candidat de départ visait le verrou : une sauvegarde tient le read lock pendant
+  toute l'écriture, flush compris, et tout `set` d'un autre fil attend. La démo (`SaveLockDemo.kt`) l'a mesuré le 2026-09-30 sur 5 000 joueurs
+  (794 Ko) : un `mutate` lancé pendant la sauvegarde attend 97 ms, mais le flush disque coûte 1,7 ms et le déplacement atomique 0,5 ms ; les
+  88,7 ms restantes sont l'encodage, parce que `JsonFormat` écrivait sur le flux nu du fichier, où chaque petit morceau produit par kotlinx
+  partait au système en appel séparé (le même JSON sur un flux tamponné : 4,4 ms). Sortir le flush du verrou est abandonné, il n'y a rien à y
+  gagner. **Fait le 2026-09-30** : `JsonFormat` écrit et lit par un flux tamponné (`buffered()`, 8 Ko, que la mesure ne distingue pas de
+  64 Ko), même texte, même atomicité ; TOML tamponnait déjà, JSON5 lit et écrit le texte entier. Mesuré après : l'encodage 4,7 ms, la
+  sauvegarde 6,7 ms, le `mutate` concurrent 6,6 ms d'attente ; la lecture passe de 2,1 à 1,6 ms. Aucun test de temps dans la suite, qui serait
+  fragile ; la correction est couverte par les tests JSON existants, et la démo garde les chiffres d'avant et d'après.
 
 ## 5. P3, la vision
 
@@ -463,4 +472,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 à C-47 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
