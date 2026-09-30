@@ -89,7 +89,7 @@ data class StoreConfig(
  * @param DATA La data class serializable gérée par ce store.
  */
 @Suppress("PropertyName")
-class BaseStore<DATA : Any> @PublishedApi internal constructor(
+class BaseStore<DATA : Any> internal constructor(
     storePath: Path,
     override val format: StoreFormat,
 

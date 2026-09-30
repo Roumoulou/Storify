@@ -365,6 +365,20 @@ c'est fait, avec la date.
   après : 5 531 octets et deux membres pour l'appelant témoin, 19 667 octets pour `HomeCommands.class`. Cinq tests neufs : `CallerBytecodeTest`
   (le garde-fou, qui lit le fichier `.class` d'un appelant, et l'appelant en action) et trois dans `SetTest` (le raccourci type par type, `null`
   face à une valeur mutable, la valeur reposée) ; la suite d'update existante passe sans retouche ; la démo `UpdatePipelineDemo.kt`.
+- [x] **C-46 : la factory hors de l'inline** (M ; LECTURE). Les huit `create*` sont `inline` de bout en bout, comme le pipeline avant C-45 : la
+  lecture des cinq annotations, le choix du format selon l'enum, la construction de la config annotée, le fournisseur des données initiales et
+  l'appel au constructeur de `BaseStore` se compilent chez l'appelant. Mesuré le 2026-09-30 : l'appelant témoin de la démo pèse 15 363 octets
+  pour deux ouvertures (25 915 avec ses six classes synthétiques) et porte 49 références à la lib, dont les 11 attributs de `@StoreConfiguration`
+  lus un par un ; `StoribenchStores.class` du banc, 23 295 octets. Un attribut ajouté à l'annotation ou un format de plus dans l'enum restent
+  invisibles d'un mod déjà compilé, dont le bytecode est lié au constructeur de `BaseStore`. **Fait le 2026-09-30** : les fabriques ne
+  matérialisent plus que `DATA::class` et `serializer<DATA>()`, puis appellent quatre points d'entrée ordinaires de `StoreFactory`, un par source
+  de données initiales (`openFromCompanion`, `openFromConstructor`, `openFromDefaultable`, `openFromResource`) ; la lecture des annotations, la
+  résolution et la construction vivent dans la lib ; le constructeur de `BaseStore` perd son `@PublishedApi` ; `DefaultProvider` et ses quatre
+  fabriques, publics pour le seul service de l'inline, disparaissent (la copie de ressource de C-40 devient `StoreFactory.copyResource`, interne) ;
+  le registre des formats devient une `ConcurrentHashMap`. Mesuré après : 3 730 octets, aucune classe synthétique et 4 références pour l'appelant
+  témoin (la factory, et la config qu'il construit lui-même) ; 12 577 octets pour `StoribenchStores.class`. Deux tests neufs dans
+  `FactoryCallerBytecodeTest` (le garde-fou, qui lit le fichier `.class` d'un appelant des huit fabriques, et l'appelant en action), le test de la
+  copie qui casse adapté ; la suite `factory` passe sans autre retouche ; la démo `StoreOpeningDemo.kt`.
 
 ## 5. P3, la vision
 
@@ -439,4 +453,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42, C-45 et C-46 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

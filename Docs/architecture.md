@@ -58,13 +58,16 @@ vouloir qu'il tourne, et `false` reste l'échappatoire explicite.
 
 ## 3. La factory et la résolution
 
-La factory publique est `StoreFactory`. Jusqu'au 2026-09-13, deux factories cohabitaient : la refonte, un temps nommée `StoreFactoryBetter`, a
-absorbé l'ancienne au chantier C-07 (dont les variantes à path explicite ignoraient silencieusement les annotations). Toutes les variantes
-convergent vers une méthode centrale unique, `createInternal`, qui résout dans l'ordre : paramètre explicite, puis annotation, puis repli
-(`StoreFormats.getFormatForStringPath` pour le format, `StoreConfig()` pour la config). Depuis C-09, elle matérialise aussi le sérialiseur de DATA à son
-site réifié (`serializer<DATA>()`) et le passe au store, qui appelle le format en polymorphe : la factory ne fabrique plus d'encoders.
+La factory publique est `StoreFactory`. Ses huit `create*` sont `inline` pour une seule raison : matérialiser `DATA::class` et le sérialiseur
+de DATA (`serializer<DATA>()`, C-09) à leur site réifié. Tout le reste vit dans la lib, derrière quatre points d'entrée ordinaires, un par
+source de données initiales (`openFromCompanion`, `openFromConstructor`, `openFromDefaultable`, `openFromResource`, C-46) : la lecture des
+cinq annotations, la résolution dans l'ordre paramètre explicite, puis annotation, puis repli (`StoreFormats.getFormatForStringPath` pour le
+format, `StoreConfig()` pour la config), le fournisseur des données initiales, et la construction du store, qui reçoit le sérialiseur et
+appelle le format en polymorphe. Le jar d'un mod ne contient donc que l'appel au point d'entrée, ce que `FactoryCallerBytecodeTest` vérifie
+dans le fichier `.class` d'un appelant témoin : un attribut ajouté à `@StoreConfiguration` ou un format de plus dans l'enum sont pris en
+compte sans recompiler le mod, et le constructeur de `BaseStore` n'est plus lié à son bytecode.
 
-Chaque variante ne diffère que par son `DefaultProvider`, la stratégie de données initiales :
+Chaque variante ne diffère que par sa source de données initiales :
 
 | Variante | Données initiales quand le fichier n'existe pas |
 |---|---|
@@ -267,7 +270,7 @@ identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un
 déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
 
 `StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun
-format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis. Une extension
+format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis, et le registre est thread-safe (C-46). Une extension
 inconnue est refusée net (`IllegalArgumentException` qui nomme les extensions enregistrées) : le repli silencieux sur JSON est mort avec le
 reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers parents avant chaque écriture : un format tiers qui oublierait de les créer ne
 reproduira pas le piège du constat n° 1 (la leçon C-04, généralisée).
@@ -293,8 +296,8 @@ public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Se
 - Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
 - Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
-  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. La map des policies l'est aussi (C-45) : `setUpdatePolicy` peut
-  être appelé pendant que le pipeline d'update la lit.
+  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. La map des policies (C-45) et le registre des formats (C-46)
+  le sont aussi : `setUpdatePolicy` et `registerFormat` peuvent être appelés pendant que le pipeline d'update ou une factory les lisent.
 - Le logging (C-11) : le logger n'appartient pas au contrat `Store`, c'est un champ privé fabriqué une fois par store, nommé `Storify` par
   défaut ou du nom que `StoreConfig.loggerName` lui donne (C-37), celui du mod pour que ses stores paraissent sous son journal ; tous les
   messages portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn, et l'écrivain atomique

@@ -93,9 +93,7 @@ class CreateFromResourceTest {
                 override fun read(): Int = if (served++ < 10) '{'.code else throw IOException("jar unreadable in the middle of the copy")
             }
         }
-        val provider = StoreFactory.DefaultProvider.resourceProvider(failingJar, ResourceData.serializer(), path, "resource-data_default.json", JsonFormat(), "Storify")
-
-        assertThrows(IOException::class.java) { provider.provide() }
+        assertThrows(IOException::class.java) { StoreFactory.copyResource(failingJar, ResourceData.serializer(), path, "resource-data_default.json", JsonFormat(), "Storify") }
 
         assertFalse(Files.exists(path)) // la panne a frappé le temporaire, jamais la cible
         assertTrue(Files.list(path.parent).use { stream -> stream.toList() }.isEmpty()) // et le temporaire est parti avec elle

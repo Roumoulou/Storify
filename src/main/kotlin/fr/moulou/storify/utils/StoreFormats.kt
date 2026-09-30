@@ -10,11 +10,13 @@ import fr.moulou.storify.JsonFormat
 import fr.moulou.storify.StoreFormat
 import fr.moulou.storify.TomlFormat
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.extension
 
 object StoreFormats {
 
-    private val formatRegistry = mutableMapOf<String, StoreFormat>("json" to JsonFormat(), "toml" to TomlFormat(), "json5" to Json5Format())
+    /** Le registre extension vers format, thread-safe (C-46) : `registerFormat` peut être appelé pendant qu'une factory le consulte. */
+    private val formatRegistry = ConcurrentHashMap<String, StoreFormat>(mapOf("json" to JsonFormat(), "toml" to TomlFormat(), "json5" to Json5Format()))
 
     /** Enregistre un format pour une extension (sans le point) : il devient résolvable par les chemins, comme les formats fournis. */
     fun registerFormat(extension: String, format: StoreFormat) {
