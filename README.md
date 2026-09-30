@@ -52,9 +52,10 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - **Politiques de capture par propriété** (`UpdatePolicy`) : `SNAPSHOT` (copie profonde avant et après), `SHALLOW` (références seules), `SKIP`
   (silence complet).
 - **Persistance** : sauvegarde immédiate (`saveImmediate`), auto-save périodique avec pause et reprise, sauvegarde au hook d'arrêt de la JVM,
-  rechargement depuis le fichier (`reloadFromFile`), et écriture atomique partout (fichier temporaire puis déplacement atomique : jamais de
-  fichier tronqué, même en cas de crash en pleine écriture) ; le même écrivain est public pour un fichier écrit hors store, `AtomicFiles.write`
-  et `format.encodeToPathAtomically`.
+  rechargement depuis le fichier (`reloadFromFile`, où le fichier gagne : une modification en mémoire non sauvegardée est écartée et signalée au
+  log, et le store ressort propre), et écriture atomique partout (fichier temporaire puis déplacement atomique : jamais de fichier tronqué,
+  même en cas de crash en pleine écriture) ; le même écrivain est public pour un fichier écrit hors store, `AtomicFiles.write` et
+  `format.encodeToPathAtomically`.
 - **Fin de vie propre** : les stores sont `AutoCloseable` ; `close()` annule le tick, arrête le planificateur, désarme le hook d'arrêt et fait une
   sauvegarde d'adieu si nécessaire ; un store fermé reste lisible et refuse les écritures.
 - **Mode lecture seule** : `readOnly` refuse toute écriture (`IllegalStateException`), n'arme ni planificateur ni hook, et laisse lire, valider et
@@ -195,9 +196,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
-ouverture d'un store) : des tests ordonnés par étape, qui impriment ce que la lib fait avant et après. Le benchmark des copies profondes
-s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc : `.\gradlew runServer` dans `..\Storibench`, dont le README
-décrit les scénarios et les commandes en jeu.
+ouverture d'un store, rechargement d'un store modifié) : des tests ordonnés par étape, qui impriment ce que la lib fait avant et après. Le
+benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc : `.\gradlew runServer` dans
+`..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
 jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.

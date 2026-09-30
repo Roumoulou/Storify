@@ -135,15 +135,25 @@ class BaseStore<DATA : Any> internal constructor(
 
     /**
      * Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08).
+     * Le fichier gagne (C-47) : une modification en mémoire pas encore sauvegardée est écartée, et dite au log en `warn` ; le drapeau dirty
+     * retombe, la mémoire étant le fichier ; devant un auditeur de save, la référence de son prochain `old` devient la racine rechargée.
      * Les captures suivent [StoreConfig.useDeepCopy] (copies profondes, sinon les références) et ne se construisent que devant public (C-25, C-29).
      */
     internal fun replaceData(newValue: DATA) {
         val operation = dataLock.write {
             val old = _data
             _data = newValue
+            if (isDirty) {
+                log.warn("[Storify] Reload of '{}' discards unsaved in-memory changes: the file wins", path)
+                isDirty = false
+            }
+            val copies = config.useDeepCopy
+            val savedReference = copies && onSaveCallbacks.isNotEmpty()
+            val newCopy = if (copies && (savedReference || onReloadCallbacks.isNotEmpty())) copyRoot(newValue) else null
+            if (savedReference) _lastSavedData = newCopy
             when {
                 onReloadCallbacks.isEmpty() -> null
-                config.useDeepCopy -> ReloadOperation(this::data, CapturedValue.DeepCopy(copyRoot(old)), CapturedValue.DeepCopy(copyRoot(newValue)))
+                copies -> ReloadOperation(this::data, CapturedValue.DeepCopy(copyRoot(old)), CapturedValue.DeepCopy(newCopy!!))
                 else -> ReloadOperation(this::data, CapturedValue.Shallow(old), CapturedValue.Shallow(newValue))
             }
         }

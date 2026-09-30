@@ -22,6 +22,8 @@ interface Store<DATA : Any> : AutoCloseable {
     /**
      * Relit le fichier et remplace les données en mémoire, avec revalidation par défaut : en échec,
      * la mémoire reste intacte et une ValidationException remonte. `validate = false` saute la revalidation.
+     * Le fichier gagne (C-47) : une modification en mémoire pas encore sauvegardée est écartée, et dite au log en `warn` ; après le
+     * rechargement le store est propre, rien ne sera réécrit sans nouvelle modification.
      */
     fun reloadFromFile(validate: Boolean = true)
 

@@ -15,10 +15,14 @@ import fr.moulou.storify.updates.CountedData
 import fr.moulou.storify.validation.ValidationException
 import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -104,5 +108,79 @@ class ReloadTest {
             store.reloadFromFile()
             assertEquals(heard + 2, CountedBoxSerializer.serializations) // devant public : l'avant et l'après
         }
+    }
+
+    // ─── Le fichier gagne (C-47) ───
+
+    @Test
+    fun `un rechargement sur un store modifié écarte la modification, le fichier gagne, et le dirty retombe`() {
+        val path = newStorePath("reload-dirty.json")
+        StoreFactory.create<PlainData>(path.toString(), config = snapshotConfig).use { store ->
+            store.set(PlainData::count, 7) // modifié en mémoire, pas sauvegardé
+            path.writeText(path.readText().replace("\"default\"", "\"edited\""))
+
+            store.reloadFromFile()
+
+            assertEquals("edited", store.data.name) // le fichier
+            assertEquals(1, store.data.count)       // la modification en mémoire est partie
+            assertFalse(store.isDirty)              // la mémoire est le fichier : rien à réécrire
+        }
+    }
+
+    @Test
+    fun `après un rechargement, la sauvegarde d'adieu ne réécrit pas un fichier qui n'a pas changé`() {
+        val path = newStorePath("reload-clean.json")
+        val store = StoreFactory.create<PlainData>(path.toString(), config = snapshotConfig)
+        val saves = mutableListOf<Operation<PlainData>>()
+        store.registerOnSave { saves.add(it) }
+        store.set(PlainData::count, 7)
+        path.writeText("{\"name\": \"compact\", \"count\": 1, \"tags\": [\"a\"]}") // la mise en forme de l'admin
+        store.reloadFromFile()
+        val reloaded = path.readText()
+
+        store.close()
+
+        assertTrue(saves.isEmpty())             // aucune sauvegarde d'adieu : le store était propre
+        assertEquals(reloaded, path.readText()) // le fichier de l'admin est intact, mise en forme comprise
+    }
+
+    @Test
+    fun `devant un auditeur de save, le rechargement rafraîchit la référence, le prochain old est l'état du disque`() {
+        val path = newStorePath("reload-reference.json")
+        StoreFactory.create<PlainData>(path.toString(), config = snapshotConfig).use { store ->
+            val saves = mutableListOf<Operation<PlainData>>()
+            store.registerOnSave { saves.add(it) }
+            store.set(PlainData::name, "un")
+            store.saveImmediate()
+
+            path.writeText(path.readText().replace("\"un\"", "\"edited\""))
+            store.reloadFromFile()
+            store.set(PlainData::name, "deux")
+            store.saveImmediate()
+
+            val second = assertInstanceOf(SaveOperation::class.java, saves[1])
+            assertEquals("edited", (second.old.valueOrNull as PlainData).name) // ce qui était sur le disque, pas notre dernier save
+        }
+    }
+
+    @Test
+    fun `un rechargement sur un store modifié le dit au log, un rechargement sur un store propre non`() {
+        val path = newStorePath("reload-warn.json")
+        val buffer = ByteArrayOutputStream()
+        val original = System.out
+        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
+        try {
+            StoreFactory.create<PlainData>(path.toString(), config = snapshotConfig).use { store ->
+                store.reloadFromFile()             // propre : rien à dire
+                store.set(PlainData::count, 7)
+                store.reloadFromFile()             // modifié : le store le dit
+            }
+        } finally {
+            System.setOut(original)
+        }
+
+        val warnings = buffer.toString(Charsets.UTF_8).lines().filter { "discards unsaved in-memory changes" in it }
+        assertEquals(1, warnings.size)
+        assertTrue(warnings.single().contains("WARN"))
     }
 }

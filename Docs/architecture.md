@@ -197,7 +197,9 @@ le sidecar meta passent par le même chemin. Un
 format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment d'encoder vers le temporaire : il ne
 réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis remplace
 la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`), construites
-seulement devant public (C-29).
+seulement devant public (C-29). Le fichier gagne (C-47) : une modification en mémoire non sauvegardée est écartée et dite au log en `warn`,
+le drapeau dirty retombe, la mémoire étant le fichier, et devant un auditeur de save la référence du prochain `old` devient la racine
+rechargée.
 
 ## 8. La validation
 

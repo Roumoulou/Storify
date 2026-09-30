@@ -379,6 +379,16 @@ c'est fait, avec la date.
   témoin (la factory, et la config qu'il construit lui-même) ; 12 577 octets pour `StoribenchStores.class`. Deux tests neufs dans
   `FactoryCallerBytecodeTest` (le garde-fou, qui lit le fichier `.class` d'un appelant des huit fabriques, et l'appelant en action), le test de la
   copie qui casse adapté ; la suite `factory` passe sans autre retouche ; la démo `StoreOpeningDemo.kt`.
+- [x] **C-47 : le rechargement d'un store modifié** (S ; LECTURE). `reloadFromFile()` remplace la mémoire par le fichier sans regarder le drapeau
+  dirty : une modification en mémoire pas encore sauvegardée disparaît sans un mot, et le drapeau reste levé alors que la mémoire est le fichier,
+  si bien que la sauvegarde suivante (le tick, `close()`, le hook) réécrit un fichier qui n'a pas changé, mise en forme de l'admin comprise.
+  Mesuré le 2026-09-30 (`ReloadDirtyDemo.kt`) : un `count` posé en mémoire perdu au rechargement, dirty toujours levé, puis une sauvegarde
+  d'adieu `CLOSE` qui réindente le JSON compact de l'admin. La règle ne change pas : l'utilisateur édite, puis recharge lui-même (C-35 reste en
+  attente). **Fait le 2026-09-30** : le fichier gagne et le store le dit, une ligne `warn` quand un rechargement écarte des modifications non
+  sauvegardées ; le dirty retombe après un rechargement réussi ; devant un auditeur de save, la référence du prochain `old` devient la racine
+  rechargée (la règle de C-41) ; le sidecar meta n'est pas relu. Quatre tests dans `ReloadTest` (la modification écartée et le dirty retombé, la
+  sauvegarde d'adieu qui ne part plus et le fichier de l'admin intact, l'`old` du save après rechargement, la ligne de log) ; la démo passe à
+  sa forme « avant, depuis ».
 
 ## 5. P3, la vision
 
@@ -453,4 +463,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42, C-45 et C-46 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 à C-47 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
