@@ -366,6 +366,14 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   Un commit à part pour la forme : le saut de ligne final que `.editorconfig` demande, ajouté aux fichiers suivis qui ne l'avaient pas,
   `simplelogger.properties` réencodé en UTF-8 du même geste (l'octet Windows-1252 d'un commentaire, noté au journal du 28), `.idea` laissé à
   IntelliJ.
+- [x] **C-44 : la version 0.3.0-SNAPSHOT** (S ; LECTURE). Neuf chantiers depuis la `0.2.0-SNAPSHOT` du 2026-09-29, dont deux qui changent ce
+  qu'un mod compile chez lui (C-45, C-46) : un jar de mod construit contre l'une n'en profite pas avec l'autre. Bump direct, sans release figée,
+  la règle de C-39. **Fait le 2026-09-30** : `mod_version=0.3.0-SNAPSHOT` ; le README (coordonnées, compteur à 291 tests, la recette de la
+  section 4), le readme et le contexte du classeur ; un build propre sans cache de build, le jar et le jar de sources relus (92 et 31 fichiers,
+  aucun dossier vide, les deux licences), le POM généré en local relu (coordonnées, licence, SCM ; les scopes restent ceux d'aujourd'hui, la
+  question de la release figée) ; publiée sur Repsy par l'utilisateur, avec le jeton, build 1 du snapshot ; le catalogue du banc passe à
+  `0.3.0-SNAPSHOT` et le banc construit en mode `repsy` sur l'artefact publié : son jar autonome de 663 Ko emboîte `storify-0.3.0-SNAPSHOT.jar`,
+  tomlkt et json5, déclarés dans son `fabric.mod.json`.
 - [x] **C-45 : le pipeline d'update hors de l'inline** (M ; LECTURE). `runUpdateInternal` est `inline` de bout en bout (il lui faut
   `serializer<VALUE>()` et `VALUE::class`) : le pipeline entier se compile chez chaque appelant. Mesuré le 2026-09-30 : le fichier `.class` d'un
   appelant de trois lignes pèse 15 897 octets et référence douze membres internes de `BaseStore`, `HomeCommands.class` du banc 31 289 octets.
@@ -489,4 +497,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-43 et C-45 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
