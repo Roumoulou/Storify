@@ -38,6 +38,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
   POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
 - **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
+- **Le banc ne se vérifie qu'à la main** : ses deux étages de test sont vides, et rien ne se prouve en jeu sans un log lu (C-49).
 - **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
   que l'utilisateur demande (C-35, en attente).
 - **Ni écran de configuration ni positionnement écrit** (C-19, C-20).
@@ -423,6 +424,22 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   64 Ko), même texte, même atomicité ; TOML tamponnait déjà, JSON5 lit et écrit le texte entier. Mesuré après : l'encodage 4,7 ms, la
   sauvegarde 6,7 ms, le `mutate` concurrent 6,6 ms d'attente ; la lecture passe de 2,1 à 1,6 ms. Aucun test de temps dans la suite, qui serait
   fragile ; la correction est couverte par les tests JSON existants, et la démo garde les chiffres d'avant et d'après.
+- [ ] **C-49 : les gametests du banc, l'étage 2** (L ; décision du 2026-09-30). La couverture automatisée de « ça marche en jeu » est nulle : la
+  lib a ses tests hors du jeu, le banc déclare deux étages de test, `src\test` et `src\testMC`, que `build` joue en NO-SOURCE parce que les
+  dossiers n'existent pas, et tout ce qu'un vrai serveur fait, l'ouverture des stores à `SERVER_STARTING`, les commandes, le fichier sur le
+  disque, la fermeture, ne se vérifie qu'à la main, par le log. Le design, décalqué du troisième étage d'AegisPermsDraft (`mod\build.gradle.kts`,
+  section 5) : le bloc `fabricApi.configureTests` de Loom crée un source set `src\gametest`, mod de test à part (`storibench-gametest`, son
+  `fabric.mod.json` avec l'entrypoint `fabric-gametest`), le module `fabric-gametest-api-v1` épinglé dans le catalogue `mc` (absent du jar agrégé ;
+  4.0.22 pour la 0.161.0, lu dans son POM), un run `runGameTest` qui hérite du run `server`, sans fenêtre, EULA acceptée par Fabric API, dans
+  `build\run\gameTest`, une tâche `Delete` qui remet les fichiers du banc à neuf avant chaque run, et le run branché sur `check`. Les tests sont
+  des `@GameTest` sur un `GameTestHelper` : un joueur simulé (`makeMockServerPlayerInLevel`) pour `/sethome`, `/homes` et `/home`, la source de la
+  console pour les commandes des ops, le test qui pose ses propres `registerOnSave` et `registerOnUpdateOn` pour vérifier les captures, qui
+  réécrit `homes.json` avant un `/storibench reload homes`, qui y glisse une valeur invalide puis un texte malformé, qui attend le tick d'auto-save
+  (`maxTicks` relevé), qui ferme et rouvre les homes par les fonctions du banc ; et `runGameTest -Pstorify_source=repsy` rejoue tout sur l'artefact
+  publié. Hors périmètre : le cycle solo du client (un monde fermé, un autre ouvert), qui relève des gametests clients de Fabric
+  (`enableClientGameTests`, module 6.0.2), un étage de plus à décider après celui-ci ; l'emboîtement jar-in-jar, prouvé par le serveur pur.
+  Décidé le 2026-09-30 : le banc passe à Fabric API 0.161.0, la dernière publiée pour 26.2 et celle d'AegisPermsDraft. À trancher : qui lance
+  `runGameTest`, branché sur `check` il tourne à chaque build, y compris ceux de l'IA. Mené dans sa propre session, sur son plan.
 
 ## 5. P3, la vision
 
