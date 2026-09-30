@@ -182,7 +182,7 @@ class BaseStore<DATA : Any> internal constructor(
 
     override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaFormat.decodeFile(StoreMeta.serializer(), metaPath) else StoreMeta() else null
 
-    /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` par le tick d'auto-save. Interne pour les tests. */
+    /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` après toute écriture réussie, quel que soit le déclencheur, et au rechargement (C-47). Interne pour les tests. */
     @Volatile
     internal var isDirty = false
 
@@ -704,7 +704,7 @@ class BaseStore<DATA : Any> internal constructor(
     }
 
     // ── Écriture atomique ──
-    /** Écrit par [AtomicFiles.write] (C-02, public depuis C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière, et le repli non atomique s'annonce sous le logger du store (C-37). */
+    /** Écrit par [AtomicFiles.write] (C-02, public, C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière, et le repli non atomique s'annonce sous le logger du store (C-37). */
     private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) = AtomicFiles.write(target, log, encodeTo)
 
     /**

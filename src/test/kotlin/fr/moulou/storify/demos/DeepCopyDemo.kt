@@ -33,8 +33,8 @@ import kotlin.system.measureNanoTime
  * s'exécutent dans l'ordre de leur numéro). Le fil :
  *
  *   1. ce qu'est une copie profonde, et pourquoi un simple copy() ne suffit pas ;
- *   2. comment Storify la fabrique aujourd'hui : un aller-retour par CBOR (objet -> octets -> objet neuf) ;
- *   3. la même chose par un arbre JSON en mémoire (objet -> JsonElement -> objet neuf), sans produire de texte ;
+ *   2. le véhicule d'avant C-29 : un aller-retour par CBOR (objet -> octets -> objet neuf) ;
+ *   3. le véhicule depuis, celui de Storify : un arbre JSON en mémoire (objet -> JsonElement -> objet neuf), sans produire de texte ;
  *   4. le cas qui casse : un sérialiseur écrit pour le JSON (celui d'AegisPerms) passe par l'arbre JSON et explose sous CBOR ;
  *   5. la panne d'avant C-29 dans un vrai store (même avec useDeepCopy = false), et son ouverture qui passe depuis ;
  *   6. le coût, mesuré, des deux véhicules.

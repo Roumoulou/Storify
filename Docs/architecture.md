@@ -3,9 +3,8 @@
 > *Type : doc technique.*
 > *Modèle : les règles générales de documents-markdown.md (The Human Readme).*
 
-Ce document décrit comment Storify est faite, mécanisme par mécanisme : le cycle de vie d'un store, les mises à jour typées, les politiques de
-capture, la persistance, la validation, les formats, la concurrence et les dépendances. Il décrit l'état réel du code, défauts compris ; ce qui
-doit changer est listé dans `chantiers.md`, ce document se contente de le signaler en place.
+Vaut pour la lib telle qu'elle est dans le code, mécanisme par mécanisme, défauts compris : ce qui doit changer est listé dans `chantiers.md`,
+et seulement signalé ici, en place.
 
 ## 1. Vue d'ensemble
 
@@ -14,7 +13,7 @@ tout le reste. Le chemin type :
 
 ```
 StoreFactory.create*<DATA>(...)
-    └─> résolution : paramètres explicites > annotations de DATA > défauts
+    └─> résolution : paramètre explicite > annotation de DATA > défaut, objet par objet
     └─> BaseStore.init
             1. initData            : fichier existant décodé, sinon données par défaut (sans écrire)
             2. initUpdatePolicies  : scan récursif des annotations @StoreUpdatePolicy
@@ -50,11 +49,10 @@ par l'API typée). Six annotations la complètent, toutes facultatives dès lors
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
 
-Le défaut de `defaultUpdatePolicy` est `SKIP` : sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03). Tranché
-au chantier C-22 : `SKIP` est assumé (le store type est une config que personne n'observe, et le pipeline construit ses captures même sans
-auditeur, voir C-25) ; en garde-fou, l'enregistrement d'un callback d'update voué au silence émet un avertissement au log. Depuis C-24,
-`withValidation` vaut `true` des deux côtés (annotation et `StoreConfig()`) : sans validator elle ne coûte rien, poser un validator c'est
-vouloir qu'il tourne, et `false` reste l'échappatoire explicite.
+Le défaut de `defaultUpdatePolicy` est `SKIP` (C-22) : le store type est une config que personne n'observe, et le défaut ne doit rien coûter.
+Sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03), et en garde-fou l'enregistrement d'un callback d'update
+voué au silence émet un avertissement au log. `withValidation` vaut `true` des deux côtés, annotation et `StoreConfig()` (C-24) : sans validator
+elle ne coûte rien, poser un validator c'est vouloir qu'il tourne, et `false` reste l'échappatoire explicite.
 
 ## 3. La factory et la résolution
 
@@ -63,9 +61,11 @@ de DATA (`serializer<DATA>()`, C-09) à leur site réifié. Tout le reste vit da
 source de données initiales (`openFromCompanion`, `openFromConstructor`, `openFromDefaultable`, `openFromResource`, C-46) : la lecture des
 cinq annotations, la résolution dans l'ordre paramètre explicite, puis annotation, puis repli (`StoreFormats.getFormatForStringPath` pour le
 format, `StoreConfig()` pour la config), le fournisseur des données initiales, et la construction du store, qui reçoit le sérialiseur et
-appelle le format en polymorphe. Le jar d'un mod ne contient donc que l'appel au point d'entrée, ce que `FactoryCallerBytecodeTest` vérifie
-dans le fichier `.class` d'un appelant témoin : un attribut ajouté à `@StoreConfiguration` ou un format de plus dans l'enum sont pris en
-compte sans recompiler le mod, et le constructeur de `BaseStore` n'est plus lié à son bytecode.
+appelle le format en polymorphe. La résolution choisit chaque objet entier, jamais champ par champ : une `StoreConfig` explicite remplace
+`@StoreConfiguration` en bloc, et ses champs non donnés valent les défauts de la classe, pas ceux de l'annotation. Le jar d'un mod ne contient
+que l'appel au point d'entrée, ce que `FactoryCallerBytecodeTest` vérifie dans le fichier `.class` d'un appelant témoin : un attribut ajouté à
+`@StoreConfiguration` ou un format de plus dans l'enum sont pris en compte sans recompiler le mod, et le constructeur de `BaseStore` n'entre
+pas dans son bytecode.
 
 Chaque variante ne diffère que par sa source de données initiales :
 
@@ -96,12 +96,13 @@ net. L'initialisation enchaîne ensuite six étapes, dans l'ordre du bloc `init`
    sauf `createIfMissing = false`, où rien n'est écrit (C-30). La copie d'une ressource n'est jamais réécrite : le fichier du premier
    lancement est la ressource du jar, commentaires compris (C-40).
 5. **initAutoSave** : si `withAutoSave` et hors lecture seule (C-30), un scheduler (`scheduleAtFixedRate`) sauvegarde à chaque tick où le drapeau dirty est
-   levé, sauf pause (`pauseAutoSave`). Le drapeau lui-même est posé par le pipeline d'update (`markDirty`, toutes policies confondues, depuis
-   C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ; un store jamais fermé retient la JVM.
+   levé, sauf pause (`pauseAutoSave`) ; au banc, les ticks tiennent l'intervalle à la seconde près. Le drapeau lui-même est posé par le pipeline
+   d'update (`markDirty`, toutes policies confondues, C-03). Le thread du scheduler n'est **pas** daemon : c'est `close()` qui l'arrête (C-01) ;
+   un store jamais fermé retient la JVM.
 6. **initShutdownHook** : si `withShutdownHook` et hors lecture seule (C-30), un hook `Runtime.addShutdownHook` (gardé en champ) annule le tick
    en cours et, si le store est dirty, sauvegarde (C-23 : un store resté propre ne réécrit rien à l'extinction) : le filet anti-crash des stores
-   encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, son hook n'a plus le droit de ressusciter des
-   données périmées (c'est ce mécanisme, jadis indésarmable, qui avait réécrit une édition manuelle au banc).
+   encore ouverts. `close()` le désarme (C-01) : un store fermé a déjà fait sa sauvegarde d'adieu, et son hook ne doit pas ressusciter des
+   données périmées par-dessus une édition faite entre-temps (constat n° 3 du banc).
 
 La fin de vie (C-01) : `close()`, idempotent, annule le tick, arrête le planificateur (`awaitTermination` 5 s : un tick en vol se termine avant la
 suite), désarme le hook, puis fait la sauvegarde d'adieu si le store est dirty (`SaveTrigger.CLOSE`). Un store fermé reste lisible, refuse toute
@@ -112,10 +113,6 @@ d'update, de la transaction et de `saveImmediate` (`IllegalStateException`, comm
 d'auto-save inertes, le sidecar meta lu mais jamais écrit ; sa seule écriture possible est le fichier initial, si `createIfMissing`, ou la
 copie de sa ressource embarquée. La garantie est à l'exécution, pas à la compilation. `Store.isReadOnly` le dit au consommateur. Sans hook
 armé (`withShutdownHook = false`, ou lecture seule), `close()` fait toujours sa sauvegarde d'adieu quand le store est dirty.
-
-Jusqu'au chantier C-03, le marquage dirty était lui-même un callback onUpdate : une mise à jour `SKIP` coupait donc aussi la persistance. Depuis,
-`markDirty` vit dans le pipeline d'update et toutes les policies persistent ; `SKIP`, toujours le défaut, ne gouverne plus que le silence des
-callbacks.
 
 ## 5. Les mises à jour typées
 
@@ -167,10 +164,10 @@ reloads, et une navigation qui échoue vaut « ne matche pas ». Le lien entre u
 | `SHALLOW` | non (références) | oui |
 | `SKIP` | non | non |
 
-Le drapeau dirty, lui, est posé pour toutes les policies (depuis C-03) : la policy choisit ce qu'on observe, jamais ce qui est persisté. Le choix
+Le drapeau dirty, lui, est posé pour toutes les policies (C-03) : la policy choisit ce qu'on observe, jamais ce qui est persisté. Le choix
 pratique, chiffré par `DeepCopyBenchmark` (0,6 µs pour un petit objet, 57 µs pour 200 records imbriqués, par copie) : `SNAPSHOT` pour observer
 avec des captures figées et sûres, `SHALLOW` pour observer sans copies (avant indisponible sur les mutations en place, après vivant), `SKIP` pour
-le silence des points chauds. Et depuis C-25, ces coûts ne se paient que devant public : sans aucun callback d'update enregistré, le pipeline
+le silence des points chauds. Ces coûts ne se paient que devant public (C-25) : sans aucun callback d'update enregistré, le pipeline
 court-circuite captures et opération, quelle que soit la policy (la transaction garde toujours son secours de rollback, lui).
 
 Les callbacks reçoivent les valeurs sous forme de `CapturedValue` : `DeepCopy` (copie fiable, à ne pas muter), `Shallow` (lecture au moment de la
@@ -180,26 +177,24 @@ capture, fiable pour les immuables seulement), `Initial` (la toute première don
 
 Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick), `SHUTDOWN` (le hook JVM, si le store est
 dirty) et `CLOSE` (la sauvegarde d'adieu de `close()`, si le store est dirty). Le drapeau dirty se remet à zéro dans `save()`, après un encodage
-réussi. La sauvegarde
-s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage) et écrit le sidecar meta s'il est actif.
-Devant un auditeur de save seulement (C-41), elle met ensuite à jour le snapshot `_lastSavedData` (qui nourrit le `old` des callbacks de save),
-puis notifie hors lock. Ce snapshot naît à l'enregistrement du premier callback de save, sur un store sans modification en attente : enregistré
-sur un store déjà modifié, le callback reçoit `Unavailable` en `old` à son premier save. Un store que personne n'écoute ne copie donc sa racine
-ni à l'ouverture ni au save.
+réussi, quel que soit le déclencheur. La sauvegarde s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de
+l'encodage) et écrit le sidecar meta s'il est actif. Devant un auditeur de save seulement (C-41), elle met ensuite à jour le snapshot
+`_lastSavedData` (qui nourrit le `old` des callbacks de save), puis notifie hors lock. Ce snapshot naît à l'enregistrement du premier callback
+de save, sur un store sans modification en attente : enregistré sur un store déjà modifié, le callback reçoit `Unavailable` en `old` à son
+premier save. Un store que personne n'écoute ne copie donc sa racine ni à l'ouverture ni au save.
 
-L'écriture est atomique (C-02, `AtomicFiles.write`, public depuis C-34 pour tout fichier écrit hors store, `encodeToPathAtomically` sur les
-formats) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
-disque (`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait
-pas faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store (la course
-`saveImmediate`/tick est morte), les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif `<fichier>.<8 hex>.tmp`,
-pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial, la copie d'une ressource embarquée (C-40) comme
-le sidecar meta passent par le même chemin. Un
-format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte actuel de la cible au moment d'encoder vers le temporaire : il ne
-réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide par défaut (C-05, la mémoire reste intacte en échec), puis remplace
-la racine sous write lock et notifie les callbacks de reload, avec des captures copiées (les références nues sans `useDeepCopy`), construites
-seulement devant public (C-29). Le fichier gagne (C-47) : une modification en mémoire non sauvegardée est écartée et dite au log en `warn`,
-le drapeau dirty retombe, la mémoire étant le fichier, et devant un auditeur de save la référence du prochain `old` devient la racine
-rechargée.
+L'écriture est atomique (C-02 ; `AtomicFiles.write` est public pour tout fichier écrit hors store, comme `encodeToPathAtomically` sur les
+formats, C-34) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush disque
+(`FileChannel.force`), puis bascule par déplacement atomique (`ATOMIC_MOVE`, repli non atomique loggué si le système de fichiers ne sait pas
+faire). La cible est donc toujours une version entière. Un verrou d'IO dédié sérialise les sauvegardes d'un même store, `saveImmediate` et le
+tick n'encodent jamais en même temps vers le même fichier ; les temporaires orphelins d'un crash passé sont balayés à l'ouverture (au seul motif
+`<fichier>.<8 hex>.tmp`, pour le fichier et son sidecar, jamais un temporaire étranger, C-28), et le fichier initial, la copie d'une ressource
+embarquée (C-40) comme le sidecar meta passent par le même chemin. Un format préservant (`PreservingStoreFormat`, C-26) reçoit en plus le texte
+actuel de la cible au moment d'encoder vers le temporaire : il ne réécrit que ce qui change. Quant à `reloadFromFile()` : il décode, revalide
+par défaut (C-05, la mémoire reste intacte en échec), puis remplace la racine sous write lock et notifie les callbacks de reload, avec des
+captures copiées (les références nues sans `useDeepCopy`), construites seulement devant public (C-29). Le fichier gagne (C-47) : une
+modification en mémoire non sauvegardée est écartée et dite au log en `warn`, le drapeau dirty retombe, la mémoire étant le fichier, et devant
+un auditeur de save la référence du prochain `old` devient la racine rechargée.
 
 ## 8. La validation
 
@@ -208,7 +203,7 @@ Le contexte offre `check(condition, field, message, rejectedValue)`, `addError`,
 imbriqué, chemin `parent.champ`) et `validateEach` (collections, chemin `champ[index]`). Les erreurs (`ValidationError`) portent le chemin
 complet, la classe, le message, la valeur rejetée et, quand il est connu, le numéro de ligne du fichier.
 
-L'enrichisseur (`ValidationErrorEnricher`, public depuis C-32) retrouve ce numéro de ligne par le localisateur du format
+L'enrichisseur (`ValidationErrorEnricher`, public, C-32) retrouve ce numéro de ligne par le localisateur du format
 (`StoreFormat.lineLocator()` : `JsonLineLocator` pour JSON et JSON5, aucun pour TOML). Le chemin d'une erreur suit une grammaire (`ErrorPath`) :
 `a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map, les points permis entre crochets ; le localisateur
 parcourt le fichier ligne à ligne en suivant la profondeur des accolades et des crochets, hors chaînes et hors commentaires, reconnaît une clé sous
@@ -225,7 +220,9 @@ Les fautes du fichier ont une famille (C-33) : `StorifyException`, ancêtre de `
 `StoreDecodeException` (illisible ou mal formé : le chemin, le format, la ligne quand elle se lit dans le message du parseur, l'offset de kotlinx
 et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, et la cause conservée). Tout décodage fait pour un consommateur passe par
 `StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut `decodeFromPath` restant
-intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`.
+intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`. Une
+`StorifyException` levée à l'initialisation d'un mod n'est rattrapée par personne : en solo Minecraft, une `ValidationException` au chargement
+crashe le client entier (« Exception in server tick loop », constat n° 5 du banc) ; le `catch` est le geste du consommateur.
 S'y ajoute l'opt-in `validateOnUpdate` (défaut `false`, **non recommandé**) : chaque update copie la racine, mute, valide, et en échec restaure
 puis émet `ValidationFailedOperation` vers les callbacks (les transactions rendent `TransactionOperation(success = false)`) ; la valeur invalide
 n'entre jamais, au prix d'une copie de racine et d'un validator sous write lock à chaque geste. Il exige `useDeepCopy`, et le bon réflexe reste
@@ -236,16 +233,16 @@ les contrôles métier avant de muter.
 `StoreFormat` est le vrai point d'extension de la lib (C-09) : le contrat porte `fileExtension()` et l'encode/decode générique à sérialiseur
 explicite (`decodeFromPath(deserializer, path)`, `encodeToPath(serializer, data, path)`). Le sérialiseur est matérialisé aux sites réifiés (la
 factory pour les stores, un sucre `inline reified` pour les appels directs : `format.decodeFromPath<Homes>(path)`) puis transporté par l'appel
-polymorphe : un format tiers implémente l'interface et traverse la factory sans qu'elle le connaisse. La réification ne pouvait pas être le
-mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle reste celui de la matérialisation. Depuis C-29, le contrat porte aussi
-`deepCopier()`, le copieur profond des stores du format (chapitre 10) : l'arbre JSON, sur le `Json` du format pour JSON et JSON5, au module du
+polymorphe : un format tiers implémente l'interface et traverse la factory sans qu'elle le connaisse. La réification ne peut pas être le
+mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; elle est celui de la matérialisation. Le contrat porte aussi
+`deepCopier()` (C-29), le copieur profond des stores du format (chapitre 10) : l'arbre JSON, sur le `Json` du format pour JSON et JSON5, au module du
 `Toml` pour TOML, celui par défaut pour un format tiers. Les trois formats fournis tolèrent un BOM UTF-8 en tête de fichier à la lecture
 (`withoutUtf8Bom`, C-31 ; un format tiers s'en charge lui-même) et n'en écrivent jamais. Les réglages en place :
 
 | Format | Réglages | Particularités |
 |---|---|---|
 | `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture ; lit et écrit par un flux tamponné (C-48) |
-| `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (depuis C-04) |
+| `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (C-04) |
 | `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
 
 `JsonFormat` lit le JSON standard et rien d'autre (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une
@@ -263,7 +260,7 @@ valeur écrite à la main dans le fichier se charge. JSON les écrit `NaN`, `Inf
 `+Infinity` compris à la lecture), TOML `nan`, `inf` et `-inf`. Un `Json` passé par le consommateur au constructeur de `JsonFormat` ou de
 `Json5Format` est pris tel quel, son refus éventuel compris.
 
-Sa sauvegarde est préservante (C-26) : le format déclare la capacité optionnelle `PreservingStoreFormat`, que `BaseStore` détecte au save en
+La sauvegarde de `Json5Format` est préservante (C-26) : le format déclare la capacité optionnelle `PreservingStoreFormat`, que `BaseStore` détecte au save en
 fournissant le texte actuel de la cible (lu sous le verrou d'IO, pendant l'encodage vers le temporaire atomique ; le contrat `StoreFormat`
 reste intact). L'arbre encodé est différencié contre le document parsé (`parseToDocument`, l'AST aux plages source exactes et aux commentaires
 attachés), et seules les retouches s'appliquent (`set`, `putProperty`, `remove`) : les valeurs changées se réécrivent, les clés nouvelles
@@ -271,11 +268,10 @@ s'ajoutent, les disparues s'en vont avec leurs commentaires, tout le reste du fi
 identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un diff par index apparierait mal commentaires et éléments
 déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
 
-`StoreFormats` (l'ex-`Utils`, renommé au chantier C-08) tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun
-format n'est donné ; `registerFormat` y ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis, et le registre est thread-safe (C-46). Une extension
-inconnue est refusée net (`IllegalArgumentException` qui nomme les extensions enregistrées) : le repli silencieux sur JSON est mort avec le
-reste du trompe-l'oeil. Et `atomicWrite` garantit les dossiers parents avant chaque écriture : un format tiers qui oublierait de les créer ne
-reproduira pas le piège du constat n° 1 (la leçon C-04, généralisée).
+`StoreFormats` tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun format n'est donné ; `registerFormat` y
+ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis, et le registre est thread-safe (C-46). Une extension inconnue
+est refusée net (`IllegalArgumentException` qui nomme les extensions enregistrées), sans repli sur JSON (C-09). Et l'écrivain atomique garantit
+les dossiers parents avant chaque écriture, pour tout format, fourni ou tiers (C-04, C-09).
 
 ## 10. Le deep copy par arbre JSON
 
@@ -283,7 +279,7 @@ Les copies profondes (`utils\DeepCopier.kt`, C-29) sont un aller-retour de séri
 `decodeFromJsonElement`, sans texte ni octets, sur un `Json` dérivé de celui du format (`JsonTreeCopier`), avec `encodeDefaults`,
 `allowSpecialFloatingPointValues` et `allowStructuredMapKeys` forcés pour qu'une copie n'échoue jamais sur un `NaN` ou une clé de map structurée.
 C'est ce qui permet de copier n'importe quelle data class `@Serializable` sans imposer d'interface de clonage, sérialiseurs écrits pour le JSON
-compris (un `decoder as JsonDecoder` y trouve son décodeur ; l'ancien véhicule CBOR le cassait). Chaque store tient le copieur de son format
+compris (un `decoder as JsonDecoder` y trouve son décodeur). Chaque store tient le copieur de son format
 (`StoreFormat.deepCopier()`) et le respecte pour toutes ses copies : les captures du pipeline d'update, le secours des transactions, le snapshot
 `_lastSavedData` du save et les captures du rechargement ; `useDeepCopy = false` les supprime toutes, et la transaction perd son filet.
 Le coût se mesure avec `DeepCopyBenchmark` (dans les tests, CBOR en colonne de comparaison) : du même ordre que CBOR, un peu plus lent sur les
@@ -297,7 +293,7 @@ public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Se
   remplacement de racine le write lock, la sauvegarde le read lock.
 - Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
-- Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
+- L'enregistrement des callbacks est sûr à tout moment (C-08) : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
   `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. La map des policies (C-45) et le registre des formats (C-46)
   le sont aussi : `setUpdatePolicy` et `registerFormat` peuvent être appelés pendant que le pipeline d'update ou une factory les lisent.
 - Le logging (C-11) : le logger n'appartient pas au contrat `Store`, c'est un champ privé fabriqué une fois par store, nommé `Storify` par
@@ -306,12 +302,12 @@ public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Se
   annonce son repli non atomique sous le logger du store (sous le sien hors store). La lib ne journalise jamais de données utilisateur : des
   chemins et des états seulement (politique posée au C-12, vérifiée sur la flotte des messages). Non garanti à ce jour : le sidecar meta se
   modifie sans verrou propre, et un encodage long sous read lock retarde tous les écrivains (mesuré sur 5 000 joueurs, 794 Ko : 6,7 ms par
-  sauvegarde JSON depuis C-48, contre 97 ms quand `JsonFormat` écrivait sur le flux nu du fichier ; le flush disque n'y pèse que 1 à 2 ms).
+  sauvegarde JSON, sur les flux tamponnés de C-48, dont 1 à 2 ms de flush disque).
 
 ## 12. Le sidecar meta
 
 Avec `withMeta = true`, le store entretient `<fichier>.meta.json` : `createdAt` (à la création de l'objet), `lastModified` (entretenu à chaque
-update par `touch()` depuis C-13, au format `yyyy-MM-dd HH:mm:ss:SSS` local), `version` (posée à 1, réservée au versionnage de schéma du
+update par `touch()`, au format `yyyy-MM-dd HH:mm:ss:SSS` local, C-13), `version` (posée à 1, réservée au versionnage de schéma du
 chantier C-17) et `custom` (le sac libre du consommateur ; le banc l'affiche en jeu, la lib n'y écrit jamais). Le fichier s'écrit au moment des
 sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom le promet (C-09).
 
@@ -326,24 +322,7 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 | `kotlinx-datetime` | Les horodatages du sidecar meta |
 | `slf4j-api` | Le logging (le binding est laissé au consommateur ; `slf4j-simple` en test) |
 
-## 14. Ce que le banc et les tests ont prouvé
-
-Les mécanismes ci-dessus ne sont pas que du code lu : Storibench (le banc, `..\..\Storibench`) et la suite de tests les ont
-exercés en vrai. Les faits marquants, sources des chantiers :
-
-- `TomlFormat` a fait échouer le tout premier lancement du banc faute de dossiers parents (constat n° 1 du banc ; corrigé au chantier C-04).
-- Le défaut `SKIP` a éteint callbacks et auto-save jusqu'à ce que le banc force `SNAPSHOT` (constat n° 2). Depuis C-03, la persistance est
-  garantie pour toutes les policies ; le défaut ne gouverne plus que les callbacks, et des tests verrouillent les deux comportements.
-- Le hook d'arrêt d'un store « détaché » a réécrit ses données par-dessus un fichier édité à la main, juste après le crash de validation que cette
-  édition avait provoqué (constat n° 3, aggravé, mesuré le 2026-09-13 sur le client du banc ; soldé au chantier C-01 : `close()` désarme le hook).
-- `reloadFromFile` accepte des valeurs invalides sans un mot (constat n° 4 ; soldé au chantier C-05 : revalidation par défaut, `validateNow()`
-  public, et l'update validable en opt-in).
-- La `ValidationException` au chargement est excellente (chemin, valeur, numéro de ligne JSON), mais en solo Minecraft elle se paie d'un crash
-  complet du client (« Exception in server tick loop »).
-- L'auto-save tient son intervalle (ticks de 30 s observés à la seconde près), le callback ciblé par propriété fonctionne, la persistance et le
-  sidecar meta suivent.
-
 ---
 
-*Dernière vérification : 2026-09-29, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35
+*Dernière vérification : 2026-09-30, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35
 et C-38 en attente).*

@@ -3,10 +3,8 @@
 > *Type : doc technique.*
 > *Modèle : les règles générales de documents-markdown.md (The Human Readme).*
 
-Ce document est l'avis d'expert rendu actionnable : le bilan des forces et des faiblesses de la lib, puis la liste priorisée de tout ce qui est à
-revoir, à refaire ou à construire, à dérouler chantier par chantier. Il réalise la grille de `info.md` (bilan, micro-améliorations, vision macro),
-absorbe les trois points de `TODO`, et s'appuie sur les constats du banc Storibench et des tests. Chaque chantier porte une case : cochée quand
-c'est fait, avec la date.
+Vaut pour la lib : le bilan de ses forces et de ses faiblesses, puis tout ce qui est à revoir, à refaire ou à construire, chantier par chantier.
+Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 
 ## 1. Le bilan
 
@@ -15,27 +13,34 @@ c'est fait, avec la date.
 - **Un créneau réel et une idée nette.** Un store = une data class + un fichier + les services autour (callbacks, auto-save, validation). Dans
   l'écosystème Fabric, les libs de config font l'écran (Cloth Config, ModMenu) ou le fichier statique ; peu couvrent les données vivantes typées
   avec callbacks et validation, côté serveur.
-- **Une API d'accès élégante.** Les mises à jour par référence de propriété (`set`, `mutate`, `mutateIn`), les callbacks ciblés par propriété et
-  la transaction avec rollback donnent une surface expressive et sûre à consommer ; le banc l'a prouvée agréable à l'usage.
-- **Une validation au-dessus du lot.** `ValidationContext` composable (imbrication, collections, chemins complets), rapport d'erreurs soigné, et
-  l'enrichissement aux numéros de ligne JSON, vérifié en conditions réelles (« → line 19 » dans le crash du 2026-09-13).
-- **Le deep copy CBOR.** Copier n'importe quelle data class `@Serializable` sans interface de clonage est un choix malin, mesuré par un benchmark
-  dédié, avec un raccourci pour les immuables.
-- **La concurrence pensée.** Read/write lock systématique, callbacks hors lock : le gros du travail est fait.
+- **Une API d'accès élégante, et légère chez le consommateur.** Les mises à jour par référence de propriété (`set`, `mutate`, `mutateIn`), les
+  callbacks ciblés par propriété ou par instance imbriquée, la transaction avec rollback : le banc l'a prouvée agréable à l'usage, et le jar d'un
+  mod n'embarque que l'appel aux points d'entrée, ni le pipeline d'update ni la factory (C-45, C-46).
+- **Une validation au-dessus du lot.** `ValidationContext` composable (imbrication, collections, maps, chemins complets), les erreurs pointées à
+  la ligne du fichier en JSON et JSON5, la validation d'un fichier sans store, et une famille d'exceptions (`StorifyException`) qui couvre d'un
+  seul `catch` le fichier illisible et le fichier invalide.
+- **La copie profonde par l'arbre JSON.** Copier n'importe quelle data class `@Serializable` sans interface de clonage, sérialiseurs écrits pour
+  le JSON compris, au coût mesuré par `DeepCopyBenchmark`, et aucune copie sans public ni sans `useDeepCopy`.
+- **Une persistance robuste.** L'écriture atomique partout, la règle dirty (rien ne s'écrit sans modification en mémoire, au tick, à la fermeture
+  comme au hook d'arrêt), `close()`, le mode lecture seule, le fichier qui gagne au rechargement, et la sauvegarde JSON5 qui préserve les
+  commentaires de l'admin.
+- **La concurrence pensée et mesurée.** Read/write lock systématique, callbacks hors lock, conteneurs thread-safe, et le coût d'une sauvegarde
+  sous verrou mesuré par une démo.
+- **Une suite de tests réelle, et des démos.** Une suite thématique avec ses fixtures, des garde-fous qui lisent le bytecode d'un appelant, et
+  une démo par mécanisme, qui imprime ce que la lib fait avant et après.
 - **Un banc d'essai en conditions réelles.** Storibench exerce la lib dans un vrai serveur Fabric, avec un observatoire de callbacks : les
   constats de ce document viennent de mesures, pas d'impressions.
 
 ### 1.2 Les faiblesses
 
-- **Le cycle de vie est inachevé** : pas de `close()`, des threads et des hooks qui survivent au store, des données ressuscitées par-dessus les
-  éditions manuelles ; c'est la faiblesse la plus grave, elle a mordu au banc et jusque dans les tests.
-- **La persistance n'est pas robuste** : pas d'écriture atomique, un crash pendant l'écriture tronque le fichier.
-- **La validation promet plus qu'elle ne tient** : jamais rejouée après le chargement (ni update, ni reload, ni sur demande), une opération
-  d'échec orpheline dans l'API, un défaut `SKIP` qui éteint la moitié de la lib en silence.
-- **L'API porte les traces de son histoire** : deux factories dont une « Better », des internes exposés, un point d'extension des formats qui
-  n'en est pas un.
-- **L'outillage retarde** : pas de Git, une publication cassée, une licence placeholder, des tests longtemps décoratifs (remis au vert le
-  2026-09-13, la généralisation reste à faire).
+- **Pas de versionnage de schéma** : un fichier écrit par la data class d'hier se charge tel quel ou échoue, sans migration ni message net
+  (C-17, dont la conception attend sa séance).
+- **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
+  POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
+- **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
+- **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
+  que l'utilisateur demande (C-35, en attente).
+- **Ni écran de configuration ni positionnement écrit** (C-19, C-20).
 
 ## 2. La lecture du tableau
 
@@ -349,6 +354,18 @@ c'est fait, avec la date.
   relisent et se chargent écrites à la main (`+Infinity` compris), et un save sans changement laisse le fichier identique à l'octet ; un `Json`
   passé par le consommateur reste pris tel quel. Trois tests neufs dans `Json5FormatTest`, un dans `TomlFormatTest`, celui de `JsonFormatTest`
   étendu aux infinis : la règle est épinglée pour les trois formats ; la démo `SpecialFloatsDemo.kt`.
+- [x] **C-43 : la doc au présent** (S ; LECTURE). Les chantiers de la semaine ont laissé la doc raconter l'avant. Le bilan de ce document datait
+  de l'audit de septembre : il citait « le deep copy CBOR » quand toutes ses faiblesses étaient soldées. `architecture.md` disait « depuis C-xx »,
+  « jadis », « l'ex-Utils » en dix-sept endroits, et son chapitre 14 racontait les constats du banc chantier par chantier. Deux en-têtes de démo
+  mentaient (`DeepCopyDemo.kt`, « aujourd'hui, CBOR » ; `JsonStrictDemo.kt`, « le point à trancher »), la KDoc d'`isDirty` ne connaissait que le
+  tick, et la préséance « explicite > annotation > défaut » du README se lisait comme une fusion champ par champ. **Fait le 2026-09-30** : le
+  bilan réécrit au présent, forces et faiblesses d'aujourd'hui ; les deux intros réduites à leur périmètre ; `architecture.md` au présent, le
+  renvoi « (C-xx) » gardé comme pointeur vers ce document, le chapitre 14 retiré (les constats vivent à la section 6 du README du banc, ses deux
+  faits encore vrais rejoignent les chapitres 4 et 8) ; les deux en-têtes, la KDoc d'`isDirty` (remis à `false` après toute écriture réussie et au
+  rechargement) et trois autres KDoc ; la règle « en bloc » écrite au README, dans la KDoc de la factory et au chapitre 3. Aucun code ne change.
+  Un commit à part pour la forme : le saut de ligne final que `.editorconfig` demande, ajouté aux fichiers suivis qui ne l'avaient pas,
+  `simplelogger.properties` réencodé en UTF-8 du même geste (l'octet Windows-1252 d'un commentaire, noté au journal du 28), `.idea` laissé à
+  IntelliJ.
 - [x] **C-45 : le pipeline d'update hors de l'inline** (M ; LECTURE). `runUpdateInternal` est `inline` de bout en bout (il lui faut
   `serializer<VALUE>()` et `VALUE::class`) : le pipeline entier se compile chez chaque appelant. Mesuré le 2026-09-30 : le fichier `.class` d'un
   appelant de trois lignes pèse 15 897 octets et référence douze membres internes de `BaseStore`, `HomeCommands.class` du banc 31 289 octets.
@@ -472,4 +489,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-43 et C-45 à C-48 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

@@ -35,7 +35,7 @@ import kotlin.io.path.writeText
  * étant entièrement texte, le fichier se lit entier : le créneau est la config, pas la donnée de
  * masse.
  *
- * Depuis C-26, la sauvegarde est préservante ([PreservingStoreFormat]) : le fichier existant est
+ * La sauvegarde est préservante ([PreservingStoreFormat], C-26) : le fichier existant est
  * réconcilié plutôt que réécrit : seules les valeurs changées se retouchent, les clés nouvelles
  * s'ajoutent, les disparues s'en vont avec leurs commentaires ; le style et les commentaires de
  * l'admin survivent, et un save sans changement laisse le fichier identique à l'octet. Limites

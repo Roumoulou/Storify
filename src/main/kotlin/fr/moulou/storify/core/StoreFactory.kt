@@ -39,8 +39,9 @@ object StoreFactory {
 
     /**
      * Crée un store avec un path explicite.
-     * Les annotations `@StoreConfiguration`, `@StoreFileFormat`, `@StoreValidator` sont toujours lues.
-     * Les paramètres explicites ont priorité sur les annotations.
+     * Les annotations `@StoreConfiguration`, `@StoreFileFormat`, `@StoreValidator` sont toujours lues, et un paramètre explicite remplace en bloc
+     * l'annotation qui lui correspond : une [config] passée ici efface `@StoreConfiguration` entière, ses champs non donnés valant les défauts de
+     * [StoreConfig], pas ceux de l'annotation.
      *
      * Le companion object de DATA doit implémenter [Defaultable]<DATA>.
      */
@@ -183,8 +184,8 @@ object StoreFactory {
     /**
      * La construction d'un store, commune aux quatre points d'entrée :
      * 1. lire les annotations de DATA, une seule fois ;
-     * 2. arrêter le chemin (explicite, sinon `@StorePath`), puis le format et la config : **explicite > annotation > repli** (le registre
-     *    des formats par l'extension du chemin, `StoreConfig()`) ;
+     * 2. arrêter le chemin (explicite, sinon `@StorePath`), puis le format et la config, chaque objet entier : **explicite > annotation > repli**
+     *    (le registre des formats par l'extension du chemin, `StoreConfig()`), jamais une fusion champ par champ ;
      * 3. obtenir de [providerFactory] le fournisseur des données initiales, appelée maintenant pour ses refus nets, le fournisseur lui-même
      *    n'étant réclamé par le store que si le fichier manque ;
      * 4. construire le [BaseStore], avec le sérialiseur matérialisé au site réifié de la fabrique publique (C-09).

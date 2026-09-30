@@ -16,7 +16,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 
 /**
- * L'écrivain atomique de Storify, public depuis C-34 : ce que les stores font à chaque sauvegarde, offert à tout fichier qu'un consommateur
+ * L'écrivain atomique de Storify, public (C-34) : ce que les stores font à chaque sauvegarde, offert à tout fichier qu'un consommateur
  * écrit hors d'un store (un export, une copie de secours, un catalogue généré). Un fichier écrit par [write] est toujours une version
  * entière : un crash au milieu de l'écriture ne touche jamais la cible.
  */

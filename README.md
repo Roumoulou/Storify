@@ -40,8 +40,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar, copiée telle quelle au premier lancement (le fichier
   que l'admin trouve est celui que le mod a livré, commentaires compris).
-- **Configuration par annotations ou par code**, avec la préséance explicite > annotation > défaut : `@StorePath`, `@StoreFileFormat`,
-  `@StoreConfiguration`, `@StoreValidator`, `@StoreDefaultResource`, `@StoreUpdatePolicy`.
+- **Configuration par annotations ou par code** (`@StorePath`, `@StoreFileFormat`, `@StoreConfiguration`, `@StoreValidator`,
+  `@StoreDefaultResource`, `@StoreUpdatePolicy`), avec la préséance explicite > annotation > défaut, objet par objet : une `StoreConfig` passée
+  à la factory remplace `@StoreConfiguration` en bloc, jamais champ par champ.
 - **Accès global thread-safe** : `store.data` sous read lock, mises à jour sous write lock, callbacks notifiés hors du lock et enregistrables à
   tout moment, dispatch compris.
 - **Mises à jour typées** par référence de propriété : `set` et `setIn` (remplacer une valeur), `mutate` et `mutateIn` (modifier un objet mutable en
@@ -210,7 +211,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
 - le défaut de `defaultUpdatePolicy` est `SKIP` : les callbacks se taisent tant qu'une policy ne les allume pas (par annotation ou par config) ;
-  la persistance, elle, est garantie quelle que soit la policy, et depuis C-22 l'enregistrement d'un callback voué au silence le signale au log ;
+  la persistance, elle, est garantie quelle que soit la policy, et l'enregistrement d'un callback voué au silence le signale au log (C-22) ;
 - en JSON5, les commentaires et le style d'un fichier édité à la main survivent aux sauvegardes (C-26 : la réconciliation ne réécrit que les
   valeurs changées ; un tableau modifié se remplace entier, ses commentaires intérieurs avec). En JSON et TOML, la sauvegarde réécrit toujours
   le fichier entier.

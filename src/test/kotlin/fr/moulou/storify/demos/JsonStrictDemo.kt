@@ -28,8 +28,8 @@ import kotlin.io.path.writeText
  *   2. les mêmes fichiers par le lecteur strict, le défaut depuis C-36 (`JsonFormat()`) : ce qui cesse de charger arrive en StoreDecodeException,
  *      avec la ligne ;
  *   3. le fichier à commentaire et clés nues en `.json5` : c'est le format fait pour lui ;
- *   4. le point à trancher, `allowSpecialFloatingPointValues` : un `NaN` en mémoire, sauvegardé par un lecteur qui le tolère puis par un qui
- *      le refuse ;
+ *   4. `allowSpecialFloatingPointValues`, gardé par C-36 et étendu aux trois formats par C-42 : un `NaN` en mémoire, sauvegardé par un lecteur
+ *      qui le tolère puis par un qui le refuse ;
  *   5. `allowStructuredMapKeys` n'est pas une tolérance de syntaxe : une map à clés textuelles écrite en tableau est refusée dans les deux cas.
  *
  * Le lecteur tolérant : Json { prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments }.
