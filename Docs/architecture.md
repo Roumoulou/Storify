@@ -172,8 +172,11 @@ capture, fiable pour les immuables seulement), `Initial` (la toute première don
 Quatre déclencheurs, portés par `SaveTrigger` : `IMMEDIATE` (`saveImmediate()`), `AUTO_SAVE` (le tick), `SHUTDOWN` (le hook JVM, si le store est
 dirty) et `CLOSE` (la sauvegarde d'adieu de `close()`, si le store est dirty). Le drapeau dirty se remet à zéro dans `save()`, après un encodage
 réussi. La sauvegarde
-s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage), met à jour le snapshot `_lastSavedData`
-(qui nourrit le `old` des callbacks de save), écrit le sidecar meta s'il est actif, puis notifie hors lock.
+s'exécute sous le **read** lock (les lecteurs passent, les écrivains attendent la fin de l'encodage) et écrit le sidecar meta s'il est actif.
+Devant un auditeur de save seulement (C-41), elle met ensuite à jour le snapshot `_lastSavedData` (qui nourrit le `old` des callbacks de save),
+puis notifie hors lock. Ce snapshot naît à l'enregistrement du premier callback de save, sur un store sans modification en attente : enregistré
+sur un store déjà modifié, le callback reçoit `Unavailable` en `old` à son premier save. Un store que personne n'écoute ne copie donc sa racine
+ni à l'ouverture ni au save.
 
 L'écriture est atomique (C-02, `AtomicFiles.write`, public depuis C-34 pour tout fichier écrit hors store, `encodeToPathAtomically` sur les
 formats) : chaque sauvegarde encode vers un fichier temporaire unique et voisin (`<fichier>.<8 hex>.tmp`), force le flush
@@ -269,7 +272,8 @@ compris (un `decoder as JsonDecoder` y trouve son décodeur ; l'ancien véhicule
 `_lastSavedData` du save et les captures du rechargement ; `useDeepCopy = false` les supprime toutes, et la transaction perd son filet.
 Le coût se mesure avec `DeepCopyBenchmark` (dans les tests, CBOR en colonne de comparaison) : du même ordre que CBOR, un peu plus lent sur les
 petits objets (0,6 contre 0,4 µs), plus rapide sur les gros (57 contre 74 µs pour 200 records), courbe en fonction de la taille des collections.
-Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les primitives, chaînes et enums, et rien ne se copie sans public (C-25).
+Le raccourci immuable du pipeline d'update (chapitre 5) évite ce coût pour les primitives, chaînes et enums, et aucune capture ne se prend sans
+public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Seul le secours de rollback des transactions se prend toujours.
 
 ## 11. La concurrence
 

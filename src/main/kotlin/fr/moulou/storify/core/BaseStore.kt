@@ -38,8 +38,9 @@ import kotlin.reflect.full.memberProperties
  * @property withMeta          Gère un fichier sidecar `.meta.json` (lastModified, etc.). Défaut `false`.
  * @property useDeepCopy       Autorise les copies profondes, par le copieur du format (C-29) : les captures old/new des callbacks (policy
  *                             SNAPSHOT), le secours de rollback des transactions, le snapshot du dernier save et les captures du
- *                             rechargement. Défaut `true`. À `false`, plus aucune copie : ces captures sont `Unavailable` ou `Shallow`,
- *                             et la transaction perd son filet.
+ *                             rechargement. Les captures ne se prennent que devant un auditeur (C-25, C-41) ; seul le secours des
+ *                             transactions se prend toujours. Défaut `true`. À `false`, plus aucune copie : ces captures sont
+ *                             `Unavailable` ou `Shallow`, et la transaction perd son filet.
  * @property defaultUpdatePolicy Politique d'update par défaut pour les propriétés sans annotation
  *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
  *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
@@ -159,7 +160,10 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     @PublishedApi
     internal val dataLock = ReentrantReadWriteLock()
 
-    /** Snapshot de [_data] au dernier save. Sert à construire le [CapturedValue] old pour les callbacks de save. */
+    /**
+     * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
+     * l'arrivée du premier ([registerOnSave]), puis à chaque save ; sans auditeur il reste `null`, et rien ne se copie.
+     */
     @Volatile
     private var _lastSavedData: DATA? = null
 
@@ -302,7 +306,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
             _data = defaultDataProvider.invoke()
             _dataOrigin = if (path.exists()) DataOrigin.RESOURCE else DataOrigin.DEFAULT
         }
-        _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
     }
 
     /**
@@ -389,8 +392,8 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
 
     // ── Persistance ──
     /**
-     * Persiste [_data] sur disque, met à jour le snapshot [_lastSavedData],
-     * écrit le sidecar meta, et déclenche les [onSaveCallbacks] **hors du lock**.
+     * Persiste [_data] sur disque et écrit le sidecar meta. Devant un auditeur de save, met aussi à jour le snapshot [_lastSavedData] et
+     * déclenche les [onSaveCallbacks] **hors du lock** ; sans auditeur, ni copie ni opération (C-41).
      */
     private fun save(trigger: SaveTrigger) {
         if (config.readOnly) {
@@ -404,12 +407,14 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                 else -> {} // CLOSE et SHUTDOWN : les sauvegardes de fin de vie passent
             }
         }
-        val operation: Operation<DATA> = dataLock.read {
+        val operation: Operation<DATA>? = dataLock.read {
+            val listening = onSaveCallbacks.isNotEmpty()
 
+            val previous = _lastSavedData
             val oldCaptured: CapturedValue<DATA> = when {
-                !_hasSavedAtLeastOnce && _lastSavedData != null -> CapturedValue.Initial(_lastSavedData!!)
-                _lastSavedData != null -> CapturedValue.DeepCopy(_lastSavedData!!)
-                else -> CapturedValue.Unavailable
+                previous == null -> CapturedValue.Unavailable
+                !_hasSavedAtLeastOnce -> CapturedValue.Initial(previous)
+                else -> CapturedValue.DeepCopy(previous)
             }
 
             synchronized(saveIoLock) {
@@ -417,17 +422,17 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
                 if (config.withMeta) atomicWrite(metaPath) { temp -> metaFormat.encodeToPath(StoreMeta.serializer(), meta!!, temp) }
             }
             isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
-
-            _lastSavedData = if (config.useDeepCopy) copyRoot(_data) else null
             _hasSavedAtLeastOnce = true
 
-            val newCaptured: CapturedValue<DATA> =
-                if (_lastSavedData != null) CapturedValue.DeepCopy(_lastSavedData!!)
-                else CapturedValue.Unavailable
+            if (!listening) return@read null // personne n'écoute les saves : ni copie ni opération (C-41)
+
+            val snapshot = if (config.useDeepCopy) copyRoot(_data) else null
+            _lastSavedData = snapshot
+            val newCaptured: CapturedValue<DATA> = if (snapshot != null) CapturedValue.DeepCopy(snapshot) else CapturedValue.Unavailable
 
             SaveOperation(oldCaptured, newCaptured, trigger)
         }
-        onSaveCallbacks.forEach { it(operation) }
+        if (operation != null) onSaveCallbacks.forEach { it(operation) }
     }
 
     override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
@@ -499,6 +504,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     // ── Enregistrement de callbacks ──
     override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
         onSaveCallbacks.add(callback)
+        // La référence du prochain `old` se prend à l'arrivée du premier auditeur, tant que la mémoire est encore l'état du dernier save ;
+        // un store en lecture seule ne sauve jamais, il n'a pas de référence à tenir (C-41).
+        if (config.useDeepCopy && !config.readOnly && _lastSavedData == null) dataLock.read {
+            if (!isDirty && _lastSavedData == null) _lastSavedData = copyRoot(_data)
+        }
     }
 
     override fun registerOnReload(callback: (Operation<DATA>) -> Unit) {

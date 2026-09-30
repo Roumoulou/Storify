@@ -329,6 +329,18 @@ c'est fait, avec la date.
   `0.2.0-SNAPSHOT`. **Fait le 2026-09-29** : publiée sur Repsy par l'utilisateur, avec le jeton, après un build propre sans cache de build (le cache
   restaurait dans le jar un dossier vide, reste du sérialiseur retiré) ; la recette du README et le catalogue du banc citent `0.2.0-SNAPSHOT`, et le
   banc en mode `repsy` construit sur l'artefact publié.
+- [x] **C-41 : le snapshot du save, devant public seulement** (S ; LECTURE). Le README promet qu'aucune copie ne part sans public, mais le store
+  copie sa racine à chaque ouverture et à chaque sauvegarde pour nourrir l'avant et l'après des callbacks de save, qu'un auditeur existe ou non :
+  C-29 n'avait soumis ces copies qu'à `useDeepCopy`. Mesuré le 2026-09-30 au compteur de sérialisations : 2 à l'ouverture et 2 par sauvegarde là
+  où le fichier en demande 1 ; sur une racine de 5 000 joueurs (794 Ko), 1,24 ms par copie pour une sauvegarde de 93 ms, et un second exemplaire
+  de la racine gardé en mémoire toute la vie du store. Le gain est petit ; la règle est celle de C-25, ne copier que devant un auditeur.
+  **Fait le 2026-09-30, décision de l'utilisateur : le code plutôt que la phrase.** `initData` ne copie plus la racine ; sans auditeur de save,
+  `save()` écrit, remet le dirty à zéro et s'arrête, sans copie ni opération ; `registerOnSave` prend la référence à l'arrivée du premier
+  auditeur, sur un store sans modification en attente : l'`Initial` du premier save et le `DeepCopy` des suivants sont inchangés, et un store en
+  lecture seule, qui ne sauve jamais, n'en prend pas. Bord assumé, écrit dans la KDoc de `registerOnSave` : un callback enregistré sur un store
+  déjà modifié reçoit `Unavailable` en `old` à son premier save. Le README et `architecture.md` disent vrai : aucune capture sans public ni sans
+  `useDeepCopy`, seul le secours de rollback des transactions se prend toujours. Cinq tests neufs et un refait dans `SaveTest`, au compteur ; la
+  démo `SaveSnapshotDemo.kt`.
 
 ## 5. P3, la vision
 
@@ -403,4 +415,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 et C-40 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37 et C-39 à C-41 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

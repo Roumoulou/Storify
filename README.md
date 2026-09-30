@@ -72,7 +72,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
   aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
-  aucune copie ne part sans public ni sans `useDeepCopy`, et le coût est mesuré par `DeepCopyBenchmark`.
+  aucune capture ne part sans public ni sans `useDeepCopy` (un store que personne n'écoute ne copie rien, ni à l'ouverture ni au save ; seul
+  le secours de rollback des transactions se prend toujours), et le coût est mesuré par `DeepCopyBenchmark`.
 
 ## 3. Démarrage rapide
 
@@ -193,9 +194,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 `build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
-décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée) : des tests ordonnés par étape, qui impriment ce que la lib fait
-avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
-`.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
+décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save) : des tests ordonnés par étape, qui impriment
+ce que la lib fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le
+banc : `.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
 jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.

@@ -37,6 +37,13 @@ interface Store<DATA : Any> : AutoCloseable {
      */
     fun validateFile(): ValidationResult
 
+    /**
+     * Enregistre un callback de save : après chaque sauvegarde, il reçoit une `SaveOperation` qui porte la racine telle qu'au save précédent
+     * (`old`, `Initial` tant que le store n'a jamais sauvé) et telle qu'elle vient d'être écrite (`new`), deux copies profondes sous
+     * `useDeepCopy`. Ces copies ne se prennent que devant un auditeur (C-41) : la première référence est prise ici, à l'enregistrement, si le
+     * store n'a pas de modification en attente. Enregistré sur un store déjà modifié, le callback reçoit `Unavailable` en `old` à son
+     * premier save : un callback de save s'enregistre à l'ouverture du store, avant toute modification.
+     */
     fun registerOnSave(callback: (Operation<DATA>) -> Unit)
     fun registerOnReload(callback: (Operation<DATA>) -> Unit)
     fun registerOnUpdate(callback: (Operation<DATA>) -> Unit)

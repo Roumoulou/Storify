@@ -148,13 +148,14 @@ class DeepCopyDemoTest {
     @Test
     fun `étape 5, Storify depuis C-29, le même sérialiseur n'empêche plus l'ouverture du store, avec ou sans useDeepCopy`() {
         // Avant C-29 : ClassCastException dès l'ouverture, née de `_lastSavedData = deepCopyFn(_data)` dans initData, un aller-retour CBOR
-        // inconditionnel, même avec useDeepCopy = false. Depuis : aucune copie à l'ouverture sans useDeepCopy, et une copie par l'arbre JSON
-        // du format avec ; les deux ouvertures passent.
+        // inconditionnel, même avec useDeepCopy = false. Depuis C-29, les copies du store passent par l'arbre JSON du format, que ce
+        // sérialiseur accepte ; et depuis C-41 l'ouverture n'en prend plus aucune : la première copie de la racine est celle que réclame
+        // un callback de save, à son enregistrement. Les deux ouvertures passent, et cette copie aussi.
         val withoutCopies = runCatching { StoreFactory.createFromConstructor<Permissions>(newStorePath("permissions.json").toString(), config = StoreConfig(withAutoSave = false, useDeepCopy = false)).close() }.exceptionOrNull()
-        val withCopies = runCatching { StoreFactory.createFromConstructor<Permissions>(newStorePath("permissions-copied.json").toString(), config = StoreConfig(withAutoSave = false)).close() }.exceptionOrNull()
+        val withCopies = runCatching { StoreFactory.createFromConstructor<Permissions>(newStorePath("permissions-copied.json").toString(), config = StoreConfig(withAutoSave = false)).use { it.registerOnSave { } } }.exceptionOrNull()
 
         println("ouverture sans useDeepCopy : ${withoutCopies?.let { "${it::class.simpleName}: ${it.message}" } ?: "passée"}")
-        println("ouverture avec useDeepCopy : ${withCopies?.let { "${it::class.simpleName}: ${it.message}" } ?: "passée"}")
+        println("ouverture avec useDeepCopy, puis la copie de la racine pour un callback de save : ${withCopies?.let { "${it::class.simpleName}: ${it.message}" } ?: "passées"}")
         check(withoutCopies == null && withCopies == null)
     }
 

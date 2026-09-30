@@ -15,7 +15,8 @@ package fr.moulou.storify
  * - [DeepCopy] : copie profonde, toujours fiable. **Ne pas muter.**
  * - [Shallow] : lecture shallow au moment de la capture. Fiable pour les types immuables (String, Int...).
  * - [Initial] : première donnée jamais enregistrée (premier save).
- * - [Unavailable] : aucune capture (ex: `useDeepCopy=false` + même référence avant/après).
+ * - [Unavailable] : aucune capture (ex: `useDeepCopy=false` + même référence avant/après, ou le `old` du premier save d'un callback
+ *   enregistré sur un store déjà modifié).
  */
 sealed class CapturedValue<out T> {
 
