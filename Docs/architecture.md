@@ -126,16 +126,22 @@ L'API publique est un jeu d'extensions sur `BaseStore` :
 | `mutateIn(prop, { receiver }) { block }` | Pareil, en navigation |
 | `transaction { block }` | Modifier la racine entière, tout ou rien |
 
-Tout converge vers `runUpdateInternal`, le pipeline central, exécuté sous le write lock :
+Tout converge vers `runUpdate`, le pipeline central, une fonction ordinaire de `BaseStore` (C-45). `set`, `setIn`, `mutate` et `mutateIn` sont
+`inline` pour une seule raison : matérialiser le sérialiseur de la valeur à leur site réifié, par une lambda que le pipeline n'appelle que si
+une copie profonde est due. Le code d'un appelant, donc le jar d'un mod, ne contient que l'appel à l'un des deux points d'entrée (`setValue`,
+`mutateValue`), ce que `CallerBytecodeTest` vérifie dans le fichier `.class` d'un appelant témoin : un correctif du pipeline atteint un mod
+sans recompilation, et aucun autre membre interne de `BaseStore` n'est lié à son bytecode. `transaction`, qui n'a rien à matérialiser, n'est
+pas `inline`. Le pipeline, sous le write lock :
 
 1. lecture de la policy de la propriété (`updatePolicies`, sinon `config.defaultUpdatePolicy`) ;
-2. `SKIP`, ou aucun auditeur d'update (ni global ni ciblé sur la propriété, C-25) : la mutation s'applique, le dirty est posé, et la fonction
-   rend `null` : aucune capture, aucun callback ;
-3. sinon, raccourci immuable : une propriété primitive, `String` ou enum n'est jamais copiée en profondeur ;
-4. `SNAPSHOT` (et `useDeepCopy`) : copie profonde de la valeur **avant** mutation ;
-5. la mutation s'applique sur l'objet vivant ;
-6. capture de l'après (`DeepCopy` en snapshot, `Shallow` sinon), fabrication de l'`Operation` ;
-7. hors du lock, l'appelant dispatche aux callbacks globaux puis aux callbacks ciblés de la propriété.
+2. `SKIP`, ou aucun auditeur d'update (ni global ni ciblé sur la propriété, C-25) : la mutation s'applique, le dirty est posé, et rien n'est
+   construit : aucune capture, aucun callback ;
+3. sinon, en `SNAPSHOT` (et `useDeepCopy`), l'avant est figé **avant** la mutation : une copie profonde pour une valeur mutable, la valeur
+   elle-même quand elle est immuable (`null`, primitive, `Char`, `String`, enum), ce qui se juge sur la valeur et non sur le type ;
+4. la mutation s'applique sur l'objet vivant ;
+5. l'après est capturé, figé de la même façon en `SNAPSHOT`, en `Shallow` sinon. Sans copie, l'avant d'un `set` est l'ancienne valeur, qu'il
+   a remplacée (`Shallow`), et celui d'une mutation en place n'existe pas (`Unavailable`). L'`Operation` naît ;
+6. hors du lock, le dispatch aux callbacks globaux puis aux callbacks ciblés de la propriété.
 
 Sous l'opt-in `validateOnUpdate` (chapitre 8), une étape s'intercale après la mutation : la racine est validée, et un échec restaure la copie de
 sécurité puis dispatche une `ValidationFailedOperation` au lieu de l'opération normale.
@@ -154,7 +160,7 @@ reloads, et une navigation qui échoue vaut « ne matche pas ». Le lien entre u
 
 | Policy | Copie profonde des valeurs | Callbacks |
 |---|---|---|
-| `SNAPSHOT` | oui (avant et après) | oui |
+| `SNAPSHOT` | oui (avant et après, sauf valeur immuable) | oui |
 | `SHALLOW` | non (références) | oui |
 | `SKIP` | non | non |
 
@@ -287,7 +293,8 @@ public : ni à l'update (C-25), ni au rechargement (C-29), ni au save (C-41). Se
 - Les callbacks sont notifiés **hors** de tout lock : un callback peut relire le store sans interblocage ; les valeurs qu'il reçoit sont des
   captures, pas des références sous verrou (sauf `Shallow` sur un mutable, à ses risques).
 - Depuis C-08, l'enregistrement des callbacks est sûr à tout moment : les conteneurs sont privés et thread-safe (`CopyOnWriteArrayList`,
-  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch.
+  `ConcurrentHashMap`), un callback peut s'enregistrer pendant un dispatch. La map des policies l'est aussi (C-45) : `setUpdatePolicy` peut
+  être appelé pendant que le pipeline d'update la lit.
 - Le logging (C-11) : le logger n'appartient pas au contrat `Store`, c'est un champ privé fabriqué une fois par store, nommé `Storify` par
   défaut ou du nom que `StoreConfig.loggerName` lui donne (C-37), celui du mod pour que ses stores paraissent sous son journal ; tous les
   messages portent le préfixe `[Storify]`, les ticks parlent en debug, le cycle de vie en info, les échecs en warn, et l'écrivain atomique

@@ -349,6 +349,22 @@ c'est fait, avec la date.
   relisent et se chargent écrites à la main (`+Infinity` compris), et un save sans changement laisse le fichier identique à l'octet ; un `Json`
   passé par le consommateur reste pris tel quel. Trois tests neufs dans `Json5FormatTest`, un dans `TomlFormatTest`, celui de `JsonFormatTest`
   étendu aux infinis : la règle est épinglée pour les trois formats ; la démo `SpecialFloatsDemo.kt`.
+- [x] **C-45 : le pipeline d'update hors de l'inline** (M ; LECTURE). `runUpdateInternal` est `inline` de bout en bout (il lui faut
+  `serializer<VALUE>()` et `VALUE::class`) : le pipeline entier se compile chez chaque appelant. Mesuré le 2026-09-30 : le fichier `.class` d'un
+  appelant de trois lignes pèse 15 897 octets et référence douze membres internes de `BaseStore`, `HomeCommands.class` du banc 31 289 octets.
+  Un correctif du pipeline n'atteint donc un mod qu'à sa recompilation, et un membre interne renommé casserait un mod déjà compilé, le chargeur
+  Fabric ne gardant qu'une version de la lib entre les mods. La démo a montré deux défauts de plus dans la même fonction : le raccourci immuable
+  ne reconnaît ni `Int`, ni `Long`, ni `Double`, ni `Boolean`, copiés en profondeur en `SNAPSHOT` (un type réifié est vu sous sa forme boxée,
+  `isPrimitive` y est toujours faux), et l'`old` d'un `set` qui repose la valeur déjà en place vaut `Unavailable` ou `Shallow` selon le cache de
+  boîtes de la JVM. **Fait le 2026-09-30** : le pipeline est une fonction ordinaire de `BaseStore` (`runUpdate`) ; `set`, `setIn`, `mutate` et
+  `mutateIn` ne matérialisent plus que le sérialiseur de la valeur, par une lambda appelée seulement quand une copie est due, et passent par deux
+  points d'entrée (`setValue`, `mutateValue`) ; `transaction` n'est plus `inline` ; le `@PublishedApi` de `BaseStore` se réduit à son
+  constructeur et à ces deux points d'entrée, les autres membres redevenant privés (ou `internal` pour les tests), et les trois aides du garde
+  C-05 disparaissent. L'immuabilité se juge sur la valeur (`null`, primitives, `Char`, `String`, enum) ; l'`old` d'un `set` est toujours
+  l'ancienne valeur, celui d'une mutation en place sans snapshot reste `Unavailable` ; `updatePolicies` devient une `ConcurrentHashMap`. Mesuré
+  après : 5 531 octets et deux membres pour l'appelant témoin, 19 667 octets pour `HomeCommands.class`. Cinq tests neufs : `CallerBytecodeTest`
+  (le garde-fou, qui lit le fichier `.class` d'un appelant, et l'appelant en action) et trois dans `SetTest` (le raccourci type par type, `null`
+  face à une valeur mutable, la valeur reposée) ; la suite d'update existante passe sans retouche ; la démo `UpdatePipelineDemo.kt`.
 
 ## 5. P3, la vision
 
@@ -423,4 +439,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37 et C-39 à C-42 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-42 et C-45 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

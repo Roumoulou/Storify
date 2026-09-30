@@ -74,6 +74,24 @@ data class TwinData(
     }
 }
 
+// ─── Les scalaires : le raccourci immuable du pipeline d'update, type par type (C-45) ──────────
+
+enum class ScalarMood { CALM, ANGRY }
+
+@Serializable
+data class ScalarData(
+    var label: String = "a",
+    var count: Int = 1,
+    var total: Long = 1,
+    var ratio: Double = 1.0,
+    var enabled: Boolean = true,
+    var initial: Char = 'a',
+    var mood: ScalarMood = ScalarMood.CALM,
+    var note: String? = null,
+    var extras: MutableList<String>? = null,
+    var tags: MutableList<String> = mutableListOf(),
+)
+
 // ─── Le kit annoté complet ──────────────────────────────────────────────────────────────────────
 
 @Serializable

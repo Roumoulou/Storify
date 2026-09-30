@@ -8,7 +8,6 @@ import fr.moulou.storify.utils.AtomicFiles
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.validation.*
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.serializer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.nio.file.*
@@ -95,7 +94,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     override val format: StoreFormat,
 
     /** Options de comportement du store. */
-    @PublishedApi internal val config: StoreConfig,
+    internal val config: StoreConfig,
 
     /** Le sérialiseur de [DATA], matérialisé une fois pour toutes au site réifié de la factory (C-09). */
     private val dataSerializer: KSerializer<DATA>,
@@ -117,7 +116,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     internal val loggerName: String get() = log.name
 
     /** Le copieur profond du store, celui de son format (C-29) : toute copie de racine ou de valeur passe par lui. */
-    @PublishedApi
     internal val copier: DeepCopier = format.deepCopier()
 
     /** Copie la racine par le copieur du format. */
@@ -130,7 +128,6 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
 
     /** Objet de données vivant. Tout accès DOIT passer par [dataLock]. */
-    @PublishedApi
     internal lateinit var _data: DATA
 
     override val data: DATA
@@ -157,8 +154,7 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     private var _dataOrigin: DataOrigin = DataOrigin.DEFAULT
 
     /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
-    @PublishedApi
-    internal val dataLock = ReentrantReadWriteLock()
+    private val dataLock = ReentrantReadWriteLock()
 
     /**
      * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
@@ -184,26 +180,9 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
      * Marque les données modifiées : `meta.lastModified` et le drapeau dirty. Appelé par le pipeline d'update pour
      * TOUTES les policies, [UpdatePolicy.SKIP] compris : la persistance ne dépend pas de l'observation.
      */
-    @PublishedApi
-    internal fun markDirty() {
+    private fun markDirty() {
         if (config.withMeta) meta?.touch()
         isDirty = true
-    }
-
-    // ── Les aides du garde C-05 (validateOnUpdate), appelées depuis le pipeline inline ──
-
-    /** La copie de sécurité de la racine, pour le rollback du garde. */
-    @PublishedApi
-    internal fun rootBackup(): DATA = copyRoot(_data)
-
-    /** Rend l'échec de validation de la racine, ou null si tout est valide. */
-    @PublishedApi
-    internal fun guardValidationFailure(): ValidationResult.Failure? = runValidation(_data) as? ValidationResult.Failure
-
-    /** Restaure la racine depuis la copie de sécurité du garde. */
-    @PublishedApi
-    internal fun restoreRoot(backup: DATA) {
-        _data = backup
     }
 
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
@@ -241,14 +220,12 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     /** Refuse tout accès à un store fermé. */
-    @PublishedApi
-    internal fun checkOpen() {
+    private fun checkOpen() {
         check(!closed.get()) { "[Storify] Store '$path' is closed" }
     }
 
     /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
-    @PublishedApi
-    internal fun checkWritable() {
+    private fun checkWritable() {
         checkOpen()
         check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
     }
@@ -259,9 +236,11 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     private val onUpdateCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<TargetedListener<DATA>>>()
 
-    /** Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. */
-    @PublishedApi
-    internal val updatePolicies: MutableMap<KProperty1<*, *>, UpdatePolicy> = mutableMapOf()
+    /**
+     * Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. Thread-safe (C-45) :
+     * [setUpdatePolicy] y écrit hors de tout verrou pendant que le pipeline d'update la lit.
+     */
+    private val updatePolicies = ConcurrentHashMap<KProperty1<*, *>, UpdatePolicy>()
 
     /** Les propriétés de l'arbre de DATA, collectées par le scan des policies : la garde de [setUpdatePolicy]. */
     private val dataTreeProperties = mutableSetOf<KProperty1<*, *>>()
@@ -540,29 +519,23 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     /**
-     * Résultat interne d'un [runUpdateInternal].
-     * Contient l'opération capturée (snapshots old/new) et la propriété cible,
-     * prêts à être dispatchés aux callbacks **hors du lock**.
+     * Le résultat du pipeline d'update ([runUpdate]) : l'opération capturée (snapshots old/new) et sa cible,
+     * prêtes à être dispatchées aux callbacks **hors du lock**.
      */
-    @PublishedApi
-    internal data class UpdateOutcome<DATA : Any>(
-        val success: Boolean,
+    private class UpdateOutcome<DATA : Any>(
         val operation: Operation<DATA>,
         val prop: KProperty1<*, *>,
         val receiver: Any
     )
 
     /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
-    @PublishedApi
-    internal fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
+    private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
 
     /**
      * Dispatche une [UpdateOutcome] aux callbacks enregistrés.
-     * Skipé si [outcome] est `null` (policy [UpdatePolicy.SKIP]).
      * **Doit être appelé hors du [dataLock].**
      */
-    @PublishedApi
-    internal fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
+    private fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
         onUpdateCallbacks.forEach { it(outcome.operation) }
         onUpdateCallbacksMap[outcome.prop]?.forEach { listener ->
             val navigate = listener.navigate
@@ -578,110 +551,99 @@ class BaseStore<DATA : Any> @PublishedApi internal constructor(
     }
 
     /** Vrai si au moins un callback d'update écoute cette propriété (le global compris) ; sinon, le pipeline court-circuite les captures (C-25). */
-    @PublishedApi
-    internal fun hasUpdateListeners(prop: KProperty1<*, *>): Boolean =
+    private fun hasUpdateListeners(prop: KProperty1<*, *>): Boolean =
         onUpdateCallbacks.isNotEmpty() || onUpdateCallbacksMap[prop]?.isNotEmpty() == true
 
     /**
-     * Le pipeline central d'update, sous le write lock.
+     * Une valeur qu'une référence suffit à figer : `null`, une primitive, un `Char`, un `String` ou un enum. Elle n'est jamais copiée en
+     * profondeur. Le jugement porte sur la valeur, pas sur le type déclaré (C-45) : un type réifié `Int` est vu sous sa forme boxée.
+     */
+    private fun isImmutable(value: Any?): Boolean = when (value) {
+        null, is String, is Boolean, is Char, is Enum<*> -> true
+        is Byte, is Short, is Int, is Long, is Float, is Double -> true
+        is UByte, is UShort, is UInt, is ULong -> true
+        else -> false
+    }
+
+    /** La capture figée d'une valeur : une copie profonde par le copieur du format, ou la valeur elle-même quand elle est immuable. */
+    private fun <VALUE> frozen(value: VALUE, valueSerializer: () -> KSerializer<VALUE>): CapturedValue<VALUE> =
+        if (isImmutable(value)) CapturedValue.Shallow(value) else CapturedValue.DeepCopy(copier.copy(valueSerializer(), value))
+
+    /**
+     * Le pipeline central d'update : la mutation sous le write lock, puis le dispatch des callbacks hors du lock. Une fonction ordinaire
+     * (C-45) : les extensions `set`, `setIn`, `mutate` et `mutateIn` ne compilent chez l'appelant que la matérialisation du sérialiseur de
+     * la valeur, que [valueSerializer] n'appelle que lorsqu'une copie est due.
      *
      * 1. La policy effective de la propriété est consultée : annotation, réglage runtime, puis défaut de config.
      * 2. `SKIP`, ou aucun auditeur (ni global ni ciblé sur la propriété, C-25) : la mutation s'applique,
      *    le dirty se pose, et rien n'est construit : aucune capture, aucune opération.
-     * 3. Sinon : l'avant est capturé selon la policy (copie profonde en SNAPSHOT pour les mutables ; les
-     *    immuables ne sont jamais copiés), la mutation s'applique, l'après est capturé, l'opération naît.
-     * 4. Sous l'opt-in `validateOnUpdate`, la racine est validée après mutation, dans les deux branches :
-     *    un échec restaure la copie de sécurité et rend une opération d'échec à la place.
-     *
-     * Les callbacks ne sont pas appelés ici : l'appelant dispatche l'[UpdateOutcome] rendu, hors du lock,
-     * via [dispatchUpdateCallbacks].
+     * 3. Sinon : l'avant est capturé selon la policy, la mutation s'applique, l'après est capturé, l'opération naît. En SNAPSHOT, une
+     *    valeur mutable est copiée en profondeur, une valeur immuable ([isImmutable]) arrive telle quelle. Sans copie, un `set` montre
+     *    l'ancienne valeur, qu'il a remplacée ; une mutation en place ([inPlace]) n'a pas d'avant à montrer.
+     * 4. Sous l'opt-in `validateOnUpdate`, la racine est validée après mutation, quelle que soit la policy :
+     *    un échec restaure la copie de sécurité et dispatche une opération d'échec à la place.
      */
-    @PublishedApi
-    internal inline fun <RECEIVER : Any, reified VALUE> runUpdateInternal(
-        kProperty1: KProperty1<RECEIVER, VALUE>,
-        noinline getReceiver: DATA.() -> RECEIVER,
-        noinline applyUpdate: (RECEIVER) -> Unit,
-        createOperation: (old: CapturedValue<VALUE>, new: CapturedValue<VALUE>) -> Operation<DATA>
-    ): UpdateOutcome<DATA>? = dataLock.write {
-        checkWritable()
+    private fun <RECEIVER : Any, VALUE> runUpdate(
+        property: KProperty1<RECEIVER, VALUE>,
+        inPlace: Boolean,
+        valueSerializer: () -> KSerializer<VALUE>,
+        getReceiver: DATA.() -> RECEIVER,
+        applyUpdate: (RECEIVER) -> Unit,
+        createOperation: (old: CapturedValue<VALUE>, new: CapturedValue<VALUE>) -> Operation<DATA>,
+    ) {
+        val outcome: UpdateOutcome<DATA>? = dataLock.write {
+            checkWritable()
 
-        val receiver = _data.getReceiver()
+            val receiver = _data.getReceiver()
 
-        val policy = updatePolicies[kProperty1] ?: config.defaultUpdatePolicy
+            val policy = updatePolicies[property] ?: config.defaultUpdatePolicy
+            val observed = policy != UpdatePolicy.SKIP && hasUpdateListeners(property)
+            val snapshots = observed && policy == UpdatePolicy.SNAPSHOT && config.useDeepCopy
 
-        // C-05, opt-in validateOnUpdate : copie de sécurité de la racine (seul rollback générique d'une
-        // mutation en place) et capture de l'avant, pour l'opération d'échec.
-        val guardBackup: DATA? = if (config.validateOnUpdate) rootBackup() else null
-        val guardOld: CapturedValue<VALUE> = if (guardBackup != null) CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver))) else CapturedValue.Unavailable
+            // C-05, opt-in validateOnUpdate : copie de sécurité de la racine (seul rollback générique d'une
+            // mutation en place) et capture de l'avant, pour l'opération d'échec.
+            val guardBackup: DATA? = if (config.validateOnUpdate) copyRoot(_data) else null
 
-        if (policy == UpdatePolicy.SKIP || !hasUpdateListeners(kProperty1)) {
+            val oldValue = property.get(receiver)
+            val oldFrozen: CapturedValue<VALUE>? = if (snapshots || guardBackup != null) frozen(oldValue, valueSerializer) else null
+
             applyUpdate(receiver)
+
             if (guardBackup != null) {
-                val failure = guardValidationFailure()
+                val failure = runValidation(_data) as? ValidationResult.Failure
                 if (failure != null) {
-                    val attempted = CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver)))
-                    restoreRoot(guardBackup)
-                    return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
+                    val attempted = frozen(property.get(receiver), valueSerializer)
+                    _data = guardBackup
+                    return@write UpdateOutcome(ValidationFailedOperation(property, attempted, oldFrozen ?: CapturedValue.Unavailable, failure.formatFull()), property, receiver)
                 }
             }
             markDirty()
-            return@write null
-        }
+            if (!observed) return@write null
 
-        val immutable = VALUE::class.java.isPrimitive || VALUE::class == String::class || VALUE::class.java.isEnum
-
-        val wantSnapshot = policy == UpdatePolicy.SNAPSHOT && config.useDeepCopy && !immutable
-
-        val oldValue = kProperty1.get(receiver)
-        val oldSnapshot: VALUE = if (wantSnapshot) copier.copy(serializer<VALUE>(), oldValue) else oldValue
-
-        applyUpdate(receiver)
-        if (guardBackup != null) {
-            val failure = guardValidationFailure()
-            if (failure != null) {
-                val attempted = CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), kProperty1.get(receiver)))
-                restoreRoot(guardBackup)
-                return@write UpdateOutcome(false, ValidationFailedOperation(kProperty1, attempted, guardOld, failure.formatFull()), kProperty1, receiver)
+            val newValue = property.get(receiver)
+            val oldCaptured: CapturedValue<VALUE> = when {
+                snapshots && oldFrozen != null -> oldFrozen
+                inPlace -> CapturedValue.Unavailable // une mutation en place sans copie n'a pas d'avant à montrer
+                else -> CapturedValue.Shallow(oldValue) // un set remplace la valeur : l'ancienne est l'avant
             }
-        }
-        markDirty()
+            val newCaptured: CapturedValue<VALUE> = if (snapshots) frozen(newValue, valueSerializer) else CapturedValue.Shallow(newValue)
 
-        val newValue = kProperty1.get(receiver)
-        val oldCaptured: CapturedValue<VALUE> = when {
-            wantSnapshot -> CapturedValue.DeepCopy(oldSnapshot)
-            oldValue !== newValue -> CapturedValue.Shallow(oldValue)
-            else -> CapturedValue.Unavailable
+            UpdateOutcome(createOperation(oldCaptured, newCaptured), property, receiver)
         }
-        val newCaptured: CapturedValue<VALUE> = when {
-            wantSnapshot -> CapturedValue.DeepCopy(copier.copy(serializer<VALUE>(), newValue))
-            else -> CapturedValue.Shallow(newValue)
-        }
-
-        val operation = createOperation(oldCaptured, newCaptured)
-        UpdateOutcome(true, operation, kProperty1, receiver)
+        if (outcome != null) dispatchUpdateCallbacks(outcome)
     }
 
+    /** Le point d'entrée de `set` et `setIn` (C-45) : l'extension inline y arrive avec le sérialiseur de la valeur, matérialisé à son site réifié. */
     @PublishedApi
-    internal inline fun <reified RECEIVER : Any, reified VALUE> setInternal(kMutableProperty: KMutableProperty1<RECEIVER, VALUE>, newValue: VALUE, noinline getReceiver: DATA.() -> RECEIVER) {
-        val outcome = runUpdateInternal(
-            kMutableProperty, getReceiver,
-            applyUpdate = { receiver -> kMutableProperty.set(receiver, newValue) },
-            createOperation = { old, new -> SetOperation(kMutableProperty, old, new) }
-        )
-        if (outcome != null) dispatchUpdateCallbacks(outcome) else return
-    }
+    internal fun <RECEIVER : Any, VALUE> setValue(property: KMutableProperty1<RECEIVER, VALUE>, newValue: VALUE, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER) =
+        runUpdate(property, inPlace = false, valueSerializer, getReceiver, applyUpdate = { receiver -> property.set(receiver, newValue) }, createOperation = { old, new -> SetOperation(property, old, new) })
 
+    /** Le point d'entrée de `mutate` et `mutateIn` (C-45), sur le même principe. */
     @PublishedApi
-    internal inline fun <reified RECEIVER : Any, reified VALUE : Any> mutateInternal(kProperty1: KProperty1<RECEIVER, VALUE>, noinline getReceiver: DATA.() -> RECEIVER, noinline updateObject: (VALUE) -> Unit) {
-        val outcome = runUpdateInternal(
-            kProperty1, getReceiver,
-            applyUpdate = { receiver -> updateObject(kProperty1.get(receiver)) },
-            createOperation = { old, new -> MutateOperation(kProperty1, old, new) }
-        )
-        if (outcome != null) dispatchUpdateCallbacks(outcome) else return
-    }
+    internal fun <RECEIVER : Any, VALUE : Any> mutateValue(property: KProperty1<RECEIVER, VALUE>, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER, block: (VALUE) -> Unit) =
+        runUpdate(property, inPlace = true, valueSerializer, getReceiver, applyUpdate = { receiver -> block(property.get(receiver)) }, createOperation = { old, new -> MutateOperation(property, old, new) })
 
-    @PublishedApi
+    /** Le corps de `transaction` : la racine entière modifiée d'un bloc, tout ou rien, sous le write lock. */
     internal fun transactionInternal(block: DATA.() -> Unit) {
         checkWritable()
         val operation: Operation<DATA> = dataLock.write {
