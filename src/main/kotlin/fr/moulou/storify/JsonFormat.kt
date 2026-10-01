@@ -30,7 +30,7 @@ import kotlin.io.path.outputStream
  * [lenient] rend le lecteur tolérant, et le constructeur accepte tout `Json` : un consommateur qui veut ses propres réglages le passe.
  *
  * Le fichier se lit et s'écrit par un flux tamponné (C-48) : kotlinx produit et consomme le texte par petits morceaux, et chacun partirait
- * au système d'exploitation en appel séparé sur le flux nu ; mesuré, l'écriture de 794 Ko passe de 94 ms à 4 ms.
+ * au système d'exploitation en appel séparé sur le flux nu ; mesuré, l'encodage de 794 Ko passe de 88,7 ms à 4,7 ms.
  */
 class JsonFormat(
     private val json: Json = standardJson()
