@@ -38,6 +38,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
   POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
 - **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
+- **Une clé en double passe en silence** en JSON et en JSON5 : la dernière valeur gagne avant le code du consommateur, et la sauvegarde JSON
+  efface la trace (C-50).
 - **Le banc ne se vérifie en jeu que côté serveur** : ses étages 0 et 1 sont vides, et le cycle solo du client, un monde fermé puis un autre
   ouvert dans la même session, n'a pas de gametest (les gametests clients de Fabric, un étage de plus à décider).
 - **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
@@ -51,7 +53,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Sources** : `B1` à `B4` = constats n° 1 à 4 de la section 6 du README du banc ; `CRASH` = le crash client du 2026-09-13 à 11:30 ;
   `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
   `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
-  point contre le code le même jour.
+  point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges.
 
 ## 3. P1, les fondations
 
@@ -449,6 +451,28 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   sondées à chaque tick, et l'auto-save des homes descend à 3 s par `-Dstoribench.autoSaveMs` ; le jeu range ses tâches planifiées par identité,
   replanifier le même `Runnable` le perd. Vert en composite et en mode `repsy` sur l'artefact publié, 18 s par run ; `runGameTest` est lancé par
   l'IA à chaque build, décision de l'utilisateur. Le cycle solo du client reste un étage de plus, à décider.
+- [ ] **C-50 : les clés en double refusées** (S/M ; AEGIS). Un objet JSON qui porte deux fois la même clé (`"vip"` déclaré deux fois dans `groups`)
+  est accepté : kotlinx garde la dernière valeur, à l'arbre (`JsonTreeReader.readObjectImpl`, `result[key] = element` sur une `LinkedHashMap`,
+  sources 1.11.0) comme au flux, aucun réglage du paquet `json` n'en parle jusqu'à la 1.12.0-RC, et ni `JsonFormat` ni la validation ne le voient.
+  Pour un fichier de vérité édité à la main, un doublon efface une définition en silence, avant le code du consommateur, qui ne peut rien : la map
+  à clé naturelle, le champ répété d'une data class et le tableau décodé en `Set` perdent l'information dans le décodeur. Mesuré le 2026-10-01
+  (`DuplicateKeysDemo.kt`) : à la racine, dans un objet imbriqué et dans une map, le dernier gagne sans un avertissement, au chargement, au
+  rechargement et dans `validateFile` ; JSON5 (`li.songe:json5`) fait pareil, et sa sauvegarde préservante garde le doublon dans le fichier, que
+  chaque relecture tranche à nouveau ; la sauvegarde JSON réécrit une seule clé ; TOML (tomlkt) refuse déjà, avec la ligne de la seconde
+  occurrence. Le modèle en liste plus une règle d'unicité dans le validator est écarté : il reporte la charge sur chaque consommateur, ne couvre ni
+  le champ répété ni le `Set`, et laisse ouverte toute map à clé naturelle. Design : en mode strict (un `Json` ni `isLenient` ni `allowComments`, la
+  définition de C-36, donc `lenient()` et un `Json` tolérant exemptés par construction), `JsonFormat.decodeFromPath` lit le texte une fois, le passe
+  à un scanner de la lib (`validation\JsonDuplicateKeys` : les objets ouverts en pile, les clés de chacun dans un ensemble, les chaînes décodées de
+  leurs échappements, la ligne comptée au passage) et lève `StoreDecodeException` avec la ligne de la seconde occurrence au premier doublon, puis
+  décode par `decodeFromString` ; coût mesuré, 1,5 ms par 794 Ko, le chargement de 5 000 joueurs passant de 1,5 à 3,7 ms environ, rien sur une
+  config. `Json5Format` parse par `parseToDocument`, dont l'AST garde les deux membres (noms décodés, plages source), refuse de même, puis convertit
+  par `toJsonElement()` (7,3 ms contre 2,8 sur 794 Ko, le créneau étant la config). TOML ne change pas, et un format tiers n'a rien à savoir : le
+  contrat `StoreFormat` est intact. Écartés : le lecteur d'arbre et le `JsonDecoder` enveloppé (le doublon est perdu avant tout crochet, et une map
+  reste hors de portée d'un `DeserializationStrategy` enveloppant), la brique json5 pour lire le JSON (7,3 ms, une brique de plus sous `JsonFormat`,
+  à contre-courant de C-38), la passe sur le flux (sans objet tant qu'aucun store ne pèse plusieurs Mo). Tests : un doublon à la racine, dans un objet
+  imbriqué, dans une map ; la même clé dans deux objets différents, acceptée ; une clé échappée (`"ab"` contre `"ab"`), reconnue ; la ligne de
+  la seconde occurrence ; le chargement initial, `reloadFromFile` mémoire intacte, `validateFile` avec et sans store, `lenient()` qui laisse passer ;
+  les mêmes en JSON5 ; TOML épinglé. Docs : README section 2, `architecture.md` chapitre 9 ; la démo passe à sa forme « avant, depuis ».
 
 ## 5. P3, la vision
 
@@ -513,7 +537,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 
 ## 6. La méthode, chantier par chantier
 
-1. Relire le constat et poser le périmètre exact du chantier.
+1. Relire le constat, poser le périmètre exact du chantier, et répondre aux trois questions : utile, pour qui ; vaut-elle la peine, au coût, au
+   risque et face à l'alternative ; propre et cohérente avec le reste de la lib.
 2. Proposer le design (aperçu du code ou du geste), valider avant d'écrire.
 3. Appliquer, build et tests verts côté lib, build vert côté banc.
 4. Si le comportement à l'exécution est touché : un passage au banc, en jeu, avec le log pour témoin.
@@ -523,4 +548,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-09-30, C-28 à C-34, C-36, C-37, C-39 à C-49 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-49 cochés, C-50 ouvert, C-35 et C-38 en attente ; les constats du banc à jour au
+2026-09-23.*
