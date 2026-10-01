@@ -480,6 +480,12 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   tolérant et deux `Json` tolérants d'un consommateur, l'ouverture, le rechargement mémoire intacte, `validateFile` avec et sans store, JSON5
   (clés nues, apostrophes, échappements, rechargement) et TOML épinglé ; la démo à sa forme « avant, depuis », le lecteur tolérant montrant
   l'avant.
+- [x] **C-51 : la version 0.4.0-SNAPSHOT** (S ; décision du 2026-10-01). C-50 change ce que la lib accepte au chargement : un fichier à clé en
+  double, accepté par la `0.3.0-SNAPSHOT`, est refusé ; un numéro visible plutôt qu'une republication silencieuse, le bump direct en snapshot, la
+  règle de C-39 et C-44. La release figée attend toujours les scopes du POM et le constructeur de `StoreConfig`. **Fait le 2026-10-01** :
+  `mod_version=0.4.0-SNAPSHOT` ; le README (coordonnées, la recette de la section 4), le readme et le contexte du classeur, le chapitre 5 du
+  contexte d'AegisPerms ; un build propre sans cache de build, le jar et le POM relus ; publiée sur Repsy par l'utilisateur, avec le jeton, build 1
+  du snapshot ; le catalogue du banc passe à `0.4.0-SNAPSHOT` et le banc construit en mode `repsy` sur l'artefact publié.
 
 ## 5. P3, la vision
 
@@ -555,4 +561,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-50 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-51 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
