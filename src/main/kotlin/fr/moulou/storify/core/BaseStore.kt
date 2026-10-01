@@ -30,8 +30,9 @@ import kotlin.reflect.full.memberProperties
 
 /**
  * Le store : l'attelage d'une data class sérialisable, d'un fichier et de tout ce qu'un mod réclame autour, mécanisme par mécanisme dans
- * `Docs\architecture.md` (le cycle de vie au chapitre 4). Le fichier se lit de haut en bas comme la vie d'un store : l'état, l'ouverture,
- * la lecture, les mises à jour, les callbacks, la persistance, la fin de vie.
+ * `Docs\architecture.md` (le cycle de vie au chapitre 4). Le corps de la classe suit l'ordre de Java : le companion, les propriétés du public au
+ * privé, `init`, puis les méthodes dans le sens de la vie d'un store (l'ouverture, la lecture, les mises à jour, les callbacks, les policies,
+ * la persistance, la fin de vie, les aides communes), l'appelé sous l'appelant, et les types imbriqués en dernier.
  *
  * Les invariants :
  * - tout accès à [_data] passe par [dataLock] : `data` et les sauvegardes sous le read lock, les mises à jour et le remplacement de racine
@@ -60,15 +61,25 @@ class BaseStore<DATA : Any> internal constructor(
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
 
-    // ── L'état ──
+    private companion object {
+        /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
+        val metaFormat = JsonFormat()
+    }
 
-    // L'identité
+    // ── L'état ── les propriétés, du public au privé
 
     /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
     override val path: Path = storePath.toAbsolutePath().normalize()
 
-    /** Le logger du store, fabriqué une fois (C-11), au nom que la config donne (C-37) : celui du mod range les lignes sous son journal. */
-    private val log: Logger = LoggerFactory.getLogger(config.loggerName)
+    override val data: DATA
+        get() = dataLock.read { _data }
+
+    /** Le sidecar meta, lu à l'ouverture s'il existe, neuf sinon, `null` sans `withMeta` ; posé dans `init`, après les chemins dont il dépend. */
+    override val meta: StoreMeta?
+
+    override val isClosed: Boolean get() = closed.get()
+
+    override val isReadOnly: Boolean get() = config.readOnly
 
     /** Le nom du logger du store, pour les tests. */
     internal val loggerName: String get() = log.name
@@ -76,34 +87,32 @@ class BaseStore<DATA : Any> internal constructor(
     /** Le copieur profond du store, celui de son format (C-29) : toute copie de racine ou de valeur passe par lui. */
     internal val copier: DeepCopier = format.deepCopier()
 
-    /** Chemin vers le fichier sidecar `.meta.json`. */
-    private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
-
-    // Les données et leur verrou
-
-    /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
-    private val dataLock = ReentrantReadWriteLock()
-
     /** Objet de données vivant, le champ de secours de [data]. Tout accès DOIT passer par [dataLock]. */
     internal lateinit var _data: DATA
-
-    override val data: DATA
-        get() = dataLock.read { _data }
-
-    /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
-    private var dataOrigin: DataOrigin = DataOrigin.DEFAULT
-
-    override val meta: StoreMeta? = when {
-        !config.withMeta -> null
-        path.exists() && metaPath.exists() -> metaFormat.decodeFile(StoreMeta.serializer(), metaPath)
-        else -> StoreMeta()
-    }
-
-    // La persistance
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` après toute écriture réussie, quel que soit le déclencheur, et au rechargement (C-47). Interne pour les tests. */
     @Volatile
     internal var isDirty = false
+
+    /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
+    internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
+
+    /** `true` quand le hook est enregistré auprès de la JVM : [close] ne désarme que lui, et les tests le lisent (C-30). */
+    internal val isShutdownHookArmed: Boolean = config.withShutdownHook && !config.readOnly
+
+    /** Le logger du store, fabriqué une fois (C-11), au nom que la config donne (C-37) : celui du mod range les lignes sous son journal. */
+    private val log: Logger = LoggerFactory.getLogger(config.loggerName)
+
+    /** Chemin vers le fichier sidecar `.meta.json`. */
+    private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
+
+    /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
+    private val dataLock = ReentrantReadWriteLock()
+
+    /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
+    private var dataOrigin: DataOrigin = DataOrigin.DEFAULT
+
+    // La persistance
 
     /**
      * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
@@ -130,23 +139,13 @@ class BaseStore<DATA : Any> internal constructor(
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
     private val autoSavePaused = AtomicBoolean(false)
 
-    /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
-    internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
-
     // La fin de vie
 
     /** `true` après [close] : le store reste lisible, les écritures refusent. */
     private val closed = AtomicBoolean(false)
 
-    override val isClosed: Boolean get() = closed.get()
-
-    override val isReadOnly: Boolean get() = config.readOnly
-
     /** Le hook d'arrêt JVM, gardé en champ pour que [close] puisse le désarmer. */
     private val shutdownHook = Thread { runShutdownHook() }
-
-    /** `true` quand le hook est enregistré auprès de la JVM : [close] ne désarme que lui, et les tests le lisent (C-30). */
-    internal val isShutdownHookArmed: Boolean = config.withShutdownHook && !config.readOnly
 
     // Les callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08)
 
@@ -169,6 +168,11 @@ class BaseStore<DATA : Any> internal constructor(
     // ── L'ouverture ──
 
     init {
+        meta = when {
+            !config.withMeta -> null
+            path.exists() && metaPath.exists() -> metaFormat.decodeFile(StoreMeta.serializer(), metaPath)
+            else -> StoreMeta()
+        }
         require(!config.validateOnUpdate || config.useDeepCopy) { "[Storify] validateOnUpdate requires useDeepCopy (root rollback)" }
         initData()
         initUpdatePolicies()
@@ -178,12 +182,6 @@ class BaseStore<DATA : Any> internal constructor(
         initShutdownHook()
         if (config.readOnly) log.info("[Storify] Store '{}' opened read-only", path)
     }
-
-    /**
-     * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de
-     * copier à sa place (`RESOURCE`), ou les défauts du code, sans fichier (`DEFAULT`).
-     */
-    private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
 
     /**
      * Charge les données depuis le fichier s'il existe, sinon les demande à [defaultDataProvider]. Les défauts du code n'écrivent rien ici :
@@ -289,25 +287,6 @@ class BaseStore<DATA : Any> internal constructor(
     private fun initShutdownHook() {
         if (isShutdownHookArmed) Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
-
-    // ── Les aides communes ──
-
-    /** Refuse tout accès à un store fermé. */
-    private fun checkOpen() {
-        check(!closed.get()) { "[Storify] Store '$path' is closed" }
-    }
-
-    /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
-    private fun checkWritable() {
-        checkOpen()
-        check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
-    }
-
-    /** Copie la racine par le copieur du format. */
-    private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
-
-    /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
-    private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
 
     // ── La lecture et la validation ──
 
@@ -471,16 +450,6 @@ class BaseStore<DATA : Any> internal constructor(
     }
 
     /**
-     * Le résultat du pipeline d'update ([runUpdate]) : l'opération capturée (snapshots old/new) et sa cible,
-     * prêtes à être dispatchées aux callbacks **hors du lock**.
-     */
-    private class UpdateOutcome<DATA : Any>(
-        val operation: Operation<DATA>,
-        val prop: KProperty1<*, *>,
-        val receiver: Any
-    )
-
-    /**
      * Dispatche une [UpdateOutcome] aux callbacks enregistrés.
      * **Doit être appelé hors du [dataLock].**
      */
@@ -527,20 +496,6 @@ class BaseStore<DATA : Any> internal constructor(
         isDirty = true
     }
 
-    /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
-    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
-        if (!belongsToDataTree(prop)) {
-            log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
-        }
-        updatePolicies[prop] = policy
-    }
-
-    /** Récupère la politique d'update d'une propriété. */
-    fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
-
-    /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
-    internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
-
     // ── Les callbacks ──
 
     override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
@@ -580,14 +535,21 @@ class BaseStore<DATA : Any> internal constructor(
         }
     }
 
-    /**
-     * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
-     * avec navigation il n'écoute que l'instance qu'elle désigne (comparaison par identité).
-     */
-    private class TargetedListener<DATA : Any>(
-        val navigate: (DATA.() -> Any)?,
-        val callback: (Operation<DATA>) -> Unit,
-    )
+    // ── Les policies ──
+
+    /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
+    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
+        if (!belongsToDataTree(prop)) {
+            log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
+        }
+        updatePolicies[prop] = policy
+    }
+
+    /** Récupère la politique d'update d'une propriété. */
+    fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
+
+    /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
+    internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
 
     // ── La persistance ──
 
@@ -701,8 +663,49 @@ class BaseStore<DATA : Any> internal constructor(
         if (isDirty) save(SaveTrigger.SHUTDOWN)
     }
 
-    private companion object {
-        /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
-        val metaFormat = JsonFormat()
+    // ── Les aides communes ── appelées de partout, sous leurs appelants
+
+    /** Refuse tout accès à un store fermé. */
+    private fun checkOpen() {
+        check(!closed.get()) { "[Storify] Store '$path' is closed" }
     }
+
+    /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
+    private fun checkWritable() {
+        checkOpen()
+        check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
+    }
+
+    /** Copie la racine par le copieur du format. */
+    private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
+
+    /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
+    private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
+
+    // ── Les types imbriqués ──
+
+    /**
+     * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de
+     * copier à sa place (`RESOURCE`), ou les défauts du code, sans fichier (`DEFAULT`).
+     */
+    private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
+
+    /**
+     * Le résultat du pipeline d'update ([runUpdate]) : l'opération capturée (snapshots old/new) et sa cible,
+     * prêtes à être dispatchées aux callbacks **hors du lock**.
+     */
+    private class UpdateOutcome<DATA : Any>(
+        val operation: Operation<DATA>,
+        val prop: KProperty1<*, *>,
+        val receiver: Any
+    )
+
+    /**
+     * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
+     * avec navigation il n'écoute que l'instance qu'elle désigne (comparaison par identité).
+     */
+    private class TargetedListener<DATA : Any>(
+        val navigate: (DATA.() -> Any)?,
+        val callback: (Operation<DATA>) -> Unit,
+    )
 }

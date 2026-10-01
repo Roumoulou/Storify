@@ -491,14 +491,16 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   trois méthodes publiques, et ses aides hors de l'ordre où il les appelle, des titres de section pour la moitié du fichier, `TargetedListener`
   et `DataOrigin` loin de leurs usages, quatre champs à underscore dont un seul double une propriété publique (d'où le `@Suppress("PropertyName")`
   sur la classe), `StoreConfig`, type public de l'API, logé dans le fichier du store, et une KDoc de classe restée au brief d'origine.
-  **Fait le 2026-10-01** : le corps de la classe suit les conventions Kotlin (les propriétés et `init` d'abord, les méthodes par sujet, les
-  classes imbriquées à côté de leurs usages, le companion en dernier) dans le sens de la vie d'un store, une section par étape : l'état en sept
-  groupes (l'identité, les données et leur verrou, la persistance, l'auto-save, la fin de vie, les callbacks, les policies), l'ouverture (`init`
-  puis ses aides dans l'ordre où il les appelle), les aides communes, la lecture et la validation, les mises à jour, les callbacks, la
-  persistance, la fin de vie ; `Store.kt` rangé dans le même ordre ; `StoreConfig` dans `core\StoreConfig.kt` ; `dataOrigin`, `lastSavedData` et
-  `hasSavedAtLeastOnce` sans underscore, `_data` le garde en champ de secours de `data`, le `@Suppress` retiré ; `transactionInternal` devenu
-  `runTransaction`, par symétrie avec `runUpdate` ; la KDoc de la classe dit ses quatre invariants et renvoie à `architecture.md`. Aucune ligne
-  de logique ne change : la suite entière et le banc en composite en font la preuve.
+  **Fait le 2026-10-01** : le corps de la classe suit l'ordre de Java, que `style-de-code.md` fixe pour Kotlin aussi : le companion en tête, les
+  propriétés du public au privé (et par thème dans le privé), `init`, puis les méthodes par thème dans le sens de la vie d'un store, l'appelé sous
+  l'appelant (l'ouverture avec ses aides dans l'ordre où `init` les appelle, la lecture et la validation, les mises à jour, les callbacks, les
+  policies, la persistance, la fin de vie, les aides communes), et les types imbriqués en dernier ; `meta` se pose dans `init`, après les chemins
+  dont il dépend, parce qu'un initialiseur Kotlin lit une propriété déclarée plus bas avant qu'elle n'existe ; `Store.kt` rangé dans le même
+  ordre ; `StoreConfig` dans `core\StoreConfig.kt` ; `dataOrigin`, `lastSavedData` et `hasSavedAtLeastOnce` sans underscore, `_data` le garde en
+  champ de secours de `data`, le `@Suppress` retiré ; `transactionInternal` devenu `runTransaction`, par symétrie avec `runUpdate` ; la KDoc de la
+  classe dit ses quatre invariants et renvoie à `architecture.md`. Un premier commit avait suivi la convention Kotlin officielle (le companion en
+  dernier, les types imbriqués près de leurs usages) ; le second la remplace par l'ordre de Java, écrit dans `style-de-code.md` le même jour.
+  Aucune ligne de logique ne change : la suite entière et le banc en composite en font la preuve.
 
 ## 5. P3, la vision
 
