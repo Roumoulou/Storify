@@ -29,8 +29,6 @@ import kotlin.reflect.full.findAnnotation
  */
 object StoreFactory {
 
-    // ── Les huit fabriques publiques ──
-
     /**
      * Crée un store entièrement configuré via les annotations de DATA.
      * Requiert `@StorePath`. Le companion object de DATA doit implémenter [Defaultable]<DATA>.
@@ -87,8 +85,6 @@ object StoreFactory {
     inline fun <reified DATA : Any> createFromResource(stringPath: String, resourcePath: String, format: StoreFormat? = null, config: StoreConfig? = null, validator: Validator<DATA>? = null): BaseStore<DATA> =
         openFromResource(DATA::class, serializer<DATA>(), stringPath, resourcePath, format, config, validator)
 
-    // ── Les quatre points d'entrée, des fonctions ordinaires : l'appelant n'embarque rien d'autre (C-46) ──
-
     /** Le point d'entrée de `create` : les données initiales viennent du companion `Defaultable` de DATA, réclamé quand le fichier manque. */
     @PublishedApi
     internal fun <DATA : Any> openFromCompanion(dataClass: KClass<DATA>, serializer: KSerializer<DATA>, stringPath: String?, format: StoreFormat?, config: StoreConfig?, validator: Validator<DATA>?): BaseStore<DATA> =
@@ -135,13 +131,25 @@ object StoreFactory {
         return format.decodeFile(deserializer, storePath)
     }
 
-    // ── La résolution et la construction ──
+    /**
+     * La construction d'un store, commune aux quatre points d'entrée :
+     * 1. lire les annotations de DATA, une seule fois ;
+     * 2. arrêter le chemin (explicite, sinon `@StorePath`), puis le format et la config, chaque objet entier : **explicite > annotation > repli**
+     *    (le registre des formats par l'extension du chemin, `StoreConfig()`), jamais une fusion champ par champ ;
+     * 3. obtenir de [providerFactory] le fournisseur des données initiales, appelée maintenant pour ses refus nets, le fournisseur lui-même
+     *    n'étant réclamé par le store que si le fichier manque ;
+     * 4. construire le [BaseStore], avec le sérialiseur matérialisé au site réifié de la fabrique publique (C-09).
+     */
+    private fun <DATA : Any> open(dataClass: KClass<DATA>, serializer: KSerializer<DATA>, stringPath: String?, format: StoreFormat?, config: StoreConfig?, validator: Validator<DATA>?, providerFactory: (Resolution<DATA>) -> () -> DATA): BaseStore<DATA> {
+        val annotations = readAnnotations(dataClass)
 
-    /** Les cinq annotations de DATA, chaque champ `null` quand l'annotation est absente. */
-    private class Annotations<DATA : Any>(val path: String?, val format: StoreFormat?, val config: StoreConfig?, val validator: Validator<DATA>?, val defaultResourcePath: String?)
+        val finalPath = stringPath ?: annotations.path ?: throw IllegalArgumentException("${dataClass.simpleName} must be annotated with @StorePath")
+        val resolution = Resolution(finalPath, format ?: annotations.format ?: StoreFormats.getFormatForStringPath(finalPath), config ?: annotations.config ?: StoreConfig(), annotations)
 
-    /** Ce qui est arrêté avant de construire le store : le chemin, le format et la config résolus, et les annotations lues. */
-    private class Resolution<DATA : Any>(val path: String, val format: StoreFormat, val config: StoreConfig, val annotations: Annotations<DATA>)
+        val provider = providerFactory(resolution)
+
+        return BaseStore(Paths.get(finalPath), resolution.format, resolution.config, serializer, defaultDataProvider = provider, validator = validator ?: annotations.validator)
+    }
 
     /** Lit les cinq annotations de [dataClass] d'un coup ; le validator annoté est instancié par réflexion, le format annoté par son enum. */
     private fun <DATA : Any> readAnnotations(dataClass: KClass<DATA>): Annotations<DATA> {
@@ -181,23 +189,9 @@ object StoreFactory {
         return Annotations(path, format, config, validator, defaultResourcePath)
     }
 
-    /**
-     * La construction d'un store, commune aux quatre points d'entrée :
-     * 1. lire les annotations de DATA, une seule fois ;
-     * 2. arrêter le chemin (explicite, sinon `@StorePath`), puis le format et la config, chaque objet entier : **explicite > annotation > repli**
-     *    (le registre des formats par l'extension du chemin, `StoreConfig()`), jamais une fusion champ par champ ;
-     * 3. obtenir de [providerFactory] le fournisseur des données initiales, appelée maintenant pour ses refus nets, le fournisseur lui-même
-     *    n'étant réclamé par le store que si le fichier manque ;
-     * 4. construire le [BaseStore], avec le sérialiseur matérialisé au site réifié de la fabrique publique (C-09).
-     */
-    private fun <DATA : Any> open(dataClass: KClass<DATA>, serializer: KSerializer<DATA>, stringPath: String?, format: StoreFormat?, config: StoreConfig?, validator: Validator<DATA>?, providerFactory: (Resolution<DATA>) -> () -> DATA): BaseStore<DATA> {
-        val annotations = readAnnotations(dataClass)
+    /** Les cinq annotations de DATA, chaque champ `null` quand l'annotation est absente. */
+    private class Annotations<DATA : Any>(val path: String?, val format: StoreFormat?, val config: StoreConfig?, val validator: Validator<DATA>?, val defaultResourcePath: String?)
 
-        val finalPath = stringPath ?: annotations.path ?: throw IllegalArgumentException("${dataClass.simpleName} must be annotated with @StorePath")
-        val resolution = Resolution(finalPath, format ?: annotations.format ?: StoreFormats.getFormatForStringPath(finalPath), config ?: annotations.config ?: StoreConfig(), annotations)
-
-        val provider = providerFactory(resolution)
-
-        return BaseStore(Paths.get(finalPath), resolution.format, resolution.config, serializer, defaultDataProvider = provider, validator = validator ?: annotations.validator)
-    }
+    /** Ce qui est arrêté avant de construire le store : le chemin, le format et la config résolus, et les annotations lues. */
+    private class Resolution<DATA : Any>(val path: String, val format: StoreFormat, val config: StoreConfig, val annotations: Annotations<DATA>)
 }

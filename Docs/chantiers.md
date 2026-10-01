@@ -500,7 +500,12 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   champ de secours de `data`, le `@Suppress` retiré ; `transactionInternal` devenu `runTransaction`, par symétrie avec `runUpdate` ; la KDoc de la
   classe dit ses quatre invariants et renvoie à `architecture.md`. Un premier commit avait suivi la convention Kotlin officielle (le companion en
   dernier, les types imbriqués près de leurs usages) ; le second la remplace par l'ordre de Java, écrit dans `style-de-code.md` le même jour.
-  Aucune ligne de logique ne change : la suite entière et le banc en composite en font la preuve.
+  Puis le même ordre dans les autres classes de `src\main` qui s'en écartaient, sans bannière de section : `CapturedValue`, `ValidationResult`
+  et `JsonDuplicateKeys` (les types imbriqués à la fin), `ValidationException` et `DeepCopier` (le companion en tête), `JsonFormat`,
+  `Json5Format` et `TomlFormat` (les propriétés avant les méthodes, les méthodes dans l'ordre du contrat `StoreFormat`, l'appelé sous
+  l'appelant), `StoreFactory` (`open` avant `readAnnotations` qu'il appelle, les types imbriqués à la fin), `AtomicFiles` (le nom du temporaire
+  et son motif sous leurs appelants), `Store` (ses commentaires de groupe retirés). Aucune ligne de logique ne change : un diff ligne à ligne
+  hors ordre, la suite entière et le banc en composite en font la preuve.
 
 ## 5. P3, la vision
 

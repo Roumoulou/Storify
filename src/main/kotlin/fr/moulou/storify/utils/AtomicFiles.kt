@@ -49,12 +49,6 @@ object AtomicFiles {
         }
     }
 
-    /** Le nom d'un temporaire atomique pour [fileName] : `<nom>.<8 hexadécimaux>.tmp`, les huit premiers caractères d'un UUID aléatoire. */
-    fun tempFileName(fileName: String): String = "$fileName.${UUID.randomUUID().toString().substring(0, 8)}.tmp"
-
-    /** Le motif exact des temporaires que [tempFileName] produit pour [fileName] : le seul que [sweepOrphanTemps] reconnaît (C-28). */
-    fun ownTempPattern(fileName: String): Regex = Regex("^${Regex.escape(fileName)}\\.[0-9a-f]{8}\\.tmp$")
-
     /**
      * Balaye les temporaires orphelins d'un crash passé pour chacun des [targets], au motif de [tempFileName] et à lui seul : un temporaire
      * étranger, `<nom>.tmp` écrit par une autre application par exemple, n'est jamais touché. Silencieux sur un dossier absent ou illisible.
@@ -69,4 +63,10 @@ object AtomicFiles {
             }
         }
     }
+
+    /** Le nom d'un temporaire atomique pour [fileName] : `<nom>.<8 hexadécimaux>.tmp`, les huit premiers caractères d'un UUID aléatoire. */
+    fun tempFileName(fileName: String): String = "$fileName.${UUID.randomUUID().toString().substring(0, 8)}.tmp"
+
+    /** Le motif exact des temporaires que [tempFileName] produit pour [fileName] : le seul que [sweepOrphanTemps] reconnaît (C-28). */
+    fun ownTempPattern(fileName: String): Regex = Regex("^${Regex.escape(fileName)}\\.[0-9a-f]{8}\\.tmp$")
 }

@@ -16,12 +16,9 @@ class DuplicateKeyException(val key: String, val line: Int) : SerializationExcep
  * décodées de leurs échappements avant comparaison (`"ab"` et `"ab"` sont la même clé), la ligne comptée au passage. Un tableau ouvre une
  * portée sans clés, et une chaîne n'est une clé que si le premier caractère significatif qui la suit est `:`. Le texte est supposé être du
  * JSON strict, sans commentaire ni clé nue : ce que le lecteur tolérant accepte ne passe pas ici, et il n'y est pas soumis. Un texte mal
- * formé n'est pas diagnostiqué : c'est l'affaire du décodeur, qui vient après.
+ * formé n'est pas diagnostiqué : c'est l'affaire du décodeur, qui vient avant.
  */
 object JsonDuplicateKeys {
-
-    /** Une clé déclarée deux fois dans le même objet, et la ligne (à partir de 1) de sa seconde occurrence. */
-    data class Duplicate(val key: String, val line: Int)
 
     /** Le premier doublon de [text], dans l'ordre du texte, ou `null`. */
     fun firstDuplicate(text: String): Duplicate? {
@@ -78,4 +75,7 @@ object JsonDuplicateKeys {
         }
         return out.toString() to text.length
     }
+
+    /** Une clé déclarée deux fois dans le même objet, et la ligne (à partir de 1) de sa seconde occurrence. */
+    data class Duplicate(val key: String, val line: Int)
 }

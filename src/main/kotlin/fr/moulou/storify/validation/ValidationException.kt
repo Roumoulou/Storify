@@ -11,8 +11,6 @@ class ValidationException(
     message: String = buildMessage(errors)
 ) : StorifyException(message) {
 
-    val errorCount: Int get() = errors.size
-
     companion object {
         private fun buildMessage(errors: List<ValidationError>): String {
             return buildString {
@@ -23,4 +21,6 @@ class ValidationException(
             }.trimEnd()
         }
     }
+
+    val errorCount: Int get() = errors.size
 }

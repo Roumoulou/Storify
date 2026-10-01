@@ -15,13 +15,13 @@ import kotlinx.serialization.serializer
  */
 interface DeepCopier {
 
-    /** Rend une copie de [value] indépendante de l'original. */
-    fun <T> copy(serializer: KSerializer<T>, value: T): T
-
     companion object {
         /** Le copieur par défaut : l'arbre JSON, au module de sérialiseurs par défaut de kotlinx. */
         val Default: DeepCopier = JsonTreeCopier(Json)
     }
+
+    /** Rend une copie de [value] indépendante de l'original. */
+    fun <T> copy(serializer: KSerializer<T>, value: T): T
 }
 
 /**

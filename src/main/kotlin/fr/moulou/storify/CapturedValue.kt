@@ -20,18 +20,6 @@ package fr.moulou.storify
  */
 sealed class CapturedValue<out T> {
 
-    /** Copie profonde : toujours fiable, immuable. */
-    data class DeepCopy<out T>(val value: T) : CapturedValue<T>()
-
-    /** Lecture shallow au moment de la capture : fiable pour les types immuables seulement. */
-    data class Shallow<out T>(val value: T) : CapturedValue<T>()
-
-    /** Première donnée jamais enregistrée (initial save). */
-    data class Initial<out T>(val value: T) : CapturedValue<T>()
-
-    /** Aucune capture possible. */
-    data object Unavailable : CapturedValue<Nothing>()
-
     /** Extrait la valeur ou `null` si [Unavailable]. */
     val valueOrNull: @UnsafeVariance T?
         get() = when (this) {
@@ -43,4 +31,16 @@ sealed class CapturedValue<out T> {
 
     /** `true` si une valeur est disponible. */
     val isAvailable: Boolean get() = this !is Unavailable
+
+    /** Copie profonde : toujours fiable, immuable. */
+    data class DeepCopy<out T>(val value: T) : CapturedValue<T>()
+
+    /** Lecture shallow au moment de la capture : fiable pour les types immuables seulement. */
+    data class Shallow<out T>(val value: T) : CapturedValue<T>()
+
+    /** Première donnée jamais enregistrée (initial save). */
+    data class Initial<out T>(val value: T) : CapturedValue<T>()
+
+    /** Aucune capture possible. */
+    data object Unavailable : CapturedValue<Nothing>()
 }

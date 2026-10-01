@@ -26,10 +26,10 @@ import kotlin.io.path.readText
  * Le format JSON : le JSON standard, strict à la lecture (C-36). Un commentaire, une clé ou une chaîne sans guillemets échouent au décodage
  * comme une virgule finale ou une clé inconnue, et une clé déclarée deux fois dans le même objet aussi (C-50, [DuplicateKeyException]
  * levée après le décodage, pour qu'un texte mal formé reste diagnostiqué par le parseur) ; le store lève [StoreDecodeException] avec la
- * ligne, celle de la seconde occurrence pour un doublon. Le fichier édité à la main qui veut ces libertés a son format, [Json5Format]. Le défaut garde `prettyPrint` et `encodeDefaults` (un fichier lisible qui porte tous ses champs),
- * `allowStructuredMapKeys` (une map à clés structurées s'écrit en tableau ; le réglage ne tolère aucune syntaxe) et
- * `allowSpecialFloatingPointValues` (un `NaN` s'écrit et se relit : le refuser ferait échouer chaque sauvegarde du store, loin du code qui
- * a produit la valeur).
+ * ligne, celle de la seconde occurrence pour un doublon. Le fichier édité à la main qui veut ces libertés a son format, [Json5Format]. Le
+ * défaut garde `prettyPrint` et `encodeDefaults` (un fichier lisible qui porte tous ses champs), `allowStructuredMapKeys` (une map à clés
+ * structurées s'écrit en tableau ; le réglage ne tolère aucune syntaxe) et `allowSpecialFloatingPointValues` (un `NaN` s'écrit et se relit :
+ * le refuser ferait échouer chaque sauvegarde du store, loin du code qui a produit la valeur).
  *
  * [lenient] rend le lecteur tolérant, et le constructeur accepte tout `Json` : un consommateur qui veut ses propres réglages le passe. Le
  * doublon n'est refusé que par un `Json` strict, ni `isLenient` ni `allowComments` : le lecteur tolérant, comme celui d'un consommateur
@@ -61,12 +61,10 @@ class JsonFormat(
     /** Le copieur profond des stores JSON : l'arbre JSON de ce même `Json` (C-29). */
     private val copier = JsonTreeCopier(json)
 
-    override fun deepCopier(): DeepCopier = copier
-
-    override fun lineLocator(): ErrorLineLocator = JsonLineLocator
-
     /** Le strict de C-36, qui refuse aussi une clé en double (C-50) : un `Json` ni `isLenient` ni `allowComments`. */
     private val rejectsDuplicateKeys = !json.configuration.isLenient && !json.configuration.allowComments
+
+    override fun fileExtension(): String = "json"
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
@@ -83,7 +81,9 @@ class JsonFormat(
         path.outputStream().buffered().use { stream -> json.encodeToStream(serializer, data, stream) }
     }
 
-    override fun fileExtension(): String = "json"
+    override fun deepCopier(): DeepCopier = copier
+
+    override fun lineLocator(): ErrorLineLocator = JsonLineLocator
 
     fun underlyingJson(): Json = json
 }

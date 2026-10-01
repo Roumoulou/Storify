@@ -27,7 +27,7 @@ class TomlFormat(
      */
     private val copier = JsonTreeCopier(Json { serializersModule = toml.serializersModule })
 
-    override fun deepCopier(): DeepCopier = copier
+    override fun fileExtension(): String = "toml"
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
         return path.inputStream().withoutUtf8Bom().bufferedReader().use { reader -> toml.decodeFromNativeReader(deserializer, reader) }
@@ -38,7 +38,7 @@ class TomlFormat(
         path.bufferedWriter().use { writer -> toml.encodeToNativeWriter(serializer, data, writer) }
     }
 
-    override fun fileExtension(): String = "toml"
+    override fun deepCopier(): DeepCopier = copier
 
     fun underlyingToml(): Toml = toml
 }

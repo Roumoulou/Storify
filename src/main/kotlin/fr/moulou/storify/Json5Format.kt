@@ -70,9 +70,7 @@ class Json5Format(
     /** Le copieur profond des stores JSON5 : l'arbre JSON du pont kotlinx, le même qui décode et encode les fichiers (C-29). */
     private val copier = JsonTreeCopier(json)
 
-    override fun deepCopier(): DeepCopier = copier
-
-    override fun lineLocator(): ErrorLineLocator = JsonLineLocator
+    override fun fileExtension(): String = "json5"
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
         val document = Json5.parseToDocument(path.readText().withoutUtf8Bom())
@@ -110,10 +108,6 @@ class Json5Format(
         path.writeText(reconciled ?: Json5.encodeToString(newElement, encoderConfig))
     }
 
-    override fun fileExtension(): String = "json5"
-
-    fun underlyingJson(): Json = json
-
     /** Le texte réconcilié (les retouches seules, commentaires et style préservés), ou null si l'existant est invalide : repli sur l'encode à neuf. */
     private fun reconcile(previousText: String, newElement: JsonElement): String? {
         var document = Json5.parseToDocument(previousText)
@@ -145,6 +139,12 @@ class Json5Format(
             edits.add(ReconcileEdit.Set(path, new))
         }
     }
+
+    override fun deepCopier(): DeepCopier = copier
+
+    override fun lineLocator(): ErrorLineLocator = JsonLineLocator
+
+    fun underlyingJson(): Json = json
 
     private sealed interface ReconcileEdit {
         data class Set(val path: Json5Path, val value: JsonElement) : ReconcileEdit
