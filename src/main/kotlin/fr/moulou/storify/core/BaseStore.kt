@@ -29,66 +29,20 @@ import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
 
 /**
- * Configuration d'une instance [BaseStore].
+ * Le store : l'attelage d'une data class sérialisable, d'un fichier et de tout ce qu'un mod réclame autour, mécanisme par mécanisme dans
+ * `Docs\architecture.md` (le cycle de vie au chapitre 4). Le fichier se lit de haut en bas comme la vie d'un store : l'état, l'ouverture,
+ * la lecture, les mises à jour, les callbacks, la persistance, la fin de vie.
  *
- * @property withValidation    Active la validation au chargement initial (fichier ou données par défaut). Défaut `true` (C-24) : sans validator
- *                             elle ne coûte rien, et poser un validator c'est vouloir qu'il tourne ; `false` est l'échappatoire explicite.
- * @property withAutoSave      Persiste automatiquement les données modifiées sur disque. Défaut `true`.
- * @property withMeta          Gère un fichier sidecar `.meta.json` (lastModified, etc.). Défaut `false`.
- * @property useDeepCopy       Autorise les copies profondes, par le copieur du format (C-29) : les captures old/new des callbacks (policy
- *                             SNAPSHOT), le secours de rollback des transactions, le snapshot du dernier save et les captures du
- *                             rechargement. Les captures ne se prennent que devant un auditeur (C-25, C-41) ; seul le secours des
- *                             transactions se prend toujours. Défaut `true`. À `false`, plus aucune copie : ces captures sont
- *                             `Unavailable` ou `Shallow`, et la transaction perd son filet.
- * @property defaultUpdatePolicy Politique d'update par défaut pour les propriétés sans annotation
- *                               [StoreUpdatePolicy]. Défaut [UpdatePolicy.SKIP] : sans policy explicite, les callbacks
- *                               se taisent. La persistance (marquage dirty), elle, est garantie pour toutes les policies.
- * @property autoSaveIntervalMs  Intervalle en millisecondes entre chaque tick d'auto-save. Défaut 5 min.
- * @property validateOnUpdate  Valide la racine à CHAQUE update, avec rollback et [ValidationFailedOperation] en échec.
- *                             NON RECOMMANDÉ : copie de la racine entière et validator sous write lock à chaque geste ;
- *                             préférez des contrôles métier avant de muter. Exige [useDeepCopy]. Défaut `false`.
- * @property readOnly          Le store lit, valide et relit son fichier, et n'écrit jamais (C-30) : `set`, `mutate`, `transaction` et
- *                             `saveImmediate` lèvent [IllegalStateException], ni planificateur d'auto-save (quel que soit [withAutoSave]) ni
- *                             hook d'arrêt, `pauseAutoSave` et `resumeAutoSave` inertes, le sidecar meta lu mais jamais écrit. Sa seule
- *                             écriture possible est le fichier initial, si [createIfMissing]. Défaut `false`.
- * @property withShutdownHook  Arme le hook d'arrêt de la JVM, le filet anti-crash qui sauve un store encore dirty à l'extinction. `false`
- *                             pour un store que le consommateur ferme lui-même ; `close()` fait toujours sa sauvegarde d'adieu. Forcé à
- *                             `false` par [readOnly]. Défaut `true`.
- * @property createIfMissing   Écrit le fichier initial né des défauts quand il manque, la validation passée. À `false`, les défauts vivent en
- *                             mémoire et rien n'est écrit à l'ouverture (un `saveImmediate` ultérieur crée le fichier). Sans effet sur
- *                             `createFromResource`, qui copie toujours sa ressource, telle quelle (C-40) : cette copie est sa définition.
- *                             Défaut `true`.
- * @property loggerName        Le nom du logger SLF4J du store (C-37) : le nom du mod (`aegisperms`) range les lignes du store sous son journal,
- *                             préfixe `[Storify]` gardé. Défaut `Storify`.
+ * Les invariants :
+ * - tout accès à [_data] passe par [dataLock] : `data` et les sauvegardes sous le read lock, les mises à jour et le remplacement de racine
+ *   sous le write lock ;
+ * - les sauvegardes d'un même store s'exécutent l'une après l'autre, sous [saveIoLock] ;
+ * - les callbacks sont notifiés hors de tout verrou, avec des captures, jamais des références prises sous verrou (hors `Shallow`) ;
+ * - le drapeau dirty est posé par le pipeline d'update pour toutes les policies, et remis à zéro après une écriture réussie, quel que soit
+ *   le déclencheur, ou après un rechargement.
+ *
+ * @param DATA La data class `@Serializable` gérée par ce store.
  */
-data class StoreConfig(
-    val withValidation: Boolean = true,
-    val withAutoSave: Boolean = true,
-    val withMeta: Boolean = false,
-    val useDeepCopy: Boolean = true,
-    val defaultUpdatePolicy: UpdatePolicy = UpdatePolicy.SKIP,
-    val autoSaveIntervalMs: Long = 300_000L,
-    val validateOnUpdate: Boolean = false,
-    val readOnly: Boolean = false,
-    val withShutdownHook: Boolean = true,
-    val createIfMissing: Boolean = true,
-    val loggerName: String = "Storify"
-)
-
-/**
- * Implémentation principale de [Store].
- *
- * Gère le cycle de vie complet d'un fichier de données :
- * chargement (depuis fichier ou défaut), validation initiale, mutation synchrone,
- * auto-save, et persistance à l'arrêt.
- *
- * ## Thread safety
- *
- * Toutes les lectures/écritures de [_data] passent par [dataLock] (`ReentrantReadWriteLock`).
- *
- * @param DATA La data class serializable gérée par ce store.
- */
-@Suppress("PropertyName")
 class BaseStore<DATA : Any> internal constructor(
     storePath: Path,
     override val format: StoreFormat,
@@ -106,6 +60,10 @@ class BaseStore<DATA : Any> internal constructor(
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
 
+    // ── L'état ──
+
+    // L'identité
+
     /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
     override val path: Path = storePath.toAbsolutePath().normalize()
 
@@ -118,97 +76,64 @@ class BaseStore<DATA : Any> internal constructor(
     /** Le copieur profond du store, celui de son format (C-29) : toute copie de racine ou de valeur passe par lui. */
     internal val copier: DeepCopier = format.deepCopier()
 
-    /** Copie la racine par le copieur du format. */
-    private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
+    /** Chemin vers le fichier sidecar `.meta.json`. */
+    private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
 
-    /**
-     * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de
-     * copier à sa place (`RESOURCE`), ou les défauts du code, sans fichier (`DEFAULT`).
-     */
-    private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
+    // Les données et leur verrou
 
-    /** Objet de données vivant. Tout accès DOIT passer par [dataLock]. */
+    /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
+    private val dataLock = ReentrantReadWriteLock()
+
+    /** Objet de données vivant, le champ de secours de [data]. Tout accès DOIT passer par [dataLock]. */
     internal lateinit var _data: DATA
 
     override val data: DATA
         get() = dataLock.read { _data }
 
-    /**
-     * Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08).
-     * Le fichier gagne (C-47) : une modification en mémoire pas encore sauvegardée est écartée, et dite au log en `warn` ; le drapeau dirty
-     * retombe, la mémoire étant le fichier ; devant un auditeur de save, la référence de son prochain `old` devient la racine rechargée.
-     * Les captures suivent [StoreConfig.useDeepCopy] (copies profondes, sinon les références) et ne se construisent que devant public (C-25, C-29).
-     */
-    internal fun replaceData(newValue: DATA) {
-        val operation = dataLock.write {
-            val old = _data
-            _data = newValue
-            if (isDirty) {
-                log.warn("[Storify] Reload of '{}' discards unsaved in-memory changes: the file wins", path)
-                isDirty = false
-            }
-            val copies = config.useDeepCopy
-            val savedReference = copies && onSaveCallbacks.isNotEmpty()
-            val newCopy = if (copies && (savedReference || onReloadCallbacks.isNotEmpty())) copyRoot(newValue) else null
-            if (savedReference) _lastSavedData = newCopy
-            when {
-                onReloadCallbacks.isEmpty() -> null
-                copies -> ReloadOperation(this::data, CapturedValue.DeepCopy(copyRoot(old)), CapturedValue.DeepCopy(newCopy!!))
-                else -> ReloadOperation(this::data, CapturedValue.Shallow(old), CapturedValue.Shallow(newValue))
-            }
-        }
-        if (operation != null) onReloadCallbacks.forEach { it(operation) }
+    /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
+    private var dataOrigin: DataOrigin = DataOrigin.DEFAULT
+
+    override val meta: StoreMeta? = when {
+        !config.withMeta -> null
+        path.exists() && metaPath.exists() -> metaFormat.decodeFile(StoreMeta.serializer(), metaPath)
+        else -> StoreMeta()
     }
 
-    /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
-    private var _dataOrigin: DataOrigin = DataOrigin.DEFAULT
-
-    /** Verrou lecture/écriture protégeant tous les accès à [_data]. */
-    private val dataLock = ReentrantReadWriteLock()
-
-    /**
-     * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
-     * l'arrivée du premier ([registerOnSave]), puis à chaque save ; sans auditeur il reste `null`, et rien ne se copie.
-     */
-    @Volatile
-    private var _lastSavedData: DATA? = null
-
-    /** `true` après le premier appel réussi à [save]. */
-    @Volatile
-    private var _hasSavedAtLeastOnce: Boolean = false
-
-    /** Chemin vers le fichier sidecar `.meta.json`. */
-    private val metaPath: Path = path.resolveSibling("${path.fileName}.meta.json")
-
-    override val meta: StoreMeta? = if (config.withMeta) if (path.exists() && metaPath.exists()) metaFormat.decodeFile(StoreMeta.serializer(), metaPath) else StoreMeta() else null
+    // La persistance
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` après toute écriture réussie, quel que soit le déclencheur, et au rechargement (C-47). Interne pour les tests. */
     @Volatile
     internal var isDirty = false
 
     /**
-     * Marque les données modifiées : `meta.lastModified` et le drapeau dirty. Appelé par le pipeline d'update pour
-     * TOUTES les policies, [UpdatePolicy.SKIP] compris : la persistance ne dépend pas de l'observation.
+     * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
+     * l'arrivée du premier ([registerOnSave]), puis à chaque save ; sans auditeur il reste `null`, et rien ne se copie.
      */
-    private fun markDirty() {
-        if (config.withMeta) meta?.touch()
-        isDirty = true
-    }
+    @Volatile
+    private var lastSavedData: DATA? = null
 
-    /** Quand `true`, les ticks d'auto-save sont ignorés. */
-    private val autoSavePaused = AtomicBoolean(false)
+    /** `true` après le premier appel réussi à [save]. */
+    @Volatile
+    private var hasSavedAtLeastOnce: Boolean = false
 
-    /** Handle vers la tâche planifiée d'auto-save (pour annulation). */
-    private var autoSaveFuture: ScheduledFuture<*>? = null
+    /** Verrou d'IO : les sauvegardes d'un même store s'exécutent l'une après l'autre. */
+    private val saveIoLock = Any()
 
-    /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
-    internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
+    // L'auto-save
 
     /** Scheduler single-thread pour l'auto-save périodique. */
     private val saveScheduler = Executors.newSingleThreadScheduledExecutor()
 
-    /** Verrou d'IO : les sauvegardes d'un même store s'exécutent l'une après l'autre. */
-    private val saveIoLock = Any()
+    /** Handle vers la tâche planifiée d'auto-save (pour annulation). */
+    private var autoSaveFuture: ScheduledFuture<*>? = null
+
+    /** Quand `true`, les ticks d'auto-save sont ignorés. */
+    private val autoSavePaused = AtomicBoolean(false)
+
+    /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
+    internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
+
+    // La fin de vie
 
     /** `true` après [close] : le store reste lisible, les écritures refusent. */
     private val closed = AtomicBoolean(false)
@@ -223,28 +148,14 @@ class BaseStore<DATA : Any> internal constructor(
     /** `true` quand le hook est enregistré auprès de la JVM : [close] ne désarme que lui, et les tests le lisent (C-30). */
     internal val isShutdownHookArmed: Boolean = config.withShutdownHook && !config.readOnly
 
-    /** Le corps du hook, testable sans éteindre la JVM : annule le tick en vol et, comme la sauvegarde d'adieu de [close], ne sauve que dirty (C-23). */
-    internal fun runShutdownHook() {
-        autoSaveFuture?.cancel(false)
-        if (isDirty) save(SaveTrigger.SHUTDOWN)
-    }
+    // Les callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08)
 
-    /** Refuse tout accès à un store fermé. */
-    private fun checkOpen() {
-        check(!closed.get()) { "[Storify] Store '$path' is closed" }
-    }
-
-    /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
-    private fun checkWritable() {
-        checkOpen()
-        check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
-    }
-
-    // ── Callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08) ──
     private val onSaveCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onReloadCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<TargetedListener<DATA>>>()
+
+    // Les policies
 
     /**
      * Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. Thread-safe (C-45) :
@@ -255,19 +166,7 @@ class BaseStore<DATA : Any> internal constructor(
     /** Les propriétés de l'arbre de DATA, collectées par le scan des policies : la garde de [setUpdatePolicy]. */
     private val dataTreeProperties = mutableSetOf<KProperty1<*, *>>()
 
-    /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
-    internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
-
-    /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
-    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
-        if (!belongsToDataTree(prop)) {
-            log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
-        }
-        updatePolicies[prop] = policy
-    }
-
-    /** Récupère la politique d'update d'une propriété. */
-    fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
+    // ── L'ouverture ──
 
     init {
         require(!config.validateOnUpdate || config.useDeepCopy) { "[Storify] validateOnUpdate requires useDeepCopy (root rollback)" }
@@ -281,6 +180,12 @@ class BaseStore<DATA : Any> internal constructor(
     }
 
     /**
+     * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de
+     * copier à sa place (`RESOURCE`), ou les défauts du code, sans fichier (`DEFAULT`).
+     */
+    private enum class DataOrigin { FILE, RESOURCE, DEFAULT }
+
+    /**
      * Charge les données depuis le fichier s'il existe, sinon les demande à [defaultDataProvider]. Les défauts du code n'écrivent rien ici :
      * la validation passe d'abord, le fichier initial vient après ([persistInitialData], C-06). Le fournisseur d'une ressource embarquée,
      * lui, pose sa copie avant de la décoder : l'origine le retient, et cette copie ne sera jamais réécrite (C-40).
@@ -289,22 +194,16 @@ class BaseStore<DATA : Any> internal constructor(
         sweepOrphanTemps()
         if (path.exists()) {
             _data = format.decodeFile(dataSerializer, path)
-            _dataOrigin = DataOrigin.FILE
-            _hasSavedAtLeastOnce = true
+            dataOrigin = DataOrigin.FILE
+            hasSavedAtLeastOnce = true
         } else {
             _data = defaultDataProvider.invoke()
-            _dataOrigin = if (path.exists()) DataOrigin.RESOURCE else DataOrigin.DEFAULT
+            dataOrigin = if (path.exists()) DataOrigin.RESOURCE else DataOrigin.DEFAULT
         }
     }
 
-    /**
-     * Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06).
-     * Sauf `createIfMissing = false` : les défauts vivent en mémoire et rien n'est écrit (C-30). La copie d'une ressource embarquée n'est pas
-     * concernée : elle est déjà le fichier initial, et reste la ressource à l'octet (C-40).
-     */
-    private fun persistInitialData() {
-        if (_dataOrigin == DataOrigin.DEFAULT && config.createIfMissing) writeInitialFile()
-    }
+    /** Balaye les temporaires orphelins d'un crash passé, ceux du fichier et de son sidecar, au seul motif propre (C-28, [AtomicFiles.sweepOrphanTemps]). */
+    private fun sweepOrphanTemps() = AtomicFiles.sweepOrphanTemps(path, metaPath)
 
     /** Scanne les annotations [@StoreUpdatePolicy] sur les propriétés de [DATA] et ses classes imbriquées. */
     private fun initUpdatePolicies() {
@@ -346,7 +245,7 @@ class BaseStore<DATA : Any> internal constructor(
         val result = runValidation(_data)
         if (result is ValidationResult.Failure) {
             val errors = if (path.exists()) ValidationErrorEnricher.enrich(format, path, result.errors) else result.errors
-            val source = when (_dataOrigin) {
+            val source = when (dataOrigin) {
                 DataOrigin.FILE -> "loaded from file"
                 DataOrigin.RESOURCE -> "copied from the default resource"
                 DataOrigin.DEFAULT -> "default data"
@@ -354,6 +253,18 @@ class BaseStore<DATA : Any> internal constructor(
             throw ValidationException(errors, "[Storify] Store '${path}' ($source) is invalid:\n${ValidationResult.Failure(errors).formatFull()}")
         }
     }
+
+    /**
+     * Écrit le fichier initial des données nées par défaut, la validation étant passée : des défauts invalides ne touchent jamais le disque (C-06).
+     * Sauf `createIfMissing = false` : les défauts vivent en mémoire et rien n'est écrit (C-30). La copie d'une ressource embarquée n'est pas
+     * concernée : elle est déjà le fichier initial, et reste la ressource à l'octet (C-40).
+     */
+    private fun persistInitialData() {
+        if (dataOrigin == DataOrigin.DEFAULT && config.createIfMissing) writeInitialFile()
+    }
+
+    /** Écrit le fichier initial quand aucun fichier n'existait (premier lancement). */
+    private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) } }
 
     /** Enregistre la tâche planifiée d'auto-save, hors lecture seule (C-30). Le marquage dirty, lui, vit dans le pipeline d'update : voir [markDirty]. */
     private fun initAutoSave() {
@@ -379,52 +290,26 @@ class BaseStore<DATA : Any> internal constructor(
         if (isShutdownHookArmed) Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
 
-    // ── Persistance ──
-    /**
-     * Persiste [_data] sur disque et écrit le sidecar meta. Devant un auditeur de save, met aussi à jour le snapshot [_lastSavedData] et
-     * déclenche les [onSaveCallbacks] **hors du lock** ; sans auditeur, ni copie ni opération (C-41).
-     */
-    private fun save(trigger: SaveTrigger) {
-        if (config.readOnly) {
-            if (trigger == SaveTrigger.IMMEDIATE) checkWritable() // lève : closed d'abord, read-only sinon
-            return // ni tick ni hook en lecture seule, et un tel store n'est jamais dirty : rien à faire pour les autres déclencheurs
-        }
-        if (closed.get()) {
-            when (trigger) {
-                SaveTrigger.IMMEDIATE -> throw IllegalStateException("[Storify] Store '$path' is closed")
-                SaveTrigger.AUTO_SAVE -> return // un tick en vol pendant la fermeture s'éteint sans bruit
-                else -> {} // CLOSE et SHUTDOWN : les sauvegardes de fin de vie passent
-            }
-        }
-        val operation: Operation<DATA>? = dataLock.read {
-            val listening = onSaveCallbacks.isNotEmpty()
+    // ── Les aides communes ──
 
-            val previous = _lastSavedData
-            val oldCaptured: CapturedValue<DATA> = when {
-                previous == null -> CapturedValue.Unavailable
-                !_hasSavedAtLeastOnce -> CapturedValue.Initial(previous)
-                else -> CapturedValue.DeepCopy(previous)
-            }
-
-            synchronized(saveIoLock) {
-                atomicWrite(path) { temp -> encodeDataTo(temp) }
-                if (config.withMeta) atomicWrite(metaPath) { temp -> metaFormat.encodeToPath(StoreMeta.serializer(), meta!!, temp) }
-            }
-            isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
-            _hasSavedAtLeastOnce = true
-
-            if (!listening) return@read null // personne n'écoute les saves : ni copie ni opération (C-41)
-
-            val snapshot = if (config.useDeepCopy) copyRoot(_data) else null
-            _lastSavedData = snapshot
-            val newCaptured: CapturedValue<DATA> = if (snapshot != null) CapturedValue.DeepCopy(snapshot) else CapturedValue.Unavailable
-
-            SaveOperation(oldCaptured, newCaptured, trigger)
-        }
-        if (operation != null) onSaveCallbacks.forEach { it(operation) }
+    /** Refuse tout accès à un store fermé. */
+    private fun checkOpen() {
+        check(!closed.get()) { "[Storify] Store '$path' is closed" }
     }
 
-    override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
+    /** Refuse toute écriture sur un store fermé ou en lecture seule (C-30). */
+    private fun checkWritable() {
+        checkOpen()
+        check(!config.readOnly) { "[Storify] Store '$path' is read-only" }
+    }
+
+    /** Copie la racine par le copieur du format. */
+    private fun copyRoot(value: DATA): DATA = copier.copy(dataSerializer, value)
+
+    /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
+    private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
+
+    // ── La lecture et la validation ──
 
     override fun reloadFromFile(validate: Boolean) {
         checkOpen()
@@ -439,6 +324,33 @@ class BaseStore<DATA : Any> internal constructor(
         replaceData(incoming)
     }
 
+    /**
+     * Remplace la racine sous write lock et notifie onReload : la voie interne de [reloadFromFile], le remplacement de racine n'est pas offert aux consommateurs (C-08).
+     * Le fichier gagne (C-47) : une modification en mémoire pas encore sauvegardée est écartée, et dite au log en `warn` ; le drapeau dirty
+     * retombe, la mémoire étant le fichier ; devant un auditeur de save, la référence de son prochain `old` devient la racine rechargée.
+     * Les captures suivent [StoreConfig.useDeepCopy] (copies profondes, sinon les références) et ne se construisent que devant public (C-25, C-29).
+     */
+    internal fun replaceData(newValue: DATA) {
+        val operation = dataLock.write {
+            val old = _data
+            _data = newValue
+            if (isDirty) {
+                log.warn("[Storify] Reload of '{}' discards unsaved in-memory changes: the file wins", path)
+                isDirty = false
+            }
+            val copies = config.useDeepCopy
+            val savedReference = copies && onSaveCallbacks.isNotEmpty()
+            val newCopy = if (copies && (savedReference || onReloadCallbacks.isNotEmpty())) copyRoot(newValue) else null
+            if (savedReference) lastSavedData = newCopy
+            when {
+                onReloadCallbacks.isEmpty() -> null
+                copies -> ReloadOperation(this::data, CapturedValue.DeepCopy(copyRoot(old)), CapturedValue.DeepCopy(newCopy!!))
+                else -> ReloadOperation(this::data, CapturedValue.Shallow(old), CapturedValue.Shallow(newValue))
+            }
+        }
+        if (operation != null) onReloadCallbacks.forEach { it(operation) }
+    }
+
     override fun validateNow(): ValidationResult = dataLock.read { runValidation(_data) }
 
     override fun validateFile(): ValidationResult {
@@ -446,138 +358,53 @@ class BaseStore<DATA : Any> internal constructor(
         return validator?.let { ValidationErrorEnricher.validate(format, path, onDisk, it) } ?: ValidationResult.Success
     }
 
-    // ── Contrôle auto-save ──
-    override fun pauseAutoSave() {
-        if (closed.get() || config.readOnly) return
-        autoSavePaused.set(true)
-        log.info("[Storify] Auto-save PAUSED")
-    }
+    // ── Les mises à jour ──
 
-    override fun resumeAutoSave() {
-        if (closed.get() || config.readOnly) return
-        autoSavePaused.set(false)
-        log.info("[Storify] Auto-save RESUMED")
-    }
+    /** Le point d'entrée de `set` et `setIn` (C-45) : l'extension inline y arrive avec le sérialiseur de la valeur, matérialisé à son site réifié. */
+    @PublishedApi
+    internal fun <RECEIVER : Any, VALUE> setValue(property: KMutableProperty1<RECEIVER, VALUE>, newValue: VALUE, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER) =
+        runUpdate(property, inPlace = false, valueSerializer, getReceiver, applyUpdate = { receiver -> property.set(receiver, newValue) }, createOperation = { old, new -> SetOperation(property, old, new) })
 
-    override fun isAutoSavePaused(): Boolean = autoSavePaused.get()
+    /** Le point d'entrée de `mutate` et `mutateIn` (C-45), sur le même principe. */
+    @PublishedApi
+    internal fun <RECEIVER : Any, VALUE : Any> mutateValue(property: KProperty1<RECEIVER, VALUE>, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER, block: (VALUE) -> Unit) =
+        runUpdate(property, inPlace = true, valueSerializer, getReceiver, applyUpdate = { receiver -> block(property.get(receiver)) }, createOperation = { old, new -> MutateOperation(property, old, new) })
 
-    // ── Fin de vie ──
-    /**
-     * Détache proprement le store : le tick d'auto-save est annulé, le planificateur arrêté (la JVM n'est
-     * plus retenue), le hook d'arrêt JVM désarmé, et les données encore dirty font une sauvegarde d'adieu
-     * ([SaveTrigger.CLOSE]). Idempotent. Un store fermé reste lisible ; toute écriture lève une [IllegalStateException].
-     */
-    override fun close() {
-        if (!closed.compareAndSet(false, true)) return
+    /** Le corps de `transaction` : la racine entière modifiée d'un bloc, tout ou rien, sous le write lock. */
+    internal fun runTransaction(block: DATA.() -> Unit) {
+        checkWritable()
+        val operation: Operation<DATA> = dataLock.write {
+            val backupSnapshot: DATA? = if (config.useDeepCopy) copyRoot(_data) else null
 
-        autoSaveFuture?.cancel(false)
-        saveScheduler.shutdown()
-        try {
-            if (!saveScheduler.awaitTermination(5, TimeUnit.SECONDS)) log.warn("[Storify] Auto-save scheduler of '{}' did not stop within 5s", path)
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
+            try {
+                _data.block()
 
-        // Sans hook armé, la sauvegarde d'adieu est toujours due ; avec, seulement si le hook a pu être désarmé (sinon la JVM s'éteint déjà :
-        // le hook fait ou fera la sauvegarde, inutile de doubler).
-        val farewellDue = !isShutdownHookArmed || try {
-            Runtime.getRuntime().removeShutdownHook(shutdownHook)
-        } catch (_: IllegalStateException) {
-            false
-        }
+                // C-05, opt-in : la transaction se valide en bloc ; en échec, tout est restauré.
+                if (config.validateOnUpdate) {
+                    val result = runValidation(_data)
+                    if (result is ValidationResult.Failure && backupSnapshot != null) {
+                        _data = backupSnapshot
+                        return@write TransactionOperation(CapturedValue.DeepCopy(backupSnapshot), CapturedValue.Unavailable, success = false, validationError = result.formatFull())
+                    }
+                }
+                markDirty()
 
-        if (farewellDue && isDirty) save(SaveTrigger.CLOSE)
-        log.info("[Storify] Store '{}' closed.", path)
-    }
+                if (onUpdateCallbacks.isEmpty()) {
+                    TransactionOperation(CapturedValue.Unavailable, CapturedValue.Unavailable) // C-25 : pas de copie d'après sans public (le secours du rollback, lui, a déjà été pris)
+                } else if (config.useDeepCopy && backupSnapshot != null) {
+                    val o = CapturedValue.DeepCopy(backupSnapshot)
+                    val n = CapturedValue.DeepCopy(copyRoot(_data))
+                    TransactionOperation(o, n)
+                } else TransactionOperation(CapturedValue.Unavailable, CapturedValue.Shallow(_data))
 
-    // ── Enregistrement de callbacks ──
-    override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
-        onSaveCallbacks.add(callback)
-        // La référence du prochain `old` se prend à l'arrivée du premier auditeur, tant que la mémoire est encore l'état du dernier save ;
-        // un store en lecture seule ne sauve jamais, il n'a pas de référence à tenir (C-41).
-        if (config.useDeepCopy && !config.readOnly && _lastSavedData == null) dataLock.read {
-            if (!isDirty && _lastSavedData == null) _lastSavedData = copyRoot(_data)
-        }
-    }
-
-    override fun registerOnReload(callback: (Operation<DATA>) -> Unit) {
-        onReloadCallbacks.add(callback)
-    }
-
-    override fun registerOnUpdate(callback: (Operation<DATA>) -> Unit) {
-        if (config.defaultUpdatePolicy == UpdatePolicy.SKIP && updatePolicies.isEmpty()) {
-            log.warn("[Storify] Update callback registered but defaultUpdatePolicy is SKIP and no property carries a policy: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)")
-        }
-        onUpdateCallbacks.add(callback)
-    }
-
-    override fun registerOnUpdateOn(prop: KProperty1<DATA, *>, callback: (Operation<DATA>) -> Unit) {
-        warnIfSilent(prop)
-        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(null, callback))
-    }
-
-    override fun <R : Any> registerOnUpdateOnIn(prop: KProperty1<R, *>, receiver: DATA.() -> R, callback: (Operation<DATA>) -> Unit) {
-        warnIfSilent(prop)
-        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(receiver, callback))
-    }
-
-    /** Le garde-fou C-22 : un callback d'update enregistré sur une propriété à policy effective SKIP restera muet. */
-    private fun warnIfSilent(prop: KProperty1<*, *>) {
-        if (getUpdatePolicy(prop) == UpdatePolicy.SKIP) {
-            log.warn("[Storify] Update callback registered on '{}' but its effective policy is SKIP: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)", prop.name)
-        }
-    }
-
-    /**
-     * Le résultat du pipeline d'update ([runUpdate]) : l'opération capturée (snapshots old/new) et sa cible,
-     * prêtes à être dispatchées aux callbacks **hors du lock**.
-     */
-    private class UpdateOutcome<DATA : Any>(
-        val operation: Operation<DATA>,
-        val prop: KProperty1<*, *>,
-        val receiver: Any
-    )
-
-    /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
-    private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
-
-    /**
-     * Dispatche une [UpdateOutcome] aux callbacks enregistrés.
-     * **Doit être appelé hors du [dataLock].**
-     */
-    private fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
-        onUpdateCallbacks.forEach { it(outcome.operation) }
-        onUpdateCallbacksMap[outcome.prop]?.forEach { listener ->
-            val navigate = listener.navigate
-            if (navigate == null) {
-                listener.callback(outcome.operation)
-            } else {
-                // Réévaluée à chaque notification sur les données du moment : l'écouteur survit aux
-                // reloads, et une navigation qui échoue vaut « ne matche pas ».
-                val target = runCatching { data.navigate() }.getOrNull()
-                if (target === outcome.receiver) listener.callback(outcome.operation)
+            } catch (e: Exception) {
+                log.warn("[Storify] Transaction failed with exception, rolled back: {}", e.message)
+                if (backupSnapshot != null) _data = backupSnapshot
+                throw e
             }
         }
+        onUpdateCallbacks.forEach { it(operation) }
     }
-
-    /** Vrai si au moins un callback d'update écoute cette propriété (le global compris) ; sinon, le pipeline court-circuite les captures (C-25). */
-    private fun hasUpdateListeners(prop: KProperty1<*, *>): Boolean =
-        onUpdateCallbacks.isNotEmpty() || onUpdateCallbacksMap[prop]?.isNotEmpty() == true
-
-    /**
-     * Une valeur qu'une référence suffit à figer : `null`, une primitive, un `Char`, un `String` ou un enum. Elle n'est jamais copiée en
-     * profondeur. Le jugement porte sur la valeur, pas sur le type déclaré (C-45) : un type réifié `Int` est vu sous sa forme boxée.
-     */
-    private fun isImmutable(value: Any?): Boolean = when (value) {
-        null, is String, is Boolean, is Char, is Enum<*> -> true
-        is Byte, is Short, is Int, is Long, is Float, is Double -> true
-        is UByte, is UShort, is UInt, is ULong -> true
-        else -> false
-    }
-
-    /** La capture figée d'une valeur : une copie profonde par le copieur du format, ou la valeur elle-même quand elle est immuable. */
-    private fun <VALUE> frozen(value: VALUE, valueSerializer: () -> KSerializer<VALUE>): CapturedValue<VALUE> =
-        if (isImmutable(value)) CapturedValue.Shallow(value) else CapturedValue.DeepCopy(copier.copy(valueSerializer(), value))
 
     /**
      * Le pipeline central d'update : la mutation sous le write lock, puis le dispatch des callbacks hors du lock. Une fonction ordinaire
@@ -643,54 +470,172 @@ class BaseStore<DATA : Any> internal constructor(
         if (outcome != null) dispatchUpdateCallbacks(outcome)
     }
 
-    /** Le point d'entrée de `set` et `setIn` (C-45) : l'extension inline y arrive avec le sérialiseur de la valeur, matérialisé à son site réifié. */
-    @PublishedApi
-    internal fun <RECEIVER : Any, VALUE> setValue(property: KMutableProperty1<RECEIVER, VALUE>, newValue: VALUE, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER) =
-        runUpdate(property, inPlace = false, valueSerializer, getReceiver, applyUpdate = { receiver -> property.set(receiver, newValue) }, createOperation = { old, new -> SetOperation(property, old, new) })
+    /**
+     * Le résultat du pipeline d'update ([runUpdate]) : l'opération capturée (snapshots old/new) et sa cible,
+     * prêtes à être dispatchées aux callbacks **hors du lock**.
+     */
+    private class UpdateOutcome<DATA : Any>(
+        val operation: Operation<DATA>,
+        val prop: KProperty1<*, *>,
+        val receiver: Any
+    )
 
-    /** Le point d'entrée de `mutate` et `mutateIn` (C-45), sur le même principe. */
-    @PublishedApi
-    internal fun <RECEIVER : Any, VALUE : Any> mutateValue(property: KProperty1<RECEIVER, VALUE>, valueSerializer: () -> KSerializer<VALUE>, getReceiver: DATA.() -> RECEIVER, block: (VALUE) -> Unit) =
-        runUpdate(property, inPlace = true, valueSerializer, getReceiver, applyUpdate = { receiver -> block(property.get(receiver)) }, createOperation = { old, new -> MutateOperation(property, old, new) })
-
-    /** Le corps de `transaction` : la racine entière modifiée d'un bloc, tout ou rien, sous le write lock. */
-    internal fun transactionInternal(block: DATA.() -> Unit) {
-        checkWritable()
-        val operation: Operation<DATA> = dataLock.write {
-            val backupSnapshot: DATA? = if (config.useDeepCopy) copyRoot(_data) else null
-
-            try {
-                _data.block()
-
-                // C-05, opt-in : la transaction se valide en bloc ; en échec, tout est restauré.
-                if (config.validateOnUpdate) {
-                    val result = runValidation(_data)
-                    if (result is ValidationResult.Failure && backupSnapshot != null) {
-                        _data = backupSnapshot
-                        return@write TransactionOperation(CapturedValue.DeepCopy(backupSnapshot), CapturedValue.Unavailable, success = false, validationError = result.formatFull())
-                    }
-                }
-                markDirty()
-
-                if (onUpdateCallbacks.isEmpty()) {
-                    TransactionOperation(CapturedValue.Unavailable, CapturedValue.Unavailable) // C-25 : pas de copie d'après sans public (le secours du rollback, lui, a déjà été pris)
-                } else if (config.useDeepCopy && backupSnapshot != null) {
-                    val o = CapturedValue.DeepCopy(backupSnapshot)
-                    val n = CapturedValue.DeepCopy(copyRoot(_data))
-                    TransactionOperation(o, n)
-                } else TransactionOperation(CapturedValue.Unavailable, CapturedValue.Shallow(_data))
-
-            } catch (e: Exception) {
-                log.warn("[Storify] Transaction failed with exception, rolled back: {}", e.message)
-                if (backupSnapshot != null) _data = backupSnapshot
-                throw e
+    /**
+     * Dispatche une [UpdateOutcome] aux callbacks enregistrés.
+     * **Doit être appelé hors du [dataLock].**
+     */
+    private fun dispatchUpdateCallbacks(outcome: UpdateOutcome<DATA>) {
+        onUpdateCallbacks.forEach { it(outcome.operation) }
+        onUpdateCallbacksMap[outcome.prop]?.forEach { listener ->
+            val navigate = listener.navigate
+            if (navigate == null) {
+                listener.callback(outcome.operation)
+            } else {
+                // Réévaluée à chaque notification sur les données du moment : l'écouteur survit aux
+                // reloads, et une navigation qui échoue vaut « ne matche pas ».
+                val target = runCatching { data.navigate() }.getOrNull()
+                if (target === outcome.receiver) listener.callback(outcome.operation)
             }
         }
-        onUpdateCallbacks.forEach { it(operation) }
     }
 
-    /** Écrit le fichier initial quand aucun fichier n'existait (premier lancement). */
-    private fun writeInitialFile() = dataLock.read { atomicWrite(path) { temp -> format.encodeToPath(dataSerializer, _data, temp) } }
+    /** Vrai si au moins un callback d'update écoute cette propriété (le global compris) ; sinon, le pipeline court-circuite les captures (C-25). */
+    private fun hasUpdateListeners(prop: KProperty1<*, *>): Boolean =
+        onUpdateCallbacks.isNotEmpty() || onUpdateCallbacksMap[prop]?.isNotEmpty() == true
+
+    /** La capture figée d'une valeur : une copie profonde par le copieur du format, ou la valeur elle-même quand elle est immuable. */
+    private fun <VALUE> frozen(value: VALUE, valueSerializer: () -> KSerializer<VALUE>): CapturedValue<VALUE> =
+        if (isImmutable(value)) CapturedValue.Shallow(value) else CapturedValue.DeepCopy(copier.copy(valueSerializer(), value))
+
+    /**
+     * Une valeur qu'une référence suffit à figer : `null`, une primitive, un `Char`, un `String` ou un enum. Elle n'est jamais copiée en
+     * profondeur. Le jugement porte sur la valeur, pas sur le type déclaré (C-45) : un type réifié `Int` est vu sous sa forme boxée.
+     */
+    private fun isImmutable(value: Any?): Boolean = when (value) {
+        null, is String, is Boolean, is Char, is Enum<*> -> true
+        is Byte, is Short, is Int, is Long, is Float, is Double -> true
+        is UByte, is UShort, is UInt, is ULong -> true
+        else -> false
+    }
+
+    /**
+     * Marque les données modifiées : `meta.lastModified` et le drapeau dirty. Appelé par le pipeline d'update pour
+     * TOUTES les policies, [UpdatePolicy.SKIP] compris : la persistance ne dépend pas de l'observation.
+     */
+    private fun markDirty() {
+        if (config.withMeta) meta?.touch()
+        isDirty = true
+    }
+
+    /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
+    fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
+        if (!belongsToDataTree(prop)) {
+            log.warn("[Storify] Update policy set on '{}' but it does not belong to the data tree of '{}': it will never apply", prop.name, path)
+        }
+        updatePolicies[prop] = policy
+    }
+
+    /** Récupère la politique d'update d'une propriété. */
+    fun getUpdatePolicy(prop: KProperty1<*, *>): UpdatePolicy = updatePolicies[prop] ?: config.defaultUpdatePolicy
+
+    /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
+    internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
+
+    // ── Les callbacks ──
+
+    override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
+        onSaveCallbacks.add(callback)
+        // La référence du prochain `old` se prend à l'arrivée du premier auditeur, tant que la mémoire est encore l'état du dernier save ;
+        // un store en lecture seule ne sauve jamais, il n'a pas de référence à tenir (C-41).
+        if (config.useDeepCopy && !config.readOnly && lastSavedData == null) dataLock.read {
+            if (!isDirty && lastSavedData == null) lastSavedData = copyRoot(_data)
+        }
+    }
+
+    override fun registerOnReload(callback: (Operation<DATA>) -> Unit) {
+        onReloadCallbacks.add(callback)
+    }
+
+    override fun registerOnUpdate(callback: (Operation<DATA>) -> Unit) {
+        if (config.defaultUpdatePolicy == UpdatePolicy.SKIP && updatePolicies.isEmpty()) {
+            log.warn("[Storify] Update callback registered but defaultUpdatePolicy is SKIP and no property carries a policy: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)")
+        }
+        onUpdateCallbacks.add(callback)
+    }
+
+    override fun registerOnUpdateOn(prop: KProperty1<DATA, *>, callback: (Operation<DATA>) -> Unit) {
+        warnIfSilent(prop)
+        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(null, callback))
+    }
+
+    override fun <R : Any> registerOnUpdateOnIn(prop: KProperty1<R, *>, receiver: DATA.() -> R, callback: (Operation<DATA>) -> Unit) {
+        warnIfSilent(prop)
+        onUpdateCallbacksMap.computeIfAbsent(prop) { CopyOnWriteArrayList() }.add(TargetedListener(receiver, callback))
+    }
+
+    /** Le garde-fou C-22 : un callback d'update enregistré sur une propriété à policy effective SKIP restera muet. */
+    private fun warnIfSilent(prop: KProperty1<*, *>) {
+        if (getUpdatePolicy(prop) == UpdatePolicy.SKIP) {
+            log.warn("[Storify] Update callback registered on '{}' but its effective policy is SKIP: it will stay silent (annotate @StoreUpdatePolicy, set defaultUpdatePolicy, or call setUpdatePolicy)", prop.name)
+        }
+    }
+
+    /**
+     * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
+     * avec navigation il n'écoute que l'instance qu'elle désigne (comparaison par identité).
+     */
+    private class TargetedListener<DATA : Any>(
+        val navigate: (DATA.() -> Any)?,
+        val callback: (Operation<DATA>) -> Unit,
+    )
+
+    // ── La persistance ──
+
+    override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
+
+    /**
+     * Persiste [_data] sur disque et écrit le sidecar meta. Devant un auditeur de save, met aussi à jour le snapshot [lastSavedData] et
+     * déclenche les [onSaveCallbacks] **hors du lock** ; sans auditeur, ni copie ni opération (C-41).
+     */
+    private fun save(trigger: SaveTrigger) {
+        if (config.readOnly) {
+            if (trigger == SaveTrigger.IMMEDIATE) checkWritable() // lève : closed d'abord, read-only sinon
+            return // ni tick ni hook en lecture seule, et un tel store n'est jamais dirty : rien à faire pour les autres déclencheurs
+        }
+        if (closed.get()) {
+            when (trigger) {
+                SaveTrigger.IMMEDIATE -> throw IllegalStateException("[Storify] Store '$path' is closed")
+                SaveTrigger.AUTO_SAVE -> return // un tick en vol pendant la fermeture s'éteint sans bruit
+                else -> {} // CLOSE et SHUTDOWN : les sauvegardes de fin de vie passent
+            }
+        }
+        val operation: Operation<DATA>? = dataLock.read {
+            val listening = onSaveCallbacks.isNotEmpty()
+
+            val previous = lastSavedData
+            val oldCaptured: CapturedValue<DATA> = when {
+                previous == null -> CapturedValue.Unavailable
+                !hasSavedAtLeastOnce -> CapturedValue.Initial(previous)
+                else -> CapturedValue.DeepCopy(previous)
+            }
+
+            synchronized(saveIoLock) {
+                atomicWrite(path) { temp -> encodeDataTo(temp) }
+                if (config.withMeta) atomicWrite(metaPath) { temp -> metaFormat.encodeToPath(StoreMeta.serializer(), meta!!, temp) }
+            }
+            isDirty = false // après une écriture réussie seulement : un échec laisse le dirty au prochain tick
+            hasSavedAtLeastOnce = true
+
+            if (!listening) return@read null // personne n'écoute les saves : ni copie ni opération (C-41)
+
+            val snapshot = if (config.useDeepCopy) copyRoot(_data) else null
+            lastSavedData = snapshot
+            val newCaptured: CapturedValue<DATA> = if (snapshot != null) CapturedValue.DeepCopy(snapshot) else CapturedValue.Unavailable
+
+            SaveOperation(oldCaptured, newCaptured, trigger)
+        }
+        if (operation != null) onSaveCallbacks.forEach { it(operation) }
+    }
 
     /** Encode les données vers [temp] ; un format préservant reçoit en plus le texte actuel de la cible, pour ne réécrire que ce qui change (C-26). */
     private fun encodeDataTo(temp: Path) {
@@ -703,25 +648,61 @@ class BaseStore<DATA : Any> internal constructor(
         }
     }
 
-    // ── Écriture atomique ──
     /** Écrit par [AtomicFiles.write] (C-02, public, C-34) : temporaire voisin, flush, déplacement atomique, dossiers parents garantis pour tout format ; la cible est toujours une version entière, et le repli non atomique s'annonce sous le logger du store (C-37). */
     private fun atomicWrite(target: Path, encodeTo: (Path) -> Unit) = AtomicFiles.write(target, log, encodeTo)
 
-    /**
-     * Un écouteur ciblé : sans navigation il écoute sa propriété où que l'update soit émis,
-     * avec navigation il n'écoute que l'instance qu'elle désigne (comparaison par identité).
-     */
-    private class TargetedListener<DATA : Any>(
-        val navigate: (DATA.() -> Any)?,
-        val callback: (Operation<DATA>) -> Unit,
-    )
+    override fun pauseAutoSave() {
+        if (closed.get() || config.readOnly) return
+        autoSavePaused.set(true)
+        log.info("[Storify] Auto-save PAUSED")
+    }
 
-    /** Balaye les temporaires orphelins d'un crash passé, ceux du fichier et de son sidecar, au seul motif propre (C-28, [AtomicFiles.sweepOrphanTemps]). */
-    private fun sweepOrphanTemps() = AtomicFiles.sweepOrphanTemps(path, metaPath)
+    override fun resumeAutoSave() {
+        if (closed.get() || config.readOnly) return
+        autoSavePaused.set(false)
+        log.info("[Storify] Auto-save RESUMED")
+    }
+
+    override fun isAutoSavePaused(): Boolean = autoSavePaused.get()
+
+    // ── La fin de vie ──
+
+    /**
+     * Détache proprement le store : le tick d'auto-save est annulé, le planificateur arrêté (la JVM n'est
+     * plus retenue), le hook d'arrêt JVM désarmé, et les données encore dirty font une sauvegarde d'adieu
+     * ([SaveTrigger.CLOSE]). Idempotent. Un store fermé reste lisible ; toute écriture lève une [IllegalStateException].
+     */
+    override fun close() {
+        if (!closed.compareAndSet(false, true)) return
+
+        autoSaveFuture?.cancel(false)
+        saveScheduler.shutdown()
+        try {
+            if (!saveScheduler.awaitTermination(5, TimeUnit.SECONDS)) log.warn("[Storify] Auto-save scheduler of '{}' did not stop within 5s", path)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+
+        // Sans hook armé, la sauvegarde d'adieu est toujours due ; avec, seulement si le hook a pu être désarmé (sinon la JVM s'éteint déjà :
+        // le hook fait ou fera la sauvegarde, inutile de doubler).
+        val farewellDue = !isShutdownHookArmed || try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook)
+        } catch (_: IllegalStateException) {
+            false
+        }
+
+        if (farewellDue && isDirty) save(SaveTrigger.CLOSE)
+        log.info("[Storify] Store '{}' closed.", path)
+    }
+
+    /** Le corps du hook, testable sans éteindre la JVM : annule le tick en vol et, comme la sauvegarde d'adieu de [close], ne sauve que dirty (C-23). */
+    internal fun runShutdownHook() {
+        autoSaveFuture?.cancel(false)
+        if (isDirty) save(SaveTrigger.SHUTDOWN)
+    }
 
     private companion object {
         /** Le format du sidecar meta : toujours JSON, comme son nom `.meta.json` le promet, quel que soit le format du store (C-09). */
         val metaFormat = JsonFormat()
     }
-
 }

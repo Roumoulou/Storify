@@ -25,4 +25,4 @@ inline fun <reified DATA : Any, reified VALUE : Any> BaseStore<DATA>.mutate(prop
 
 inline fun <reified DATA : Any, reified RECEIVER : Any, reified VALUE : Any> BaseStore<DATA>.mutateIn(property: KProperty1<RECEIVER, VALUE>, noinline receiver: DATA.() -> RECEIVER, noinline block: (VALUE) -> Unit) = mutateValue(property, { serializer<VALUE>() }, receiver, block)
 
-fun <DATA : Any> BaseStore<DATA>.transaction(block: DATA.() -> Unit) = transactionInternal(block)
+fun <DATA : Any> BaseStore<DATA>.transaction(block: DATA.() -> Unit) = runTransaction(block)

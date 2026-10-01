@@ -10,14 +10,23 @@ import fr.moulou.storify.validation.ValidationResult
 import java.nio.file.Path
 import kotlin.reflect.KProperty1
 
+/** Le contrat d'un store, dans l'ordre de sa vie : l'état, la lecture et la validation, les callbacks, la persistance, la fin de vie. */
 interface Store<DATA : Any> : AutoCloseable {
 
-    val data: DATA
+    // L'état
+
     val path: Path
     val format: StoreFormat
+    val data: DATA
     val meta: StoreMeta?
 
-    fun saveImmediate()
+    /** `true` après [close] : le store reste lisible, mais fermé aux écritures. */
+    val isClosed: Boolean
+
+    /** `true` pour un store en lecture seule (C-30) : il lit, valide et relit, et refuse toute écriture. */
+    val isReadOnly: Boolean
+
+    // La lecture et la validation
 
     /**
      * Relit le fichier et remplace les données en mémoire, avec revalidation par défaut : en échec,
@@ -38,6 +47,8 @@ interface Store<DATA : Any> : AutoCloseable {
      * lignes quand le format sait les localiser. Un fichier qui ne se décode pas lève, comme au rechargement.
      */
     fun validateFile(): ValidationResult
+
+    // Les callbacks
 
     /**
      * Enregistre un callback de save : après chaque sauvegarde, il reçoit une `SaveOperation` qui porte la racine telle qu'au save précédent
@@ -69,17 +80,17 @@ interface Store<DATA : Any> : AutoCloseable {
      */
     fun <R : Any> registerOnUpdateOnIn(prop: KProperty1<R, *>, receiver: DATA.() -> R, callback: (Operation<DATA>) -> Unit)
 
+    // La persistance
+
+    fun saveImmediate()
+
     fun pauseAutoSave()
 
     fun resumeAutoSave()
 
     fun isAutoSavePaused(): Boolean
 
-    /** `true` pour un store en lecture seule (C-30) : il lit, valide et relit, et refuse toute écriture. */
-    val isReadOnly: Boolean
-
-    /** `true` après [close] : le store reste lisible, mais fermé aux écritures. */
-    val isClosed: Boolean
+    // La fin de vie
 
     /** Détache proprement le store : tick annulé, planificateur arrêté, hook JVM désarmé, sauvegarde d'adieu si dirty. Idempotent. */
     override fun close()

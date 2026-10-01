@@ -486,6 +486,19 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `mod_version=0.4.0-SNAPSHOT` ; le README (coordonnées, la recette de la section 4), le readme et le contexte du classeur, le chapitre 5 du
   contexte d'AegisPerms ; un build propre sans cache de build, le jar et le POM relus ; publiée sur Repsy par l'utilisateur, avec le jeton, build 1
   du snapshot ; le catalogue du banc passe à `0.4.0-SNAPSHOT` et le banc construit en mode `repsy` sur l'artefact publié.
+- [x] **C-52 : `BaseStore` au cordeau** (S ; LECTURE). Le fichier s'est construit par accrétion : des fonctions mêlées aux champs (`replaceData`
+  entre `data` et son origine, `markDirty` entre `isDirty` et l'auto-save, les gardes entre le hook et les callbacks), `init` au milieu, après
+  trois méthodes publiques, et ses aides hors de l'ordre où il les appelle, des titres de section pour la moitié du fichier, `TargetedListener`
+  et `DataOrigin` loin de leurs usages, quatre champs à underscore dont un seul double une propriété publique (d'où le `@Suppress("PropertyName")`
+  sur la classe), `StoreConfig`, type public de l'API, logé dans le fichier du store, et une KDoc de classe restée au brief d'origine.
+  **Fait le 2026-10-01** : le corps de la classe suit les conventions Kotlin (les propriétés et `init` d'abord, les méthodes par sujet, les
+  classes imbriquées à côté de leurs usages, le companion en dernier) dans le sens de la vie d'un store, une section par étape : l'état en sept
+  groupes (l'identité, les données et leur verrou, la persistance, l'auto-save, la fin de vie, les callbacks, les policies), l'ouverture (`init`
+  puis ses aides dans l'ordre où il les appelle), les aides communes, la lecture et la validation, les mises à jour, les callbacks, la
+  persistance, la fin de vie ; `Store.kt` rangé dans le même ordre ; `StoreConfig` dans `core\StoreConfig.kt` ; `dataOrigin`, `lastSavedData` et
+  `hasSavedAtLeastOnce` sans underscore, `_data` le garde en champ de secours de `data`, le `@Suppress` retiré ; `transactionInternal` devenu
+  `runTransaction`, par symétrie avec `runUpdate` ; la KDoc de la classe dit ses quatre invariants et renvoie à `architecture.md`. Aucune ligne
+  de logique ne change : la suite entière et le banc en composite en font la preuve.
 
 ## 5. P3, la vision
 
@@ -561,4 +574,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-51 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-52 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
