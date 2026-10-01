@@ -13,7 +13,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-09-30 (291 tests), sur la stack ci-dessous.
+- Build et tests : verts au 2026-10-01 (311 tests), sur la stack ci-dessous.
 - L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
@@ -31,12 +31,13 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 2. Les fonctionnalités
 
-- **Trois formats de fichier fournis** : JSON (`JsonFormat`, le JSON standard, strict à la lecture : un commentaire ou une clé sans guillemets
-  font échouer le chargement avec la ligne, comme une clé inconnue ; `JsonFormat.lenient()` les tolère), TOML (`TomlFormat`) et JSON5
-  (`Json5Format`, le JSON des configs éditées à la main : commentaires, clés nues, virgules traînantes, et des sauvegardes qui **préservent**
-  les commentaires et le style), résolus par l'extension du chemin quand on ne les précise pas ; un BOM UTF-8 en tête de fichier (le Bloc-notes
-  en pose un) est toléré à la lecture et jamais écrit ; et un vrai point d'extension (C-09) : un format tiers implémente `StoreFormat` et
-  s'enregistre par `StoreFormats.registerFormat`.
+- **Trois formats de fichier fournis** : JSON (`JsonFormat`, le JSON standard, strict à la lecture : un commentaire, une clé sans guillemets ou
+  une clé déclarée deux fois dans le même objet font échouer le chargement avec la ligne, comme une clé inconnue ; `JsonFormat.lenient()` les
+  tolère), TOML (`TomlFormat`, qui refuse aussi une clé en double, par sa spécification) et JSON5 (`Json5Format`, le JSON des configs éditées à
+  la main : commentaires, clés nues, virgules traînantes, et des sauvegardes qui **préservent** les commentaires et le style ; une clé en double
+  y est refusée aussi, avec sa ligne), résolus par l'extension du chemin quand on ne les précise pas ; un BOM UTF-8 en tête de fichier (le
+  Bloc-notes en pose un) est toléré à la lecture et jamais écrit ; et un vrai point d'extension (C-09) : un format tiers implémente
+  `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
 - **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
   `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar, copiée telle quelle au premier lancement (le fichier
   que l'admin trouve est celui que le mod a livré, commentaires compris).
@@ -68,9 +69,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   détaillé enrichi des numéros de ligne pour JSON et JSON5, clés de map comprises ; des défauts invalides ne créent jamais de fichier sur
   disque. En option non recommandée, `validateOnUpdate` valide chaque update, avec rollback et opération d'échec.
 - **Des fautes de fichier lisibles** : un fichier qui ne se lit pas ou ne se décode pas lève `StoreDecodeException` (le chemin, le format, la
-  ligne quand elle se lit dans le message du parseur, la cause conservée) ; elle et `ValidationException` descendent de `StorifyException`, un
-  seul `catch` pour tout ce qui vient du fichier ; les fautes du code (écrire sur un store fermé ou en lecture seule) restent des
-  `IllegalStateException`.
+  ligne quand elle se lit dans le message du parseur ou qu'une clé en double la donne, la cause conservée) ; elle et `ValidationException`
+  descendent de `StorifyException`, un seul `catch` pour tout ce qui vient du fichier ; les fautes du code (écrire sur un store fermé ou en
+  lecture seule) restent des `IllegalStateException`.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
   aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
@@ -197,8 +198,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
-ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou) : des tests ordonnés par étape, qui impriment ce que la lib
-fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
+ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou, clés en double) : des tests ordonnés par étape, qui impriment
+ce que la lib fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le
+banc :
 `.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le

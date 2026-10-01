@@ -6,7 +6,9 @@ package fr.moulou.storify
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
 import fr.moulou.storify.utils.withoutUtf8Bom
+import fr.moulou.storify.validation.DuplicateKeyException
 import fr.moulou.storify.validation.ErrorLineLocator
+import fr.moulou.storify.validation.JsonDuplicateKeys
 import fr.moulou.storify.validation.JsonLineLocator
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
@@ -14,9 +16,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import li.songe.json5.Json5
+import li.songe.json5.Json5Array
 import li.songe.json5.Json5EditConfig
 import li.songe.json5.Json5EncoderConfig
+import li.songe.json5.Json5Object
 import li.songe.json5.Json5Path
+import li.songe.json5.Json5Value
 import li.songe.json5.putProperty
 import li.songe.json5.remove
 import li.songe.json5.set
@@ -47,6 +52,12 @@ import kotlin.io.path.writeText
  * s'écrivent et se relisent, comme en JSON (C-36) ; les refuser ferait échouer chaque sauvegarde du
  * store, loin du code qui a produit la valeur. Le constructeur accepte tout `Json` : celui d'un
  * consommateur est pris tel quel.
+ *
+ * Une clé déclarée deux fois dans le même objet est refusée (C-50), par [DuplicateKeyException], que le
+ * store rend en [StoreDecodeException] avec la ligne de la seconde occurrence : le texte est parsé en
+ * document, dont l'AST garde les deux membres (noms décodés de leurs échappements et de leurs
+ * guillemets), et parcouru après le contrôle de syntaxe, avant la conversion en arbre, où la brique ne
+ * garderait que la dernière valeur.
  */
 class Json5Format(
     private val json: Json = Json {
@@ -64,7 +75,27 @@ class Json5Format(
     override fun lineLocator(): ErrorLineLocator = JsonLineLocator
 
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return json.decodeFromJsonElement(deserializer, Json5.parseToJsonElement(path.readText().withoutUtf8Bom()))
+        val document = Json5.parseToDocument(path.readText().withoutUtf8Bom())
+        val element = document.toJsonElement() // un texte mal formé lève ici, avant toute recherche de doublon
+        document.root?.let { root -> firstDuplicate(root, document.source)?.let { throw DuplicateKeyException(it.key, it.line) } }
+        return json.decodeFromJsonElement(deserializer, element)
+    }
+
+    /** Le premier doublon de l'AST, dans l'ordre du texte (C-50) : les noms décodés comparés objet par objet, la ligne comptée depuis l'offset. */
+    private fun firstDuplicate(value: Json5Value, source: String): JsonDuplicateKeys.Duplicate? {
+        when (value) {
+            is Json5Object -> {
+                val seen = HashSet<String>()
+                for (property in value.properties) {
+                    val name = property.name.value
+                    if (!seen.add(name)) return JsonDuplicateKeys.Duplicate(name, source.substring(0, property.name.range.start).count { it == '\n' } + 1)
+                    firstDuplicate(property.value, source)?.let { return it }
+                }
+            }
+            is Json5Array -> for (element in value.elements) firstDuplicate(element, source)?.let { return it }
+            else -> {}
+        }
+        return null
     }
 
     override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {

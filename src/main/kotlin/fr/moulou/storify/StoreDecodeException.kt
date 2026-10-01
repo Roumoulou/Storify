@@ -3,6 +3,7 @@
 
 package fr.moulou.storify
 
+import fr.moulou.storify.validation.DuplicateKeyException
 import java.nio.file.Path
 
 /**
@@ -14,7 +15,10 @@ class StoreDecodeException(
     val path: Path,
     val format: StoreFormat,
     cause: Throwable,
-    /** La ligne fautive, au mieux : l'offset de kotlinx ou l'index de json5 converti en ligne, le `(L2)` de tomlkt tel quel, `null` sinon. */
+    /**
+     * La ligne fautive, au mieux : celle que porte une [DuplicateKeyException] (C-50), l'offset de kotlinx ou l'index de json5 converti en
+     * ligne, le `(L2)` de tomlkt tel quel, `null` sinon.
+     */
     val line: Int? = lineOf(path, cause),
 ) : StorifyException(buildMessage(path, format, line, cause), cause) {
 
@@ -24,8 +28,9 @@ class StoreDecodeException(
             return "[Storify] Cannot decode '$path' (${format::class.simpleName})$where: ${cause.message ?: cause::class.simpleName}"
         }
 
-        /** Une heuristique sur le message du parseur : un offset ou un index en caractères devient une ligne en comptant les retours à la ligne du fichier jusque-là. */
+        /** La ligne d'un doublon, sinon une heuristique sur le message du parseur : un offset ou un index en caractères devient une ligne en comptant les retours à la ligne du fichier jusque-là. */
         fun lineOf(path: Path, cause: Throwable): Int? {
+            if (cause is DuplicateKeyException) return cause.line
             val message = cause.message ?: return null
             Regex("""\(L(\d+)\)""").find(message)?.let { return it.groupValues[1].toInt() }
             val offset = Regex("""\b(?:offset|index) (\d+)""").find(message)?.groupValues?.get(1)?.toIntOrNull() ?: return null

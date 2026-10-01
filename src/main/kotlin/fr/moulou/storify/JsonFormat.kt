@@ -6,7 +6,9 @@ package fr.moulou.storify
 import fr.moulou.storify.utils.DeepCopier
 import fr.moulou.storify.utils.JsonTreeCopier
 import fr.moulou.storify.utils.withoutUtf8Bom
+import fr.moulou.storify.validation.DuplicateKeyException
 import fr.moulou.storify.validation.ErrorLineLocator
+import fr.moulou.storify.validation.JsonDuplicateKeys
 import fr.moulou.storify.validation.JsonLineLocator
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -18,19 +20,24 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
+import kotlin.io.path.readText
 
 /**
  * Le format JSON : le JSON standard, strict à la lecture (C-36). Un commentaire, une clé ou une chaîne sans guillemets échouent au décodage
- * comme une virgule finale ou une clé inconnue, et le store lève [StoreDecodeException] avec la ligne ; le fichier édité à la main qui veut
- * ces libertés a son format, [Json5Format]. Le défaut garde `prettyPrint` et `encodeDefaults` (un fichier lisible qui porte tous ses
- * champs), `allowStructuredMapKeys` (une map à clés structurées s'écrit en tableau ; le réglage ne tolère aucune syntaxe) et
+ * comme une virgule finale ou une clé inconnue, et une clé déclarée deux fois dans le même objet aussi (C-50, [DuplicateKeyException]
+ * levée après le décodage, pour qu'un texte mal formé reste diagnostiqué par le parseur) ; le store lève [StoreDecodeException] avec la
+ * ligne, celle de la seconde occurrence pour un doublon. Le fichier édité à la main qui veut ces libertés a son format, [Json5Format]. Le défaut garde `prettyPrint` et `encodeDefaults` (un fichier lisible qui porte tous ses champs),
+ * `allowStructuredMapKeys` (une map à clés structurées s'écrit en tableau ; le réglage ne tolère aucune syntaxe) et
  * `allowSpecialFloatingPointValues` (un `NaN` s'écrit et se relit : le refuser ferait échouer chaque sauvegarde du store, loin du code qui
  * a produit la valeur).
  *
- * [lenient] rend le lecteur tolérant, et le constructeur accepte tout `Json` : un consommateur qui veut ses propres réglages le passe.
+ * [lenient] rend le lecteur tolérant, et le constructeur accepte tout `Json` : un consommateur qui veut ses propres réglages le passe. Le
+ * doublon n'est refusé que par un `Json` strict, ni `isLenient` ni `allowComments` : le lecteur tolérant, comme celui d'un consommateur
+ * qui admet les commentaires ou les clés nues, garde la dernière valeur, celle de kotlinx.
  *
- * Le fichier se lit et s'écrit par un flux tamponné (C-48) : kotlinx produit et consomme le texte par petits morceaux, et chacun partirait
- * au système d'exploitation en appel séparé sur le flux nu ; mesuré, l'encodage de 794 Ko passe de 88,7 ms à 4,7 ms.
+ * Le fichier s'écrit par un flux tamponné (C-48) : kotlinx produit le texte par petits morceaux, et chacun partirait au système
+ * d'exploitation en appel séparé sur le flux nu ; mesuré, l'encodage de 794 Ko passe de 88,7 ms à 4,7 ms. Le lecteur tolérant lit par le
+ * même flux ; le strict lit le texte entier, le passe à [JsonDuplicateKeys] puis le décode (C-50 : 1,5 ms de plus par 794 Ko).
  */
 class JsonFormat(
     private val json: Json = standardJson()
@@ -58,9 +65,16 @@ class JsonFormat(
 
     override fun lineLocator(): ErrorLineLocator = JsonLineLocator
 
+    /** Le strict de C-36, qui refuse aussi une clé en double (C-50) : un `Json` ni `isLenient` ni `allowComments`. */
+    private val rejectsDuplicateKeys = !json.configuration.isLenient && !json.configuration.allowComments
+
     @OptIn(ExperimentalSerializationApi::class)
     override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return path.inputStream().buffered().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
+        if (!rejectsDuplicateKeys) return path.inputStream().buffered().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
+        val text = path.readText().withoutUtf8Bom()
+        val decoded = json.decodeFromString(deserializer, text) // un texte mal formé lève ici, avant toute recherche de doublon
+        JsonDuplicateKeys.firstDuplicate(text)?.let { throw DuplicateKeyException(it.key, it.line) }
+        return decoded
     }
 
     @OptIn(ExperimentalSerializationApi::class)

@@ -218,7 +218,8 @@ store, `StoreFormat.validateFile(path, deserializer, validator)` décode, valide
 
 Les fautes du fichier ont une famille (C-33) : `StorifyException`, ancêtre de `ValidationException` (bien formé mais invalide) et de
 `StoreDecodeException` (illisible ou mal formé : le chemin, le format, la ligne quand elle se lit dans le message du parseur, l'offset de kotlinx
-et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, et la cause conservée). Tout décodage fait pour un consommateur passe par
+et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, celle que porte la `DuplicateKeyException` d'une clé en double, C-50, et la
+cause conservée). Tout décodage fait pour un consommateur passe par
 `StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut `decodeFromPath` restant
 intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`. Une
 `StorifyException` levée à l'initialisation d'un mod n'est rattrapée par personne : en solo Minecraft, une `ValidationException` au chargement
@@ -241,15 +242,27 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 
 | Format | Réglages | Particularités |
 |---|---|---|
-| `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36) ; crée les dossiers parents à l'écriture ; lit et écrit par un flux tamponné (C-48) |
-| `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (C-04) |
-| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent |
+| `JsonFormat` | prettyPrint, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues ; `lenient()` ajoute isLenient et allowComments | Le JSON standard, strict à la lecture (C-36), une clé en double refusée (C-50) ; crée les dossiers parents à l'écriture ; écrit par un flux tamponné (C-48), le lecteur strict lit le texte entier, le tolérant par le flux |
+| `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (C-04) ; une clé en double refusée par tomlkt, avec sa ligne |
+| `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent ; une clé en double refusée, par l'AST de la brique (C-50) |
 
 `JsonFormat` lit le JSON standard et rien d'autre (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une
 virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` avec la ligne. `NaN` et les infinis restent tolérés, à l'écriture comme
 à la lecture, parce qu'un refus ferait échouer chaque sauvegarde du store loin du code qui a produit la valeur, quand un `NaN` écrit se relit ;
 `allowStructuredMapKeys` ne tolère aucune syntaxe (une map à clés textuelles écrite en tableau est refusée), il permet une map à clés structurées.
 `JsonFormat.lenient()` rend le lecteur tolérant, et le constructeur accepte tout `Json`.
+
+Une clé déclarée deux fois dans le même objet est refusée dans les trois formats (C-50), par `StoreDecodeException` avec la ligne de la seconde
+occurrence, sous le même `catch` que les autres fautes du fichier ; sans cela, kotlinx comme la brique json5 gardent la dernière valeur, avant le
+code du consommateur, qui ne peut rien voir. En JSON, c'est l'affaire du lecteur strict (un `Json` ni `isLenient` ni `allowComments`) :
+`decodeFromPath` lit le texte entier, le décode (un texte mal formé est diagnostiqué par kotlinx, avant tout), puis le passe à
+`JsonDuplicateKeys` (`validation\`), qui empile les objets ouverts, garde les clés de chacun dans un ensemble et décode les chaînes de leurs
+échappements, si bien que `"ab"` et `"ab"` sont la même clé ; un doublon lève `DuplicateKeyException`, une `SerializationException` comme
+celles de kotlinx, que `decodeFile` enveloppe et dont `StoreDecodeException` lit la ligne. Le lecteur tolérant, comme tout `Json` d'un
+consommateur qui admet les commentaires ou les clés nues, n'y est pas soumis et garde la dernière valeur ; un format tiers n'a rien à savoir.
+Coût mesuré : 1,5 ms par 794 Ko, le chargement de 5 000 joueurs passant de 1,5 à 3,7 ms environ, rien sur une config. En JSON5, le texte est parsé
+en document (`parseToDocument`), dont l'AST garde les deux membres, noms décodés et plages source, et parcouru après le contrôle de syntaxe, avant
+la conversion en arbre ; en TOML, tomlkt refuse de lui-même, par sa spécification.
 
 `Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
 de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
@@ -324,5 +337,5 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-09-30, relu en entier contre `src\main` ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35
-et C-38 en attente).*
+*Dernière vérification : 2026-10-01, C-50 porté aux chapitres 8 et 9, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer
+est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35 et C-38 en attente).*

@@ -38,8 +38,6 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
   POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
 - **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
-- **Une clé en double passe en silence** en JSON et en JSON5 : la dernière valeur gagne avant le code du consommateur, et la sauvegarde JSON
-  efface la trace (C-50).
 - **Le banc ne se vérifie en jeu que côté serveur** : ses étages 0 et 1 sont vides, et le cycle solo du client, un monde fermé puis un autre
   ouvert dans la même session, n'a pas de gametest (les gametests clients de Fabric, un étage de plus à décider).
 - **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
@@ -451,7 +449,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   sondées à chaque tick, et l'auto-save des homes descend à 3 s par `-Dstoribench.autoSaveMs` ; le jeu range ses tâches planifiées par identité,
   replanifier le même `Runnable` le perd. Vert en composite et en mode `repsy` sur l'artefact publié, 18 s par run ; `runGameTest` est lancé par
   l'IA à chaque build, décision de l'utilisateur. Le cycle solo du client reste un étage de plus, à décider.
-- [ ] **C-50 : les clés en double refusées** (S/M ; AEGIS). Un objet JSON qui porte deux fois la même clé (`"vip"` déclaré deux fois dans `groups`)
+- [x] **C-50 : les clés en double refusées** (S/M ; AEGIS). Un objet JSON qui porte deux fois la même clé (`"vip"` déclaré deux fois dans `groups`)
   est accepté : kotlinx garde la dernière valeur, à l'arbre (`JsonTreeReader.readObjectImpl`, `result[key] = element` sur une `LinkedHashMap`,
   sources 1.11.0) comme au flux, aucun réglage du paquet `json` n'en parle jusqu'à la 1.12.0-RC, et ni `JsonFormat` ni la validation ne le voient.
   Pour un fichier de vérité édité à la main, un doublon efface une définition en silence, avant le code du consommateur, qui ne peut rien : la map
@@ -473,6 +471,15 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   imbriqué, dans une map ; la même clé dans deux objets différents, acceptée ; une clé échappée (`"ab"` contre `"ab"`), reconnue ; la ligne de
   la seconde occurrence ; le chargement initial, `reloadFromFile` mémoire intacte, `validateFile` avec et sans store, `lenient()` qui laisse passer ;
   les mêmes en JSON5 ; TOML épinglé. Docs : README section 2, `architecture.md` chapitre 9 ; la démo passe à sa forme « avant, depuis ».
+  **Fait le 2026-10-01**, avec deux retouches de design en route : le format lève une `DuplicateKeyException` nue (une `SerializationException`,
+  comme les fautes de kotlinx, dans `validation\JsonDuplicateKeys.kt` avec le scanner), que `decodeFile` enveloppe comme les autres et dont
+  `StoreDecodeException` lit la ligne, le contrat brut restant au niveau du parseur ; et le lecteur strict décode d'abord, puis cherche le
+  doublon, pour qu'un texte mal formé reste diagnostiqué par kotlinx. `JsonFormat` strict lit le texte entier (`readText`, `decodeFromString`,
+  le scanner), le tolérant lit par le flux, inchangé ; `Json5Format` parse par `parseToDocument`, convertit (la syntaxe d'abord) puis parcourt
+  l'AST ; TOML inchangé. Quinze tests dans `formats\DuplicateKeysTest` : les six de la demande, le contrat brut, le texte mal formé, le lecteur
+  tolérant et deux `Json` tolérants d'un consommateur, l'ouverture, le rechargement mémoire intacte, `validateFile` avec et sans store, JSON5
+  (clés nues, apostrophes, échappements, rechargement) et TOML épinglé ; la démo à sa forme « avant, depuis », le lecteur tolérant montrant
+  l'avant.
 
 ## 5. P3, la vision
 
@@ -548,5 +555,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-49 cochés, C-50 ouvert, C-35 et C-38 en attente ; les constats du banc à jour au
-2026-09-23.*
+*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-50 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
