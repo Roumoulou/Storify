@@ -14,7 +14,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-10-05 (323 tests), sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20, C-54 à C-56 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.

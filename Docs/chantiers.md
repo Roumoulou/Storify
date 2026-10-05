@@ -52,7 +52,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
   `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
   point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges ; `MMC` = la
-  remontée de ManyManyCommands du 2026-10-05, chapitre 5.2 de son `architecture.md`.
+  remontée de ManyManyCommands du 2026-10-05, chapitre 5.2 de son `architecture.md` ; `AEGIS-F` = la remontée de la session des fichiers
+  d'AegisPerms du 2026-10-05 (`S:\16\_V\AegisPerms\06-ai-fourre-tout\2026-10-05\demandes-a-storify.md`), vérifiée contre le code le même jour.
 
 ## 3. P1, les fondations
 
@@ -539,6 +540,73 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   tableau. Onze tests neufs dans `ErrorEnricherTest`, dont le chemin dont rien ne se retrouve, les onze existants sans retouche ; la suite à 323,
   le banc vert en composite, gametests compris. Le contournement de ManyManyCommands reste juste, et devient facultatif une fois le snapshot
   republié.
+- [ ] **C-54 : une fabrique au sérialiseur et aux défauts donnés** (S ; MMC). Les huit `create*` de `StoreFactory` tirent tout de la classe de
+  DATA : le sérialiseur de `serializer<DATA>()`, les données initiales de son companion `Defaultable`, de son constructeur sans argument, d'une
+  classe `Defaultable` instanciée de même, ou d'une ressource. Aucune porte publique ne prend ces deux-là en valeurs : les quatre `open*` sont
+  `@PublishedApi internal`, `open` est privé, le constructeur de `BaseStore` est `internal`. Un consommateur dont la forme du fichier naît d'une
+  valeur, pas d'une classe, doit donc déclarer une classe par fichier pour que la réflexion ait quelque chose à trouver. ManyManyCommands, le
+  2026-10-05 : ses cinq fichiers de règles se lisent par un seul sérialiseur paramétré par la table de la famille
+  (`RulesDocumentSerializer(table, wrap)`), leurs valeurs livrées viennent de la même table, et chaque famille porte pourtant sa classe
+  `<Famille>RulesDocument`, `@Serializable(with = Format::class)`, un `object Format` imbriqué et un constructeur sans argument : cinq classes
+  de même forme, sans autre rôle. L'intérieur est prêt à moitié depuis C-09 et C-46 : `open` reçoit déjà le sérialiseur et le fournisseur des
+  données initiales en paramètres, mais il exige la `KClass` de DATA, lit ses annotations et la nomme dans ses messages ; il se scinde entre la
+  lecture des annotations et la résolution. Les trois questions. Utile, pour qui : un consommateur aujourd'hui, ManyManyCommands, et tout mod
+  dont un fichier se décrit par un schéma ou un sérialiseur composé à l'exécution ; ses autres fichiers, des data classes, n'en ont pas besoin.
+  Vaut-elle la peine : une fonction publique ordinaire, la scission d'`open`, ses tests et la doc, sans changement pour les appelants en place ;
+  le risque est une entrée de plus à tenir stable dans l'API ; l'alternative est le statu quo, qui marche et que les tests du consommateur
+  couvrent, d'où un confort et non une urgence. Propre et cohérente : c'est la cinquième source de données initiales, le code de l'appelant, à
+  côté des quatre de C-46, avec la même résolution, l'explicite puis le repli. Elle élargit aussi ce qu'un store accepte : le sérialiseur étant
+  donné, DATA n'a plus à être une classe `@Serializable`, une `Map<String, Int>` ou une classe sans annotation devient une racine légale, et la
+  doc, qui écrit « data class » partout, devra le dire. Piste de design, à valider :
+  `createFromProvider(serializer, stringPath, format, config, validator, provider)`, non `inline`, le sérialiseur en tête comme dans
+  `decodeFromPath(deserializer, path)`, le fournisseur en lambda finale, le chemin obligatoire, le format par l'extension et la config par
+  `StoreConfig()` quand ils manquent, aucune des cinq annotations de classe lue, la fabrique n'ayant pas de classe à interroger ;
+  `@StoreUpdatePolicy`, que le store lit lui-même sur la classe réelle des données, reste active. À trancher : le nom, si une `KClass`
+  optionnelle rouvre la lecture des annotations, et le numéro de version, une entrée de plus à l'API distinguant deux jars du même snapshot.
+  Limite à vérifier puis à écrire dans la KDoc : sous `SNAPSHOT`, `set` et `mutate` matérialisent `serializer<VALUE>()` chez l'appelant, et une
+  valeur dont le type n'est pas annoté ferait échouer la copie au premier update observé. Écarté : le constructeur de `BaseStore` rendu public,
+  qui contournerait la résolution et ferait de ses paramètres une API. Tests : le fichier absent créé depuis le fournisseur, le fichier présent
+  lu sans que le fournisseur soit appelé, le format par l'extension et le format donné, une extension inconnue sans format, refusée, le
+  validator appliqué à l'ouverture et au rechargement, une racine sans aucune annotation, une classe annotée dont les annotations sont
+  ignorées, le rollback d'une transaction par le sérialiseur donné. Docs : la KDoc de `StoreFactory` (« huit `create*` », « quatre points
+  d'entrée ») et celle de `BaseStore`, le README (les sources de données initiales, le tableau de l'API), `architecture.md` chapitre 3. Hors
+  périmètre : le retrait des cinq classes de ManyManyCommands, qui se fait chez lui une fois le snapshot republié.
+- [ ] **C-55 : le chemin d'une clé en double** (S/M ; AEGIS-F). `DuplicateKeyException` porte la clé et la ligne de sa seconde occurrence, pas son
+  chemin : le scanner `JsonDuplicateKeys` tient une pile des portées ouvertes, un ensemble de clés par objet et rien pour un tableau, sans la clé
+  sous laquelle chacune s'est ouverte ni le rang dans une liste. Un consommateur qui dit ses fautes par chemin, comme AegisPerms dont le cahier
+  des charges veut pour chaque constat « le fichier, le chemin JSON et la ligne », sort donc « `vip`, ligne 6 » sans pouvoir dire `groups.vip` :
+  son constat `DUPLICATE_KEY` porte un chemin vide. La ligne suffit à qui lit une console ; le chemin sert à une interface qui montre l'endroit
+  dans un arbre, et à un message qui nomme le groupe. Les trois questions. Utile : à un consommateur qui rend ses fautes par chemin, AegisPerms
+  aujourd'hui. Elle vaut la peine après C-56, qui pose le chemin sur `StoreDecodeException` : il reste à le remplir pour un doublon, le scanner
+  comptant en plus les rangs des tableaux. Cohérente : le chemin prend la forme des `PathSegment`, celle des erreurs de validation et du
+  localisateur. Design proposé : garder dans la pile, à côté de chaque portée, la clé qui l'a ouverte ou le rang dans sa liste, et rendre le
+  chemin dans `Duplicate`, dans `DuplicateKeyException`, puis dans `StoreDecodeException.valuePath` (C-56). JSON5 a le chemin dans son AST ;
+  TOML ne change pas, tomlkt écrivant déjà le chemin dans son message (`groups.vip (L7)`). Écarté : la liste de tous les doublons d'un fichier
+  (une fonction `allDuplicates`, la liste portée par l'exception). Un fichier à trois doublons demande trois rechargements, comme un fichier à
+  trois fautes de syntaxe : une faute de décodage se rend une à la fois, et la liste grossirait l'API pour un cas rare. Tests : un doublon à la
+  racine, dans un objet imbriqué, dans une map, sous un élément de liste, et les mêmes en JSON5.
+- [ ] **C-56 : la ligne et le chemin d'une faute de décodage sans offset** (S/M ; AEGIS-F). `StoreDecodeException.line` vaut `null` dès que le
+  message du parseur ne porte ni `offset`, ni `index`, ni `(L<n>)`, les seuls que lise `lineOf`. Mesuré le 2026-10-05, kotlinx 1.11.0, sur une
+  valeur hors d'un domaine fermé (`"mood": "FURIOUS"` pour une énumération), la faute de frappe la plus courante d'une configuration : en JSON,
+  « ... does not contain element with name 'FURIOUS' at path $.mood », sans offset ; en JSON5, décodé par l'arbre, le même message sans le
+  chemin ; en TOML, « -3 is not among valid ... enum values », qui ne nomme ni la valeur ni la clé. Les trois sortent sans ligne. En JSON
+  encore, un fichier vide (« Expected start of the object '{', but had 'EOF' instead at path: $ ») et un fichier coupé après une valeur
+  (« Expected end of the object '}', but had 'EOF' ») n'ont pas d'offset non plus ; un fichier coupé au milieu d'une chaîne garde le sien, et
+  JSON5 rend une ligne dans les deux cas. Le chemin n'existe donc que dans le texte du message JSON, sous deux graphies (`at path $.mood`,
+  `at path: $`), et rien de typé ne distingue une clé inconnue d'une valeur hors domaine. Les trois questions. Utile : à tout consommateur dont
+  une configuration porte une énumération. Elle vaut la peine en JSON : `lineOf` lit déjà l'offset du même message, et ces textes de kotlinx,
+  fragiles, se lisent alors à un seul endroit, dans la lib, sous des tests épinglés à sa version, plutôt que chez chaque consommateur.
+  L'alternative est un diagnostic par le schéma, l'arbre JSON parcouru contre le descripteur de la classe : ManyManyCommands
+  (`DocumentDiagnosis`) et AegisPerms (`FileInspection`) l'ont écrit chacun de leur côté ; il couvrirait JSON et JSON5, rendrait des fautes
+  typées, toutes à la fois, sans dépendre d'un message, et pèse un chantier L. Cohérente : la ligne vient du localisateur du format, borné par
+  C-53, et le chemin prend la forme des `PathSegment`. Design proposé : quand le message n'a pas d'offset mais porte « at path », lire ce
+  chemin sous ses deux graphies, le convertir en `PathSegment` et demander sa ligne au localisateur ; l'exposer sur l'exception, `valuePath`,
+  en `List<PathSegment>` (`path` y désigne déjà le fichier, et `jsonPath` exclurait TOML) ; pour une fin de fichier atteinte, rendre la
+  dernière ligne du fichier, ou 1 s'il est vide. À trancher : le nom `valuePath`, et le sort de JSON5 et de TOML, dont le message ne porte pas
+  le chemin et que ce design laisse sans ligne. Tests : une valeur d'énumération inconnue à la racine, dans un objet imbriqué et sous une clé
+  de map, un fichier vide, un fichier coupé après une valeur, le fichier coupé au milieu d'une chaîne épinglé à sa ligne d'aujourd'hui, JSON5
+  et TOML épinglés à leur `null`. AegisPerms ne dépend pas de ce chantier : il inspecte l'arbre JSON avant le décodage et donne lui-même chemin
+  et ligne ; son constat `MALFORMED_FILE` sort sans ligne pour un fichier vide.
 
 ## 5. P3, la vision
 
@@ -614,4 +682,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-05, C-28 à C-34, C-36, C-37, C-39 à C-53 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-05, C-28 à C-34, C-36, C-37, C-39 à C-53 cochés, C-54 à C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
+à jour au 2026-09-23.*
