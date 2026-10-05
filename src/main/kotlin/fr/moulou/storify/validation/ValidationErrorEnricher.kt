@@ -9,9 +9,10 @@ import java.nio.file.Path
 
 /**
  * Enrichit les [ValidationError] du numéro de ligne où le fichier porte leur chemin (C-32) : le localisateur du format
- * ([StoreFormat.lineLocator], la famille JSON aujourd'hui) parcourt les lignes du fichier pour chaque erreur ; une erreur dont le chemin ne se
- * retrouve pas, ou ne se lit pas, reste sans ligne et les autres gardent la leur. Un format sans localisateur, ou un fichier illisible,
- * rendent les erreurs inchangées.
+ * ([StoreFormat.lineLocator], la famille JSON aujourd'hui) parcourt les lignes du fichier pour chaque erreur. Une erreur dont le fichier
+ * n'écrit pas le chemin entier (une clé omise, qui a pris son défaut) reçoit au mieux la ligne de son plus proche ancêtre écrit (C-53) ;
+ * une erreur dont rien du chemin ne se retrouve, ou dont le chemin ne se lit pas, reste sans ligne et les autres gardent la leur. Un format
+ * sans localisateur, ou un fichier illisible, rendent les erreurs inchangées.
  */
 object ValidationErrorEnricher {
 

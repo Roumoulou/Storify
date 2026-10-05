@@ -51,7 +51,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Sources** : `B1` à `B4` = constats n° 1 à 4 de la section 6 du README du banc ; `CRASH` = le crash client du 2026-09-13 à 11:30 ;
   `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
   `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
-  point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges.
+  point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges ; `MMC` = la
+  remontée de ManyManyCommands du 2026-10-05, chapitre 5.2 de son `architecture.md`.
 
 ## 3. P1, les fondations
 
@@ -506,6 +507,38 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   l'appelant), `StoreFactory` (`open` avant `readAnnotations` qu'il appelle, les types imbriqués à la fin), `AtomicFiles` (le nom du temporaire
   et son motif sous leurs appelants), `Store` (ses commentaires de groupe retirés). Aucune ligne de logique ne change : un diff ligne à ligne
   hors ordre, la suite entière et le banc en composite en font la preuve.
+- [x] **C-53 : le localisateur borné à son parent** (S ; MMC). `JsonLineLocator.lineOf` ne s'arrête pas à la fin de l'objet où il cherche. Quand un
+  segment du chemin est absent de son parent, le parcours continue à la même profondeur dans la suite du fichier et rend la ligne d'une clé du même
+  nom portée par un autre objet, là où la KDoc d'`ErrorLineLocator` promet `null`. Mesuré le 2026-10-05 sur le jar de `build\libs` construit le
+  2026-10-01, le localisateur appelé seul : dans un fichier où le `quota` de `vip` n'écrit que `period` et celui de `staff`, plus bas, `uses` et
+  `period`, `rules[vip].quota.uses` rend la ligne du `uses` de `staff` ; une clé de map fait de même (`homes[spawn]` rend la ligne du `spawn` de
+  `warps`) ; un chemin absent de tout le fichier rend bien `null`. Le cas est ordinaire : une clé omise d'un fichier édité à la main prend le défaut
+  de sa data class, et si le validator refuse ce défaut, l'erreur porte un chemin que le fichier n'écrit pas. ManyManyCommands le contourne en
+  posant le constat d'une clé absente au chemin de l'objet qui devrait la porter. Lu dans le code et à mesurer par les tests : un index au-delà
+  de la fin de son tableau, ou présent mais écrit à plusieurs par ligne, prend pour élément toute ligne de même profondeur qui suit, et une ligne
+  qui ouvre deux niveaux (`"items": [{`) envoie la recherche dans le conteneur suivant. Aucun des onze tests d'`ErrorEnricherTest` ne couvre un
+  chemin absent de son parent. Périmètre : le parcours s'arrête quand la profondeur repasse sous celle où il cherche, pour une clé comme pour un
+  index, en JSON et en JSON5. Les tests viennent d'abord, rouges : la clé d'objet et la clé de map absentes, leurs pendants en JSON5 (clés nues,
+  apostrophes, commentaires), l'index hors de son tableau, l'index écrit à plusieurs par ligne, la ligne qui ouvre deux niveaux. La KDoc du
+  localisateur, celle de l'enrichisseur et le chapitre 8 d'`architecture.md` disent ce que rend un chemin absent. Hors périmètre : retrouver au
+  plus juste dans une mise en page que le localisateur ne sait pas compter, un localisateur pour TOML, la version de la lib. Les trois questions.
+  Utile : à tout consommateur dont le fichier s'édite à la main, parce qu'une ligne fausse égare plus qu'une ligne absente. Elle vaut la peine :
+  le correctif touche une seule fonction, pure, que les onze tests existants encadrent, et l'alternative laisse chaque consommateur découvrir le
+  défaut puis le contourner. Cohérente : le localisateur ne rend plus la ligne d'un objet étranger au chemin, ce que son contrat n'a jamais permis.
+  Deux questions de design : ce que rend un segment absent de son parent, `null` ou la ligne du dernier parent trouvé, au mieux, comme le fait déjà
+  une valeur qui tient sur la ligne de sa clé ; et si la réponse vaut pour un index hors de son tableau. **Fait le 2026-10-05, décision de
+  l'utilisateur : la ligne du dernier parent trouvé, pour une clé comme pour un index**, et `null` quand rien du chemin ne se retrouve. Neuf tests
+  rouges ont d'abord mesuré le défaut, dans les cas lus et dans un de plus : une ligne `}, {` referme un objet et rouvre le suivant sans que la
+  profondeur de fin de ligne bouge, et la clé absente du premier se prenait dans le second. Le parcours s'arrête donc dès qu'une fermeture, en
+  cours de ligne, mène la profondeur sous celle où il cherche (`LineScan.lowestClosing`), et rend la ligne du dernier segment retrouvé : celle du
+  `quota` de `vip` pour `rules[vip].quota.uses`, celle de `homes` pour `homes[spawn]`, celle du tableau pour un index hors de lui ou écrit à
+  plusieurs par ligne. La valeur en ligne suit la même règle jusque sur la ligne qui referme son parent (`"last": {"y": 1} },`) : mesuré sur le
+  jar publié, `a.last.x` y rendait la ligne d'un `x` porté par un autre objet. `ValidationError.line` désigne donc le chemin ou, au mieux, son
+  plus proche ancêtre écrit, ce que disent sa KDoc, celles d'`ErrorLineLocator`, de `JsonLineLocator` et de l'enrichisseur, le chapitre 8
+  d'`architecture.md` et le README. Reste assumé : dans un tableau qui mêle les deux styles, le compte peut désigner un élément voisin du même
+  tableau. Onze tests neufs dans `ErrorEnricherTest`, dont le chemin dont rien ne se retrouve, les onze existants sans retouche ; la suite à 323,
+  le banc vert en composite, gametests compris. Le contournement de ManyManyCommands reste juste, et devient facultatif une fois le snapshot
+  republié.
 
 ## 5. P3, la vision
 
@@ -581,4 +614,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-01, C-28 à C-34, C-36, C-37, C-39 à C-52 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-05, C-28 à C-34, C-36, C-37, C-39 à C-53 cochés, C-35 et C-38 en attente ; les constats du banc à jour au 2026-09-23.*

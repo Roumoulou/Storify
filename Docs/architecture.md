@@ -207,9 +207,13 @@ L'enrichisseur (`ValidationErrorEnricher`, public, C-32) retrouve ce numéro de 
 (`StoreFormat.lineLocator()` : `JsonLineLocator` pour JSON et JSON5, aucun pour TOML). Le chemin d'une erreur suit une grammaire (`ErrorPath`) :
 `a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map, les points permis entre crochets ; le localisateur
 parcourt le fichier ligne à ligne en suivant la profondeur des accolades et des crochets, hors chaînes et hors commentaires, reconnaît une clé sous
-ses trois graphies (`"clé"`, `'clé'`, `clé` nue) et compte les éléments d'un tableau, un par ligne. Limites assumées : une clé par ligne ; une
-valeur qui tient sur la ligne de sa clé (un tableau en ligne) rend cette ligne ; un chemin illisible laisse son erreur sans ligne, les autres
-gardent la leur.
+ses trois graphies (`"clé"`, `'clé'`, `clé` nue) et compte les éléments d'un tableau, un par ligne. Un segment ne se cherche que dans son parent
+(C-53) : quand le fichier n'écrit pas le chemin entier, la ligne rendue est celle de son plus proche ancêtre écrit, au mieux, et `null` si rien ne
+s'en retrouve. C'est le cas d'une clé omise qui a pris le défaut de sa data class (la ligne est celle de l'objet qui devrait la porter), d'un index
+au-delà de la fin de son tableau, et d'une valeur qui tient sur la ligne de sa clé (un tableau en ligne). Limites assumées : une clé ou un élément
+par ligne, ce qui s'en écarte (plusieurs éléments sur une ligne, un objet ouvert sur la ligne de sa clé de tableau) rendant la ligne de l'ancêtre,
+ou celle d'un élément voisin dans un tableau qui mêle les deux styles ; un chemin illisible laisse son erreur sans ligne, les autres gardent la
+leur.
 
 La validation joue à quatre moments (C-05, C-32) : au chargement initial, au `reloadFromFile` (revalidation par défaut : l'objet relu est validé
 AVANT de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), à la demande sur la mémoire via `validateNow()` (sans
@@ -337,5 +341,5 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-10-01, C-50 porté aux chapitres 8 et 9, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer
-est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35 et C-38 en attente).*
+*Dernière vérification : 2026-10-05, C-53 porté au chapitre 8, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main`
+le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 ; C-35 et C-38 en attente).*

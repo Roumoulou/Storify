@@ -9,7 +9,7 @@ data class ValidationError(
     val field: String? = null,
     val message: String,
     val rejectedValue: Any? = null,
-    /** La ligne du fichier qui porte l'erreur, quand le format sait la localiser (C-32). */
+    /** La ligne du fichier qui porte l'erreur, quand le format sait la localiser (C-32) ; au mieux celle de son plus proche ancêtre écrit, quand le fichier n'écrit pas le chemin entier (C-53). */
     val line: Int? = null
 ) {
     fun formatFull(): String {

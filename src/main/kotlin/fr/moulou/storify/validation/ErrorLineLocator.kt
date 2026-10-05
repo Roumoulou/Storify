@@ -65,16 +65,22 @@ object ErrorPath {
  * `StoreFormat.lineLocator()` ; à défaut, les erreurs restent sans ligne.
  */
 interface ErrorLineLocator {
-    /** La ligne (à partir de 1) que désignent les [segments], ou `null` si le chemin ne se retrouve pas. */
+    /**
+     * La ligne (à partir de 1) que désignent les [segments] ; quand le fichier n'écrit pas le chemin entier, au mieux celle de son plus proche
+     * ancêtre écrit (C-53) ; `null` si rien du chemin ne se retrouve.
+     */
     fun lineOf(lines: List<String>, segments: List<PathSegment>): Int?
 }
 
 /**
  * Le localisateur de la famille JSON (JSON et JSON5) : le fichier est parcouru ligne à ligne en suivant la profondeur des accolades et des
  * crochets, hors chaînes (`"` et `'`) et hors commentaires (`//` et `/* */`). Une clé se reconnaît en tête de ligne sous ses trois graphies,
- * `"clé"`, `'clé'` ou `clé` nue ; un index compte les éléments d'un tableau, un par ligne. Une valeur qui tient sur la ligne de sa clé (un
- * scalaire, un tableau ou un objet en ligne) rend cette ligne pour tout ce qui la suit : au mieux, pas au plus juste. Limite assumée : une
- * clé par ligne, le style qu'écrit Storify et qu'un fichier édité à la main garde presque toujours.
+ * `"clé"`, `'clé'` ou `clé` nue ; un index compte les éléments d'un tableau, un par ligne. Un segment ne se cherche que dans son parent
+ * (C-53) : quand le parent se referme sans le porter, ou que sa valeur tient sur la ligne de sa clé (un scalaire, un tableau ou un objet en
+ * ligne), la ligne rendue est celle du dernier segment retrouvé, au mieux et pas au plus juste. Limite assumée : une clé ou un élément par
+ * ligne, le style qu'écrit Storify et qu'un fichier édité à la main garde presque toujours ; ce qui s'en écarte (plusieurs éléments sur une
+ * ligne, un objet ouvert sur la ligne de sa clé de tableau) rend la ligne de l'ancêtre, ou celle d'un élément voisin dans un tableau qui mêle
+ * les deux styles.
  */
 object JsonLineLocator : ErrorLineLocator {
 
@@ -85,24 +91,27 @@ object JsonLineLocator : ErrorLineLocator {
         var depth = 0
         var targetDepth = 1
         var elementCount = 0
+        var foundLine: Int? = null // la ligne du dernier segment retrouvé
         for ((lineIndex, line) in lines.withIndex()) {
             val depthBefore = depth
-            val (depthAfter, content) = scanner.scan(line, depthBefore)
-            depth = depthAfter
-            if (content.isEmpty() || depthBefore != targetDepth) continue
-            val matched = when (val segment = segments[segmentIndex]) {
-                is PathSegment.Key -> declaresKey(content, segment.name)
-                is PathSegment.Index -> startsElement(content) && elementCount++ == segment.index
+            val scan = scanner.scan(line, depthBefore)
+            depth = scan.depthAfter
+            val matched = scan.content.isNotEmpty() && depthBefore == targetDepth && when (val segment = segments[segmentIndex]) {
+                is PathSegment.Key -> declaresKey(scan.content, segment.name)
+                is PathSegment.Index -> startsElement(scan.content) && elementCount++ == segment.index
             }
-            if (!matched) continue
+            if (!matched) {
+                if (scan.lowestClosing < targetDepth) return foundLine // le parent s'est refermé sans porter le segment : au mieux, sa ligne
+                continue
+            }
+            foundLine = lineIndex + 1
             segmentIndex++
-            val lineNumber = lineIndex + 1
-            if (segmentIndex == segments.size) return lineNumber
-            if (depthAfter == depthBefore) return lineNumber // la valeur tient sur la ligne : au mieux, cette ligne
+            if (segmentIndex == segments.size) return foundLine
+            if (scan.depthAfter <= depthBefore) return foundLine // la valeur tient sur la ligne : au mieux, cette ligne
             targetDepth = depthBefore + 1
             elementCount = 0
         }
-        return null
+        return foundLine
     }
 
     private fun declaresKey(content: String, name: String): Boolean {
@@ -116,9 +125,9 @@ object JsonLineLocator : ErrorLineLocator {
     private class LineScanner {
         private var inBlockComment = false
 
-        /** Rend la profondeur après la ligne, et son contenu significatif (dès le premier caractère hors espace et hors commentaire, vide sinon). */
-        fun scan(line: String, depthBefore: Int): Pair<Int, String> {
+        fun scan(line: String, depthBefore: Int): LineScan {
             var depth = depthBefore
+            var lowestClosing = Int.MAX_VALUE
             var firstSignificant = -1
             var inString: Char? = null
             var i = 0
@@ -135,13 +144,23 @@ object JsonLineLocator : ErrorLineLocator {
                         when (c) {
                             '"', '\'' -> inString = c
                             '{', '[' -> depth++
-                            '}', ']' -> depth--
+                            '}', ']' -> {
+                                depth--
+                                lowestClosing = minOf(lowestClosing, depth)
+                            }
                         }
                     }
                 }
                 i++
             }
-            return depth to (if (firstSignificant < 0) "" else line.substring(firstSignificant).trimEnd())
+            return LineScan(depth, lowestClosing, if (firstSignificant < 0) "" else line.substring(firstSignificant).trimEnd())
         }
     }
+
+    /**
+     * Ce que le parcours retient d'une ligne : la profondeur après elle ; la plus basse où une fermeture l'a menée en cours de ligne,
+     * [Int.MAX_VALUE] sans fermeture, parce que `}, {` referme un objet sans que la profondeur finale bouge ; et son contenu significatif
+     * (dès le premier caractère hors espace et hors commentaire, vide sinon).
+     */
+    private class LineScan(val depthAfter: Int, val lowestClosing: Int, val content: String)
 }
