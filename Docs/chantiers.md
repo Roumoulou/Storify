@@ -622,7 +622,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   doit pouvoir dire quel jar il exige : sous `0.4.0-SNAPSHOT`, le cache de Gradle lui servirait le build 2, où elle manque, et il tomberait à
   l'exécution ; un numéro visible plutôt qu'une republication silencieuse, la règle de C-39, C-44 et C-51. La release figée attend toujours les
   scopes du POM et le constructeur de `StoreConfig`. **Fait le 2026-10-07** : `mod_version=0.5.0-SNAPSHOT` ; le README (coordonnées, la recette de
-  la section 4), le readme et le contexte du classeur ; un build propre sans cache de build, le jar et le POM relus.
+  la section 4), le readme et le contexte du classeur ; un build propre sans cache de build, le jar et le POM relus ; publiée sur Repsy par
+  l'utilisateur, avec le jeton, build 1 du snapshot (`0.5.0-20261007.191930-1`) ; le catalogue du banc passe à `0.5.0-SNAPSHOT` et le banc
+  construit en mode `repsy` sur l'artefact publié, gametests compris, son jar embarquant `storify-0.5.0-SNAPSHOT.jar` ; `createFromProvider` lu
+  dans le jar publié par `javap`.
 
 ## 5. P3, la vision
 
