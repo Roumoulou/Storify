@@ -618,6 +618,12 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   et TOML épinglés à leur `null`. AegisPerms ne dépend pas de ce chantier : il inspecte l'arbre JSON avant le décodage et donne lui-même chemin
   et ligne ; son constat `MALFORMED_FILE` sort sans ligne pour un fichier vide.
 
+- [x] **C-57 : la version 0.5.0-SNAPSHOT** (S ; décision du 2026-10-07). C-54 ajoute une entrée à l'API, et un mod qui écrit `createFromProvider`
+  doit pouvoir dire quel jar il exige : sous `0.4.0-SNAPSHOT`, le cache de Gradle lui servirait le build 2, où elle manque, et il tomberait à
+  l'exécution ; un numéro visible plutôt qu'une republication silencieuse, la règle de C-39, C-44 et C-51. La release figée attend toujours les
+  scopes du POM et le constructeur de `StoreConfig`. **Fait le 2026-10-07** : `mod_version=0.5.0-SNAPSHOT` ; le README (coordonnées, la recette de
+  la section 4), le readme et le contexte du classeur ; un build propre sans cache de build, le jar et le POM relus.
+
 ## 5. P3, la vision
 
 - [ ] **C-17 : versionnage et migration des fichiers** (L ; TODO-3). Un fichier de config porte la version de son schéma ; au chargement, la lib
@@ -692,5 +698,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54 cochés, C-55 et C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
+*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54 et C-57 cochés, C-55 et C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
 à jour au 2026-09-23.*
