@@ -71,8 +71,7 @@ class BaseStore<DATA : Any> internal constructor(
     /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
     override val path: Path = storePath.toAbsolutePath().normalize()
 
-    override val data: DATA
-        get() = dataLock.read { _data }
+    override val data: DATA get() = dataLock.read { _data }
 
     /** Le sidecar meta, lu à l'ouverture s'il existe, neuf sinon, `null` sans `withMeta` ; posé dans `init`, après les chemins dont il dépend. */
     override val meta: StoreMeta?
@@ -91,8 +90,7 @@ class BaseStore<DATA : Any> internal constructor(
     internal lateinit var _data: DATA
 
     /** Passe à `true` à chaque update, quelle que soit la policy (voir [markDirty]) ; remis à `false` après toute écriture réussie, quel que soit le déclencheur, et au rechargement (C-47). Interne pour les tests. */
-    @Volatile
-    internal var isDirty = false
+    @Volatile internal var isDirty = false
 
     /** `true` quand le tick d'auto-save est planifié. Interne pour les tests (C-30). */
     internal val isAutoSaveScheduled: Boolean get() = autoSaveFuture != null
@@ -164,8 +162,6 @@ class BaseStore<DATA : Any> internal constructor(
 
     /** Les propriétés de l'arbre de DATA, collectées par le scan des policies : la garde de [setUpdatePolicy]. */
     private val dataTreeProperties = mutableSetOf<KProperty1<*, *>>()
-
-    // ── L'ouverture ──
 
     init {
         meta = when {
