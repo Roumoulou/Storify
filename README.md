@@ -13,8 +13,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-05 (323 tests), sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20, C-54 à C-56 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
+- Build et tests : verts au 2026-10-07 (337 tests), sur la stack ci-dessous.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20, C-55 et C-56 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.
@@ -38,9 +38,11 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   y est refusée aussi, avec sa ligne), résolus par l'extension du chemin quand on ne les précise pas ; un BOM UTF-8 en tête de fichier (le
   Bloc-notes en pose un) est toléré à la lecture et jamais écrit ; et un vrai point d'extension (C-09) : un format tiers implémente
   `StoreFormat` et s'enregistre par `StoreFormats.registerFormat`.
-- **Quatre sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
-  `Defaultable`, une classe `Defaultable` externe, ou une ressource embarquée dans le jar, copiée telle quelle au premier lancement (le fichier
-  que l'admin trouve est celui que le mod a livré, commentaires compris).
+- **Cinq sources de données initiales**, quand le fichier n'existe pas encore : le constructeur sans argument de la data class, son companion
+  `Defaultable`, une classe `Defaultable` externe, une ressource embarquée dans le jar, copiée telle quelle au premier lancement (le fichier
+  que l'admin trouve est celui que le mod a livré, commentaires compris), ou le code de l'appelant : `createFromProvider` reçoit le sérialiseur
+  et les données initiales en valeurs, sans rien lire sur la classe, pour un fichier dont la forme naît d'une table ou d'un schéma composé à
+  l'exécution ; la racine n'a alors pas à être une classe `@Serializable`, une `Map` suffit, et se met à jour par `transaction`.
 - **Configuration par annotations ou par code** (`@StorePath`, `@StoreFileFormat`, `@StoreConfiguration`, `@StoreValidator`,
   `@StoreDefaultResource`, `@StoreUpdatePolicy`), avec la préséance explicite > annotation > défaut, objet par objet : une `StoreConfig` passée
   à la factory remplace `@StoreConfiguration` en bloc, jamais champ par champ.
@@ -178,7 +180,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 |---|---|
 | `BaseStore<DATA>` | Le store : chargement, verrous, updates, callbacks, persistance ; implémente l'interface `Store<DATA>` |
 | `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut, lecture seule, hook d'arrêt, fichier initial, nom du logger |
-| `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource` |
+| `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource`, et `createFromProvider` (le sérialiseur et les données initiales donnés en valeurs, sans classe) |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
@@ -199,9 +201,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
-ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou, clés en double) : des tests ordonnés par étape, qui impriment
-ce que la lib fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en conditions réelles se fait depuis le
-banc :
+ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou, clés en double, fabrique au sérialiseur donné) : des tests
+ordonnés par étape, qui impriment ce que la lib fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en
+conditions réelles se fait depuis le banc :
 `.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le

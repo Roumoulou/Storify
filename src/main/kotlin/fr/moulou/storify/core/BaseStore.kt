@@ -42,7 +42,8 @@ import kotlin.reflect.full.memberProperties
  * - le drapeau dirty est posé par le pipeline d'update pour toutes les policies, et remis à zéro après une écriture réussie, quel que soit
  *   le déclencheur, ou après un rechargement.
  *
- * @param DATA La data class `@Serializable` gérée par ce store.
+ * @param DATA Le type racine du store, celui que son sérialiseur lit et écrit : une data class `@Serializable` par les huit `create*`, ou tout type sous un
+ *   sérialiseur donné à `createFromProvider`, une `Map` ou une classe sans annotation (C-54).
  */
 class BaseStore<DATA : Any> internal constructor(
     storePath: Path,
@@ -51,13 +52,13 @@ class BaseStore<DATA : Any> internal constructor(
     /** Options de comportement du store. */
     internal val config: StoreConfig,
 
-    /** Le sérialiseur de [DATA], matérialisé une fois pour toutes au site réifié de la factory (C-09). */
+    /** Le sérialiseur de [DATA], matérialisé une fois pour toutes au site réifié de la factory (C-09), ou donné en valeur à `createFromProvider` (C-54). */
     private val dataSerializer: KSerializer<DATA>,
 
     /** Factory fournissant la [DATA] par défaut quand aucun fichier n'existe. */
     private val defaultDataProvider: () -> DATA,
 
-    /** Validateur optionnel résolu depuis l'annotation `@StoreValidator`. */
+    /** Validateur optionnel, donné à la factory ou résolu depuis l'annotation `@StoreValidator`. */
     private val validator: Validator<DATA>? = null
 ) : Store<DATA> {
 

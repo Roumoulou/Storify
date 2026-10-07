@@ -8,12 +8,12 @@ et seulement signalé ici, en place.
 
 ## 1. Vue d'ensemble
 
-Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), d'un fichier (JSON, TOML ou JSON5) et d'un `BaseStore<DATA>` qui orchestre
-tout le reste. Le chemin type :
+Un store est l'attelage d'une data class sérialisable (kotlinx.serialization), ou de tout type dont le sérialiseur est donné (C-54), d'un fichier (JSON, TOML
+ou JSON5) et d'un `BaseStore<DATA>` qui orchestre tout le reste. Le chemin type :
 
 ```
-StoreFactory.create*<DATA>(...)
-    └─> résolution : paramètre explicite > annotation de DATA > défaut, objet par objet
+StoreFactory.create*<DATA>(...), ou createFromProvider(serializer, ...) sans classe (C-54)
+    └─> résolution : paramètre explicite > annotation de DATA (aucune par createFromProvider) > défaut, objet par objet
     └─> BaseStore.init
             1. initData            : fichier existant décodé, sinon données par défaut (sans écrire)
             2. initUpdatePolicies  : scan récursif des annotations @StoreUpdatePolicy
@@ -67,6 +67,14 @@ que l'appel au point d'entrée, ce que `FactoryCallerBytecodeTest` vérifie dans
 `@StoreConfiguration` ou un format de plus dans l'enum sont pris en compte sans recompiler le mod, et le constructeur de `BaseStore` n'entre
 pas dans son bytecode.
 
+La neuvième fabrique, `createFromProvider(serializer, stringPath, ...) { provider }`, n'est pas `inline` : le sérialiseur et le fournisseur lui sont
+donnés en valeurs, pour un fichier dont la forme naît d'une valeur et non d'une classe (C-54). Elle ne lit aucune annotation de classe, n'ayant pas de
+classe à interroger, `@StoreUpdatePolicy` restant lue par le store sur la classe réelle des données, et passe par la même résolution, l'explicite puis
+le repli : `open` se scinde en la lecture des annotations, `resolve`, le repli commun aux neuf, et `build`, la construction. DATA n'a plus à être une
+classe `@Serializable` : une `Map` ou une classe sans annotation est une racine légale, qui se met à jour par `transaction` quand elle n'a pas de
+propriété ; sous `SNAPSHOT`, `set` et `mutate` matérialisent `serializer<VALUE>()` chez l'appelant, et une propriété dont le type n'a pas de sérialiseur
+échoue au premier update observé, mémoire intacte.
+
 Chaque variante ne diffère que par sa source de données initiales :
 
 | Variante | Données initiales quand le fichier n'existe pas |
@@ -75,6 +83,7 @@ Chaque variante ne diffère que par sa source de données initiales :
 | `createFromConstructor` | `DATA::class.createInstance()` : le constructeur sans argument (tous les champs ont un défaut) |
 | `createFromDefaultable<DATA, D>` | Une classe `Defaultable` externe, instanciée par constructeur sans argument |
 | `createFromResource` | La ressource du classpath copiée telle quelle vers le fichier cible, par l'écrivain atomique, puis décodée (C-40) |
+| `createFromProvider(serializer, ...)` | Le fournisseur donné en valeur, à côté du sérialiseur : le code de l'appelant, sans classe interrogée (C-54) |
 
 ## 4. Le cycle de vie de BaseStore
 
@@ -341,5 +350,6 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-10-05, C-53 porté au chapitre 8, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main`
-le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20, C-54 à C-56 ; C-35 et C-38 en attente).*
+*Dernière vérification : 2026-10-07, C-54 porté aux chapitres 1 et 3, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste
+relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20, C-55 et C-56 ; C-35 et C-38 en
+attente).*

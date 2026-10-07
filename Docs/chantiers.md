@@ -540,7 +540,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   tableau. Onze tests neufs dans `ErrorEnricherTest`, dont le chemin dont rien ne se retrouve, les onze existants sans retouche ; la suite à 323,
   le banc vert en composite, gametests compris. Le contournement de ManyManyCommands reste juste, et devient facultatif une fois le snapshot
   republié.
-- [ ] **C-54 : une fabrique au sérialiseur et aux défauts donnés** (S ; MMC). Les huit `create*` de `StoreFactory` tirent tout de la classe de
+- [x] **C-54 : une fabrique au sérialiseur et aux défauts donnés** (S ; MMC). Les huit `create*` de `StoreFactory` tirent tout de la classe de
   DATA : le sérialiseur de `serializer<DATA>()`, les données initiales de son companion `Defaultable`, de son constructeur sans argument, d'une
   classe `Defaultable` instanciée de même, ou d'une ressource. Aucune porte publique ne prend ces deux-là en valeurs : les quatre `open*` sont
   `@PublishedApi internal`, `open` est privé, le constructeur de `BaseStore` est `internal`. Un consommateur dont la forme du fichier naît d'une
@@ -570,7 +570,17 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   validator appliqué à l'ouverture et au rechargement, une racine sans aucune annotation, une classe annotée dont les annotations sont
   ignorées, le rollback d'une transaction par le sérialiseur donné. Docs : la KDoc de `StoreFactory` (« huit `create*` », « quatre points
   d'entrée ») et celle de `BaseStore`, le README (les sources de données initiales, le tableau de l'API), `architecture.md` chapitre 3. Hors
-  périmètre : le retrait des cinq classes de ManyManyCommands, qui se fait chez lui une fois le snapshot republié.
+  périmètre : le retrait des cinq classes de ManyManyCommands, qui se fait chez lui une fois le snapshot republié. **Fait le 2026-10-07** :
+  `createFromProvider(serializer, stringPath, format, config, validator, provider)`, publique et ordinaire, sous les huit ; `open` scindé en la
+  lecture des annotations, `resolve` (le repli commun aux neuf) et `build` (la construction), `Resolution` réduite au chemin, au format et à la
+  config, les quatre `open*` inchangés. Tranché au design : le nom gardé, parce que la famille se nomme par sa source de données initiales ; pas
+  de `KClass` optionnelle, qui ferait une seconde voie vers ce que les huit font déjà ; la version en chantier à part, parce qu'un mod qui
+  écrit `createFromProvider` doit pouvoir dire quel jar il exige. La limite sous `SNAPSHOT` mesurée : l'avant se capture avant la mutation,
+  l'échec laisse la mémoire intacte ; une `Map` racine se met à jour par `transaction` seule. Onze tests (`CreateFromProviderTest`) sur les
+  fixtures `BareRoot`, sans aucune annotation, et son sérialiseur par substitut ; la démo `ProviderFactoryDemo.kt`, le scénario de
+  ManyManyCommands réduit en trois étapes (la classe par famille, la `Map` sous le sérialiseur générique qui perd le schéma, la fabrique) ; la
+  suite à 337 ; le banc vert en composite, gametests compris ; la KDoc de `StoreFactory` et de `BaseStore`, le README, `architecture.md`
+  chapitres 1 et 3.
 - [ ] **C-55 : le chemin d'une clé en double** (S/M ; AEGIS-F). `DuplicateKeyException` porte la clé et la ligne de sa seconde occurrence, pas son
   chemin : le scanner `JsonDuplicateKeys` tient une pile des portées ouvertes, un ensemble de clés par objet et rien pour un tableau, sans la clé
   sous laquelle chacune s'est ouverte ni le rang dans une liste. Un consommateur qui dit ses fautes par chemin, comme AegisPerms dont le cahier
@@ -682,5 +692,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-05, C-28 à C-34, C-36, C-37, C-39 à C-53 cochés, C-54 à C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
+*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54 cochés, C-55 et C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
 à jour au 2026-09-23.*

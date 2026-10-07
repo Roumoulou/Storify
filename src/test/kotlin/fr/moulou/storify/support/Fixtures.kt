@@ -315,3 +315,34 @@ data class ReadOnlyAnnotatedData(var name: String = "lecture seule")
 @Serializable
 @StoreConfiguration(withAutoSave = false, loggerName = "annotated-mod")
 data class LoggerNameAnnotatedData(var name: String = "journal")
+
+// ─── La fabrique au sérialiseur donné (C-54) : une racine sans aucune annotation, son sérialiseur écrit à la main ──────────────────────
+
+/** Une racine sans aucune annotation, ni `@Serializable` ni rien de Storify : son sérialiseur, [BareRootSerializer], se donne à la fabrique en valeur. */
+class BareRoot(var name: String = "bare", var level: Int = 1, var leaf: BareLeaf = BareLeaf())
+
+/** Une feuille sans `@Serializable` : le type d'une propriété que `serializer<VALUE>()` ne trouve pas, la limite de la fabrique sous SNAPSHOT. */
+class BareLeaf(var label: String = "leaf")
+
+/** Le sérialiseur de [BareRoot], par un substitut `@Serializable` privé : un objet `name`, `level`, `label`, dans tout format. */
+object BareRootSerializer : KSerializer<BareRoot> {
+
+    @Serializable
+    private class Surrogate(val name: String, val level: Int, val label: String)
+
+    override val descriptor: SerialDescriptor = Surrogate.serializer().descriptor
+
+    override fun serialize(encoder: Encoder, value: BareRoot) = encoder.encodeSerializableValue(Surrogate.serializer(), Surrogate(value.name, value.level, value.leaf.label))
+
+    override fun deserialize(decoder: Decoder): BareRoot {
+        val surrogate = decoder.decodeSerializableValue(Surrogate.serializer())
+        return BareRoot(surrogate.name, surrogate.level, BareLeaf(surrogate.label))
+    }
+}
+
+/** Le validator donné à la fabrique avec [BareRootSerializer] : un niveau négatif est refusé. */
+class BareRootValidator : Validator<BareRoot> {
+    override fun validate(data: BareRoot, ctx: ValidationContext) {
+        ctx.check(data.level >= 0, "level", "must be non-negative", data.level)
+    }
+}
