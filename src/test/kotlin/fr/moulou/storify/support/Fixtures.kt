@@ -346,3 +346,14 @@ class BareRootValidator : Validator<BareRoot> {
         ctx.check(data.level >= 0, "level", "must be non-negative", data.level)
     }
 }
+
+// ─── La valeur hors domaine (C-56) : une énumération à la racine, dans un objet imbriqué et sous une clé de map ──────────────────────────
+
+enum class Mood { CALM, ANGRY }
+
+@Serializable
+data class Pet(var name: String = "rex", var mood: Mood = Mood.CALM)
+
+/** La configuration d'une ferme : la même énumération à trois profondeurs, pour la faute de frappe `FURIOUS` et la ligne qu'elle reçoit. */
+@Serializable
+data class FarmConfig(var mood: Mood = Mood.CALM, var favorite: Pet = Pet(), var pets: MutableMap<String, Pet> = mutableMapOf("rex" to Pet()))

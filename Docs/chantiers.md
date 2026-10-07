@@ -595,7 +595,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   (une fonction `allDuplicates`, la liste portée par l'exception). Un fichier à trois doublons demande trois rechargements, comme un fichier à
   trois fautes de syntaxe : une faute de décodage se rend une à la fois, et la liste grossirait l'API pour un cas rare. Tests : un doublon à la
   racine, dans un objet imbriqué, dans une map, sous un élément de liste, et les mêmes en JSON5.
-- [ ] **C-56 : la ligne et le chemin d'une faute de décodage sans offset** (S/M ; AEGIS-F). `StoreDecodeException.line` vaut `null` dès que le
+- [x] **C-56 : la ligne et le chemin d'une faute de décodage sans offset** (S/M ; AEGIS-F). `StoreDecodeException.line` vaut `null` dès que le
   message du parseur ne porte ni `offset`, ni `index`, ni `(L<n>)`, les seuls que lise `lineOf`. Mesuré le 2026-10-05, kotlinx 1.11.0, sur une
   valeur hors d'un domaine fermé (`"mood": "FURIOUS"` pour une énumération), la faute de frappe la plus courante d'une configuration : en JSON,
   « ... does not contain element with name 'FURIOUS' at path $.mood », sans offset ; en JSON5, décodé par l'arbre, le même message sans le
@@ -616,7 +616,15 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   le chemin et que ce design laisse sans ligne. Tests : une valeur d'énumération inconnue à la racine, dans un objet imbriqué et sous une clé
   de map, un fichier vide, un fichier coupé après une valeur, le fichier coupé au milieu d'une chaîne épinglé à sa ligne d'aujourd'hui, JSON5
   et TOML épinglés à leur `null`. AegisPerms ne dépend pas de ce chantier : il inspecte l'arbre JSON avant le décodage et donne lui-même chemin
-  et ligne ; son constat `MALFORMED_FILE` sort sans ligne pour un fichier vide.
+  et ligne ; son constat `MALFORMED_FILE` sort sans ligne pour un fichier vide. **Fait le 2026-10-07** : `valuePath` sur `StoreDecodeException`,
+  le chemin que le message nomme (« at path $.mood », « at path: $ ») passé à la grammaire d'`ErrorPath`, vide quand rien ne le nomme ou qu'il
+  ne se lit pas ; `lineOf` reçoit le format et garde son ordre (doublon, `(L<n>)`, offset ou index), puis le localisateur du format sur
+  `valuePath`, puis, quand le message dit `'EOF'`, la ligne où le fichier s'arrête (les `\n` comptés plus un, 1 pour un fichier vide). Tranché :
+  le nom `valuePath` gardé (`path` est le fichier, `jsonPath` exclurait TOML, `errorPath` se confondrait avec l'objet) ; JSON5 et TOML restent
+  à `null`, épinglés, parce que leurs décodeurs ne disent pas où, et qu'une ligne devinée vaudrait moins qu'une absence franche. Huit tests
+  (`DecodeErrorLineTest`) sur la fixture `FarmConfig`, l'énumération à trois profondeurs, les fautes à offset et la clé inconnue épinglées à
+  leur ligne d'avant ; la démo `DecodeErrorLineDemo.kt` à la forme « avant, depuis », le contraste avec la ligne de la validation (C-32)
+  compris ; la suite à 350 ; le banc vert en composite, gametests compris ; la KDoc, le README, `architecture.md` chapitre 8.
 
 - [x] **C-57 : la version 0.5.0-SNAPSHOT** (S ; décision du 2026-10-07). C-54 ajoute une entrée à l'API, et un mod qui écrit `createFromProvider`
   doit pouvoir dire quel jar il exige : sous `0.4.0-SNAPSHOT`, le cache de Gradle lui servirait le build 2, où elle manque, et il tomberait à
@@ -701,5 +709,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54 et C-57 cochés, C-55 et C-56 ouverts, C-35 et C-38 en attente ; les constats du banc
+*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54, C-56 et C-57 cochés, C-55 ouvert, C-35 et C-38 en attente ; les constats du banc
 à jour au 2026-09-23.*

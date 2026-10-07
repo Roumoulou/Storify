@@ -231,8 +231,11 @@ store, `StoreFormat.validateFile(path, deserializer, validator)` décode, valide
 
 Les fautes du fichier ont une famille (C-33) : `StorifyException`, ancêtre de `ValidationException` (bien formé mais invalide) et de
 `StoreDecodeException` (illisible ou mal formé : le chemin, le format, la ligne quand elle se lit dans le message du parseur, l'offset de kotlinx
-et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, celle que porte la `DuplicateKeyException` d'une clé en double, C-50, et la
-cause conservée). Tout décodage fait pour un consommateur passe par
+et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, celle que porte la `DuplicateKeyException` d'une clé en double, C-50, sinon
+celle du chemin que le message nomme (« at path $.mood », kotlinx, pour une valeur hors d'une énumération), retrouvée par le localisateur du
+format et le chemin exposé en `valuePath`, dans la grammaire des `PathSegment`, ou la ligne où le fichier s'arrête quand le parseur a atteint sa
+fin, C-56 ; JSON5 et TOML, dont le message ne nomme pas le chemin, restent sans ligne pour une valeur hors domaine ; et la cause conservée). Tout
+décodage fait pour un consommateur passe par
 `StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut `decodeFromPath` restant
 intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`. Une
 `StorifyException` levée à l'initialisation d'un mod n'est rattrapée par personne : en solo Minecraft, une `ValidationException` au chargement
@@ -350,6 +353,6 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-10-07, C-54 porté aux chapitres 1 et 3, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste
-relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20, C-55 et C-56 ; C-35 et C-38 en
-attente).*
+*Dernière vérification : 2026-10-07, C-54 porté aux chapitres 1 et 3 et C-56 au chapitre 8, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9
+le 2026-10-01, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 et C-55 ;
+C-35 et C-38 en attente).*

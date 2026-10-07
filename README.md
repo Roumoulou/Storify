@@ -13,8 +13,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-07 (337 tests), sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20, C-55 et C-56 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
+- Build et tests : verts au 2026-10-07 (350 tests), sur la stack ci-dessous.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-55 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.
@@ -72,9 +72,10 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   qui devrait la porter) ; des défauts invalides ne créent jamais de fichier sur disque. En option non recommandée, `validateOnUpdate` valide
   chaque update, avec rollback et opération d'échec.
 - **Des fautes de fichier lisibles** : un fichier qui ne se lit pas ou ne se décode pas lève `StoreDecodeException` (le chemin, le format, la
-  ligne quand elle se lit dans le message du parseur ou qu'une clé en double la donne, la cause conservée) ; elle et `ValidationException`
-  descendent de `StorifyException`, un seul `catch` pour tout ce qui vient du fichier ; les fautes du code (écrire sur un store fermé ou en
-  lecture seule) restent des `IllegalStateException`.
+  ligne quand elle se lit dans le message du parseur, qu'une clé en double la donne ou que le message nomme le chemin de la valeur, retrouvé
+  par le localisateur du format, ce chemin exposé en `valuePath` ; une fin de fichier atteinte rend la ligne où le fichier s'arrête ; la cause
+  conservée) ; elle et `ValidationException` descendent de `StorifyException`, un seul `catch` pour tout ce qui vient du fichier ; les fautes du
+  code (écrire sur un store fermé ou en lecture seule) restent des `IllegalStateException`.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.
 - **Copies profondes par arbre JSON** : les snapshots des callbacks, le rollback des transactions et les captures du rechargement passent par un
   aller-retour `JsonElement` (jamais de texte), sur le `Json` du format quand il en a un : un sérialiseur écrit pour le JSON survit à la copie ;
@@ -186,7 +187,7 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
 | `AtomicFiles` | L'écrivain atomique des stores, public : `write(target) { temp -> }`, le balayage des temporaires orphelins ; `encodeToPathAtomically` sur tout format |
 | `Validator` / `ValidationContext` | La validation : conditions, erreurs à chemin complet, imbrication (`validateNested`, `validateEach` sur listes et maps) ; `validateFile` valide un fichier, avec ou sans store |
-| `StorifyException` | L'ancêtre des fautes du fichier : `StoreDecodeException` (lecture ou décodage, chemin et ligne au mieux) et `ValidationException` |
+| `StorifyException` | L'ancêtre des fautes du fichier : `StoreDecodeException` (lecture ou décodage, chemin, ligne et chemin de la valeur au mieux) et `ValidationException` |
 | `StoreMeta` | Le sidecar `<fichier>.meta.json` : createdAt, lastModified, version, données libres |
 | `Defaultable` | Le fournisseur de données par défaut |
 
@@ -201,9 +202,9 @@ Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
-ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou, clés en double, fabrique au sérialiseur donné) : des tests
-ordonnés par étape, qui impriment ce que la lib fait avant et après. Le benchmark des copies profondes s'exécute avec les tests. L'essai en
-conditions réelles se fait depuis le banc :
+ouverture d'un store, rechargement d'un store modifié, sauvegarde sous verrou, clés en double, fabrique au sérialiseur donné, ligne d'une
+faute sans offset) : des tests ordonnés par étape, qui impriment ce que la lib fait avant et après. Le benchmark des copies profondes
+s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc :
 `.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
