@@ -52,10 +52,14 @@ class ValidationContext(
         validateEach(fieldName, items.toList(), validator)
     }
 
-    /** Valide chaque valeur d'une map sous le chemin `champ[clé]`, la clé telle quelle (C-32). */
+    /**
+     * Valide chaque valeur d'une map sous le chemin `champ[clé]`, la clé telle quelle (C-32), entre guillemets quand elle est vide ou faite de
+     * chiffres seuls, que la grammaire d'[ErrorPath] lirait sinon comme un index, ou pas du tout (C-60) ; un chemin écrit à la main suit la même règle.
+     */
     fun <T : Any> validateEach(fieldName: String, entries: Map<String, T>, validator: Validator<T>) {
         entries.forEach { (key, item) ->
-            val keyedPath = if (currentPath.isEmpty()) "$fieldName[$key]" else "$currentPath.$fieldName[$key]"
+            val keyText = if (key.isEmpty() || key.all { it.isDigit() }) "\"$key\"" else key
+            val keyedPath = if (currentPath.isEmpty()) "$fieldName[$keyText]" else "$currentPath.$fieldName[$keyText]"
             val nestedCtx = ValidationContext(
                 currentPath = keyedPath,
                 currentClassName = item::class.simpleName ?: "Unknown",

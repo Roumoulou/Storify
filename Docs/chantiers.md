@@ -669,7 +669,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   encore sous le read lock) ; le mutate lancé pendant la sauvegarde relève le drapeau dans sa lambda, et `check(ranAfterEncoding)` remplace
   `waitedNs > aloneNs * 3` ; les trois durées restent imprimées, sans assertion. Vérifié dans `BaseStore.save` que l'encodage, le flush et le
   déplacement tiennent sous `dataLock.read`, ce qui fait la preuve. La suite rejouée trois fois de suite par `test --rerun`, verte.
-- [ ] **C-60 : la clé de map faite de chiffres perd sa ligne** (S ; mesure du 2026-10-05). `validateEach` sur une map écrit `champ[clé]`, la clé
+- [x] **C-60 : la clé de map faite de chiffres perd sa ligne** (S ; mesure du 2026-10-05). `validateEach` sur une map écrit `champ[clé]`, la clé
   telle quelle (C-32) ; la grammaire d'`ErrorPath` lit des chiffres seuls entre crochets comme un index, si bien que `groups[123]` cherche le
   cent vingt-quatrième élément de `groups`, un objet, et rend la ligne de la map, quand `groups["123"]` rend celle de la clé. Un identifiant
   numérique en clé de map est courant. Les trois questions. Utile : à tout consommateur qui valide une map à clés numériques, pour la ligne
@@ -680,7 +680,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   (`groups["123"]`), telle quelle sinon ; la KDoc le dit, et la doc rappelle qu'un chemin écrit à la main suit la même règle. Tests :
   `ValidationContextTest`, une clé en chiffres entre guillemets, une clé ordinaire sans ; `ErrorEnricherTest`, une erreur sous `groups["123"]`
   prend la ligne de la clé, et `groups[123]` épinglé à la ligne de la map, le contrat de la grammaire. Docs : `architecture.md` chapitre 8, le
-  README section 2.
+  README section 2. **Fait le 2026-10-08** : `validateEach(Map)` écrit la clé entre guillemets quand elle est vide ou faite de chiffres seuls,
+  telle quelle sinon ; `players[steve]` et `players[my.home]` inchangés, les tests de C-32 et C-53 intacts ; un test dans
+  `ValidationContextTest`, rouge d'abord, et un dans `ErrorEnricherTest`, `groups["123"]` à la ligne de la clé et `groups[123]` épinglé à celle
+  de la map ; la KDoc, `architecture.md` chapitre 8, le README section 2 ; la suite à 356, le banc vert en composite.
 - [ ] **C-61 : le lecteur strict tolère ce que la doc dit refusé** (S ; AEGIS-F, MMC, mesure du 2026-10-05). Le README (section 2) écrit que
   `JsonFormat` lit « le JSON standard, strict à la lecture », `architecture.md` (chapitre 9) qu'il lit « le JSON standard et rien d'autre »
   (C-36). Mesuré le 2026-10-05 et rejoué le 2026-10-08 par `JsonStrictDemo`, le strict accepte un nombre entre guillemets (`"count": "1"`) et

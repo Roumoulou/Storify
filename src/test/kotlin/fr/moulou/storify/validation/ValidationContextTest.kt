@@ -81,6 +81,17 @@ class ValidationContextTest {
     }
 
     @Test
+    fun `validateEach sur une map protège entre guillemets une clé vide ou faite de chiffres, que la grammaire lirait autrement`() {
+        val ctx = ValidationContext(currentPath = "Root", currentClassName = "Root")
+
+        ctx.validateEach("groups", mapOf("123" to InnerLeaf(), "" to InnerLeaf(), "1a" to InnerLeaf()), alwaysFailing)
+
+        assertEquals("Root.groups[\"123\"]", ctx.errors[0].path) // nue, la grammaire la lirait comme un index (C-60)
+        assertEquals("Root.groups[\"\"]", ctx.errors[1].path) // nue, des crochets vides ne se lisent pas
+        assertEquals("Root.groups[1a]", ctx.errors[2].path)
+    }
+
+    @Test
     fun `formatErrors compte et détaille, formatErrorsShort condense`() {
         val empty = ValidationContext(currentPath = "Root", currentClassName = "Root")
         assertTrue(empty.formatErrors().startsWith("Validation passed"))

@@ -209,8 +209,10 @@ un auditeur de save la référence du prochain `old` devient la racine rechargé
 
 Le contrat est `Validator<T>` : `validate(data, ctx)` accumule des erreurs dans un `ValidationContext` plutôt que de lever à la première.
 Le contexte offre `check(condition, field, message, rejectedValue)`, `addError`, `addObjectError`, et la composition : `validateNested` (objet
-imbriqué, chemin `parent.champ`) et `validateEach` (collections, chemin `champ[index]`). Les erreurs (`ValidationError`) portent le chemin
-complet, la classe, le message, la valeur rejetée et, quand il est connu, le numéro de ligne du fichier.
+imbriqué, chemin `parent.champ`) et `validateEach` (collections, chemin `champ[index]` ; maps, chemin `champ[clé]`, la clé entre guillemets quand
+elle est vide ou faite de chiffres seuls, que la grammaire ci-dessous lirait sinon comme un index, C-60, règle qu'un chemin écrit à la main suit
+aussi). Les erreurs (`ValidationError`) portent le chemin complet, la classe, le message, la valeur rejetée et, quand il est connu, le numéro de
+ligne du fichier.
 
 L'enrichisseur (`ValidationErrorEnricher`, public, C-32) retrouve ce numéro de ligne par le localisateur du format
 (`StoreFormat.lineLocator()` : `JsonLineLocator` pour JSON et JSON5, aucun pour TOML). Le chemin d'une erreur suit une grammaire (`ErrorPath`) :

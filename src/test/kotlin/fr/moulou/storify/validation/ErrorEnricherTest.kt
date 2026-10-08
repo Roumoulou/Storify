@@ -53,6 +53,13 @@ class ErrorEnricherTest {
     }
 
     @Test
+    fun `une clé de map faite de chiffres se retrouve entre guillemets, et nue elle se lit comme un index, la ligne de la map au mieux`() {
+        val text = "{\n  \"groups\": {\n    \"123\": {\n      \"weight\": 10\n    }\n  }\n}"
+        assertEquals(4, lineOf(JsonFormat(), text, "weight", path = "Root.groups[\"123\"]")) // ce que validateEach écrit (C-60)
+        assertEquals(2, lineOf(JsonFormat(), text, "weight", path = "Root.groups[123]")) // un index dans un objet : la ligne de la map, le contrat de la grammaire
+    }
+
+    @Test
     fun `une clé qui contient un point se lit entre crochets`() {
         val text = "{\n  \"homes\": {\n    \"my.home\": {\n      \"x\": 1\n    }\n  }\n}"
         assertEquals(4, lineOf(JsonFormat(), text, "homes[my.home].x"))
