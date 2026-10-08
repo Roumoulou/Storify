@@ -654,7 +654,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   session IA décode une séquence d'échappement Unicode en son caractère avant d'écrire, dans une édition comme dans une commande, ce qui avait
   amputé l'exemple et amputait de même cette entrée ; la séquence s'est écrite par un script Perl qui la construit sans la taper (`chr(92)`).
   L'étape 5 de la démo verte sur un cas échappé pour de vrai, la suite à 354.
-- [ ] **C-59 : la démo chronométrée qui rougit la suite** (S ; les témoins du 2026-10-05 au 2026-10-08). L'étape 2 de `SaveLockDemoTest` affirme
+- [x] **C-59 : la démo chronométrée qui rougit la suite** (S ; les témoins du 2026-10-05 au 2026-10-08). L'étape 2 de `SaveLockDemoTest` affirme
   `waitedNs > aloneNs * 3` : un mutate seul, mesuré une fois, puis un mutate lancé pendant une sauvegarde, dont l'attente doit valoir trois
   fois le premier. Le premier est une mesure unique, sans chauffe, qui sort parfois à 12 ou 15 ms au lieu de 0,5 (12,45 ms le 2026-10-05,
   14,62 ms le 2026-10-08 pour une attente de 13,6 ms) : la suite entière rougit une fois sur deux ou trois, verte rejouée, et chaque témoin se
@@ -665,7 +665,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   encore sous le read lock de la sauvegarde ; le mutate lancé pendant la sauvegarde relève ce drapeau dans sa lambda, sous le write lock, qui
   ne se prend qu'après la libération du read lock ; `check(encodingDoneWhenMutating)` remplace la comparaison de temps, vrai par construction
   du verrou, faux le jour où une sauvegarde encoderait hors de lui. Les trois mesures restent imprimées. Tests : la démo, rejouée plusieurs
-  fois.
+  fois. **Fait le 2026-10-08** : `SignallingFormat` signale la fin de l'encodage (`encodingFinished`, volatile, posé au retour de l'encodage,
+  encore sous le read lock) ; le mutate lancé pendant la sauvegarde relève le drapeau dans sa lambda, et `check(ranAfterEncoding)` remplace
+  `waitedNs > aloneNs * 3` ; les trois durées restent imprimées, sans assertion. Vérifié dans `BaseStore.save` que l'encodage, le flush et le
+  déplacement tiennent sous `dataLock.read`, ce qui fait la preuve. La suite rejouée trois fois de suite par `test --rerun`, verte.
 - [ ] **C-60 : la clé de map faite de chiffres perd sa ligne** (S ; mesure du 2026-10-05). `validateEach` sur une map écrit `champ[clé]`, la clé
   telle quelle (C-32) ; la grammaire d'`ErrorPath` lit des chiffres seuls entre crochets comme un index, si bien que `groups[123]` cherche le
   cent vingt-quatrième élément de `groups`, un objet, et rend la ligne de la map, quand `groups["123"]` rend celle de la clé. Un identifiant

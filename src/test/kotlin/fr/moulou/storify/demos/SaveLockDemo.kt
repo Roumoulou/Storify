@@ -39,17 +39,21 @@ import kotlin.system.measureNanoTime
  * abandonné : il n'y a rien à y gagner.
  *
  *   1. la part de chaque geste, mesurée sur une racine de cinq mille joueurs : l'encodage, le flush, le déplacement ;
- *   2. pendant une sauvegarde, un mutate sur un autre fil attend la fin de la sauvegarde, dont la durée fait toute l'attente ;
+ *   2. pendant une sauvegarde, un mutate sur un autre fil attend la fin de la sauvegarde : prouvé par l'ordre, le mutate couru après la fin de
+ *      l'encodage que le format témoin signale (C-59), les durées imprimées sans assertion, parce qu'un rapport entre deux temps mesurés
+ *      rougissait la suite une fois sur deux ou trois ;
  *   3. le même JSON écrit par quatre chemins : le flux nu d'avant C-48, un tampon de 8 Ko, de 64 Ko, une chaîne écrite d'un coup ;
  *   4. le même JSON lu par trois chemins : kotlinx lit déjà par blocs, le tampon y gagne peu.
  */
 
-/** Un format qui prévient quand un encodage commence : le témoin du moment où le store, en pleine sauvegarde, tient son read lock. */
+/** Un format qui prévient quand un encodage commence et quand il finit : le témoin du moment où le store, en pleine sauvegarde, tient son read lock. */
 class SignallingFormat(private val delegate: StoreFormat) : StoreFormat by delegate {
     @Volatile var encodingStarted = CountDownLatch(1)
+    @Volatile var encodingFinished = false
     override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
         encodingStarted.countDown()
         delegate.encodeToPath(serializer, data, path)
+        encodingFinished = true // encore sous le read lock de la sauvegarde : un mutate, qui prend le write lock, ne peut pas courir avant
     }
 }
 
@@ -88,17 +92,23 @@ class SaveLockDemoTest {
 
         val aloneNs = measureNanoTime { store.mutate(Roster::players) { } }
         format.encodingStarted = CountDownLatch(1)
+        format.encodingFinished = false
         var saveNs = 0L
         val saver = thread { saveNs = measureNanoTime { store.saveImmediate() } }
         format.encodingStarted.await() // la sauvegarde tient le read lock et encode
-        val waitedNs = measureNanoTime { store.mutate(Roster::players) { } }
+        var ranAfterEncoding = false
+        val waitedNs = measureNanoTime { store.mutate(Roster::players) { ranAfterEncoding = format.encodingFinished } }
         saver.join()
         store.close()
 
         println("    un mutate seul                        : %6.2f ms".format(aloneNs / 1e6))
         println("    la sauvegarde, sur son fil            : %6.1f ms".format(saveNs / 1e6))
         println("    le mutate lancé pendant la sauvegarde : %6.1f ms d'attente".format(waitedNs / 1e6))
-        check(waitedNs > aloneNs * 3) // le mutate a attendu la sauvegarde, et pas seulement son propre verrou
+        println("    le mutate a couru après la fin de l'encodage : $ranAfterEncoding")
+        // Le mutate a attendu la sauvegarde, pas seulement son propre verrou : vrai par construction du verrou (BaseStore.save encode, flushe et
+        // déplace sous dataLock.read, et le write lock du mutate attend), faux le jour où une sauvegarde encoderait hors de lui. Les durées
+        // ci-dessus ne s'affirment pas : un rapport entre deux temps mesurés rougissait la suite une fois sur deux ou trois (C-59).
+        check(ranAfterEncoding)
     }
 
     @OptIn(ExperimentalSerializationApi::class)
