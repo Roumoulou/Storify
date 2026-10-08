@@ -782,6 +782,25 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   recette au README, une panne de plus à documenter) pour une demi-mesure : le POM déclarerait toujours tomlkt et json5. S'ouvre le jour où un
   consommateur a besoin de la taille, ou d'un consommateur Maven hors Minecraft, et se fait alors en une fois par la solution complète,
   `storify-core` plus un artefact par format ; le registre paresseux seul, une demi-mesure, est abandonné (décision confirmée le 2026-09-29 au soir).
+- [ ] **C-64 : les commentaires depuis le code** (M ; demande du 2026-10-08). Un commentaire dans un fichier de config n'a aujourd'hui qu'une
+  source, l'admin qui édite le fichier, ou une ressource JSON5 commentée à la main et copiée telle quelle (C-40) ; une data class composée dans le
+  code ne peut pas dire, à côté de sa clé, ce qu'elle attend. Les trois questions. Utile : à tout mod dont la config est éditée à la main, en JSON5
+  et en TOML. Vaut la peine : la brique json5 sait poser un commentaire sur un nœud (`addCommentBefore`, `addCommentAfter`, sortes `Line` et
+  `Block`, vérifié dans ses sources 0.8.0), et tomlkt lit déjà `@TomlComment` sur une propriété (`Annotations.kt`, ligne 49), que `TomlFormat`
+  encode par son sérialiseur : le gros du travail est un design. Cohérente : une annotation de plus à côté de `@StoreUpdatePolicy`, lue dans le
+  descripteur du sérialiseur (`getElementAnnotations`), le mécanisme de tomlkt et de json5k. Design proposé : `@StoreComment(vararg lines)`, une
+  annotation `@SerialInfo` de Storify, indépendante du format, une ligne par élément ; en JSON5, posée par l'éditeur de la brique après l'encodage,
+  un `//` par ligne au-dessus de la clé, les objets imbriqués par le chemin du descripteur ; en TOML, traduite vers tomlkt si la séance prouve que
+  c'est bon marché (un descripteur enveloppé qui porte un `TomlComment`), sinon `@TomlComment` accepté tel quel et documenté ; en JSON strict,
+  ignorée, parce que le JSON standard n'a pas de commentaire (C-36). La règle du fichier, décidée le 2026-10-08 : le commentaire du code s'écrit
+  quand le fichier naît et quand une clé s'ajoute à un fichier existant ; une clé que le fichier commente déjà garde son commentaire, l'admin
+  gagne, par la doctrine de C-26 ; une option de `StoreConfig` force la réécriture des commentaires depuis le code à chaque sauvegarde (nom à
+  trancher, `commentPolicy`, `FILE_WINS` par défaut et `CODE_WINS`). Curseurs pour la séance : le multi-ligne, un `//` par ligne ou un bloc ; la
+  place, au-dessus de la clé seulement ou aussi en fin de ligne ; les entrées de map, qui n'ont pas de propriété à annoter ; une clé existante sans
+  commentaire dans un fichier existant, qui reste nue ou reçoit celui du code ; la traduction TOML. Écarté : json5k, qui porte `@SerialComment`
+  mais est expérimentale, en Kotlin 1.8 et archivée depuis 2024 ; une passe sur le texte TOML pour y glisser des `#`. Tests : un fichier neuf
+  commenté en JSON5 et en TOML, un fichier existant qui garde ses commentaires, l'option qui les réécrit, un objet imbriqué, le JSON strict qui
+  ignore. Docs : README section 2, `architecture.md` chapitres 2 et 9.
 
 ## 6. La méthode, chantier par chantier
 

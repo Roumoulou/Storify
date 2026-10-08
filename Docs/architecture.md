@@ -366,4 +366,4 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 *Dernière vérification : 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
 chapitre 8 le 2026-10-07, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le
-2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19 et C-20 ; C-35, C-38 et C-62 en attente).*
+2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 et C-64 ; C-35, C-38 et C-62 en attente).*
