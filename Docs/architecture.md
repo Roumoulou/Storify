@@ -214,15 +214,16 @@ complet, la classe, le message, la valeur rejetée et, quand il est connu, le nu
 
 L'enrichisseur (`ValidationErrorEnricher`, public, C-32) retrouve ce numéro de ligne par le localisateur du format
 (`StoreFormat.lineLocator()` : `JsonLineLocator` pour JSON et JSON5, aucun pour TOML). Le chemin d'une erreur suit une grammaire (`ErrorPath`) :
-`a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map, les points permis entre crochets ; le localisateur
-parcourt le fichier ligne à ligne en suivant la profondeur des accolades et des crochets, hors chaînes et hors commentaires, reconnaît une clé sous
-ses trois graphies (`"clé"`, `'clé'`, `clé` nue) et compte les éléments d'un tableau, un par ligne. Un segment ne se cherche que dans son parent
-(C-53) : quand le fichier n'écrit pas le chemin entier, la ligne rendue est celle de son plus proche ancêtre écrit, au mieux, et `null` si rien ne
-s'en retrouve. C'est le cas d'une clé omise qui a pris le défaut de sa data class (la ligne est celle de l'objet qui devrait la porter), d'un index
-au-delà de la fin de son tableau, et d'une valeur qui tient sur la ligne de sa clé (un tableau en ligne). Limites assumées : une clé ou un élément
-par ligne, ce qui s'en écarte (plusieurs éléments sur une ligne, un objet ouvert sur la ligne de sa clé de tableau) rendant la ligne de l'ancêtre,
-ou celle d'un élément voisin dans un tableau qui mêle les deux styles ; un chemin illisible laisse son erreur sans ligne, les autres gardent la
-leur.
+`a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map, les points permis entre crochets ; `ErrorPath.render`
+écrit un chemin dans cette grammaire, le miroir de `parse` (C-55), une clé vide ou qui porte un point ou un crochet entre crochets et guillemets. Le
+localisateur parcourt le fichier ligne à ligne en suivant la profondeur des accolades et des crochets, hors chaînes et hors commentaires, reconnaît
+une clé sous ses trois graphies (`"clé"`, `'clé'`, `clé` nue) et compte les éléments d'un tableau, un par ligne. Un segment ne se cherche que dans
+son parent (C-53) : quand le fichier n'écrit pas le chemin entier, la ligne rendue est celle de son plus proche ancêtre écrit, au mieux, et `null`
+si rien ne s'en retrouve. C'est le cas d'une clé omise qui a pris le défaut de sa data class (la ligne est celle de l'objet qui devrait la porter),
+d'un index au-delà de la fin de son tableau, et d'une valeur qui tient sur la ligne de sa clé (un tableau en ligne). Limites assumées : une clé ou
+un élément par ligne, ce qui s'en écarte (plusieurs éléments sur une ligne, un objet ouvert sur la ligne de sa clé de tableau) rendant la ligne de
+l'ancêtre, ou celle d'un élément voisin dans un tableau qui mêle les deux styles ; un chemin illisible laisse son erreur sans ligne, les autres
+gardent la leur.
 
 La validation joue à quatre moments (C-05, C-32) : au chargement initial, au `reloadFromFile` (revalidation par défaut : l'objet relu est validé
 AVANT de remplacer la mémoire, qui reste intacte en échec ; `validate = false` pour sauter), à la demande sur la mémoire via `validateNow()` (sans
@@ -233,10 +234,11 @@ Les fautes du fichier ont une famille (C-33) : `StorifyException`, ancêtre de `
 `StoreDecodeException` (illisible ou mal formé : le chemin, le format, la ligne quand elle se lit dans le message du parseur, l'offset de kotlinx
 et l'index de json5 convertis en ligne, le `(L2)` de tomlkt tel quel, celle que porte la `DuplicateKeyException` d'une clé en double, C-50, sinon
 celle du chemin que le message nomme (« at path $.mood », kotlinx, pour une valeur hors d'une énumération), retrouvée par le localisateur du
-format et le chemin exposé en `valuePath`, dans la grammaire des `PathSegment`, ou la ligne où le fichier s'arrête quand le parseur a atteint sa
-fin, C-56 ; JSON5 et TOML, dont le message ne nomme pas le chemin, restent sans ligne pour une valeur hors domaine ; et la cause conservée). Tout
-décodage fait pour un consommateur passe par
-`StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut `decodeFromPath` restant
+format, ou la ligne où le fichier s'arrête quand le parseur a atteint sa fin, C-56 ; le chemin de la valeur exposé en `valuePath`, dans la
+grammaire des `PathSegment` : celui que porte la `DuplicateKeyException`, la clé en dernier segment, C-55, sinon celui que le message nomme ; JSON5
+et TOML, dont le message ne nomme pas le chemin, restent sans ligne pour une valeur hors domaine ; et la cause conservée). Tout décodage fait pour
+un consommateur passe par `StoreFormat.decodeFile` (ouverture, rechargement, `validateFile`, sidecar meta, ressource embarquée), le contrat brut
+`decodeFromPath` restant
 intact pour les formats. Les fautes du code, écrire sur un store fermé ou en lecture seule, restent des `IllegalStateException`. Une
 `StorifyException` levée à l'initialisation d'un mod n'est rattrapée par personne : en solo Minecraft, une `ValidationException` au chargement
 crashe le client entier (« Exception in server tick loop », constat n° 5 du banc) ; le `catch` est le geste du consommateur.
@@ -269,16 +271,19 @@ virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` av
 `JsonFormat.lenient()` rend le lecteur tolérant, et le constructeur accepte tout `Json`.
 
 Une clé déclarée deux fois dans le même objet est refusée dans les trois formats (C-50), par `StoreDecodeException` avec la ligne de la seconde
-occurrence, sous le même `catch` que les autres fautes du fichier ; sans cela, kotlinx comme la brique json5 gardent la dernière valeur, avant le
-code du consommateur, qui ne peut rien voir. En JSON, c'est l'affaire du lecteur strict (un `Json` ni `isLenient` ni `allowComments`) :
-`decodeFromPath` lit le texte entier, le décode (un texte mal formé est diagnostiqué par kotlinx, avant tout), puis le passe à
-`JsonDuplicateKeys` (`validation\`), qui empile les objets ouverts, garde les clés de chacun dans un ensemble et décode les chaînes de leurs
-échappements, si bien que `"ab"` et `"ab"` sont la même clé ; un doublon lève `DuplicateKeyException`, une `SerializationException` comme
-celles de kotlinx, que `decodeFile` enveloppe et dont `StoreDecodeException` lit la ligne. Le lecteur tolérant, comme tout `Json` d'un
-consommateur qui admet les commentaires ou les clés nues, n'y est pas soumis et garde la dernière valeur ; un format tiers n'a rien à savoir.
-Coût mesuré : 1,5 ms par 794 Ko, le chargement de 5 000 joueurs passant de 1,5 à 3,7 ms environ, rien sur une config. En JSON5, le texte est parsé
-en document (`parseToDocument`), dont l'AST garde les deux membres, noms décodés et plages source, et parcouru après le contrôle de syntaxe, avant
-la conversion en arbre ; en TOML, tomlkt refuse de lui-même, par sa spécification.
+occurrence et, en JSON et en JSON5, le chemin du doublon dans `valuePath`, la clé en dernier segment (C-55), sous le même `catch` que les autres
+fautes du fichier ; sans cela, kotlinx comme la brique json5 gardent la dernière valeur, avant le code du consommateur, qui ne peut rien voir. En
+JSON, c'est l'affaire du lecteur strict (un `Json` ni `isLenient` ni `allowComments`) : `decodeFromPath` lit le texte entier, le décode (un texte
+mal formé est diagnostiqué par kotlinx, avant tout), puis le passe à `JsonDuplicateKeys` (`validation\`), qui empile les portées ouvertes avec ce
+qui les a ouvertes (la dernière clé lue dans l'objet parent, ou le rang dans le tableau parent, compté à ses virgules), garde les clés de chaque
+objet dans un ensemble et décode les chaînes de leurs échappements, si bien que `"ab"` et `"ab"` sont la même clé ; un doublon lève
+`DuplicateKeyException` avec sa ligne et son chemin, que son message nomme (« Duplicate key 'vip' at groups.vip », rendu par `ErrorPath.render`),
+une `SerializationException` comme celles de kotlinx, que `decodeFile` enveloppe et dont `StoreDecodeException` lit la ligne et le chemin. Le
+lecteur tolérant, comme tout `Json` d'un consommateur qui admet les commentaires ou les clés nues, n'y est pas soumis et garde la dernière
+valeur ; un format tiers n'a rien à savoir. Coût mesuré : 1,5 ms par 794 Ko, le chargement de 5 000 joueurs passant de 1,5 à 3,7 ms environ, rien
+sur une config. En JSON5, le texte est parsé en document (`parseToDocument`), dont l'AST garde les deux membres, noms décodés et plages source, et
+parcouru après le contrôle de syntaxe, avant la conversion en arbre, le chemin empilé en descendant ; en TOML, tomlkt refuse de lui-même, par sa
+spécification, le chemin dans son message seul (`groups.vip (L7)`) et `valuePath` vide.
 
 `Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
 de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
@@ -353,6 +358,6 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-10-07, C-54 porté aux chapitres 1 et 3 et C-56 au chapitre 8, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9
-le 2026-10-01, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 et C-55 ;
-C-35 et C-38 en attente).*
+*Dernière vérification : 2026-10-08, C-55 porté aux chapitres 8 et 9, C-54 aux chapitres 1 et 3 et C-56 au chapitre 8 le 2026-10-07, C-53 au chapitre 8 le
+2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans
+`chantiers.md` (C-17, C-19 et C-20 ; C-35 et C-38 en attente).*

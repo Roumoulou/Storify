@@ -12,7 +12,9 @@ import fr.moulou.storify.core.StoreConfig
 import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.support.newStorePath
 import fr.moulou.storify.validateFile
+import fr.moulou.storify.validation.ErrorPath
 import fr.moulou.storify.validation.JsonDuplicateKeys
+import fr.moulou.storify.validation.PathSegment
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable
@@ -36,16 +38,18 @@ import kotlin.system.measureNanoTime
  * seul tomlkt refusait, par sa spécification. Pour un fichier de vérité édité à la main (AegisPerms, `groups` avec `vip` déclaré deux fois),
  * un doublon effaçait une définition en silence, avant le code du consommateur. Depuis C-50, le lecteur JSON strict et le format JSON5
  * refusent le doublon par StoreDecodeException, avec la ligne de la seconde occurrence ; le lecteur tolérant (`JsonFormat.lenient()`) reste
- * ce qu'il était, et montre ici l'avant.
+ * ce qu'il était, et montre ici l'avant. Depuis C-55, la faute porte aussi le chemin du doublon, `valuePath`, la clé en dernier segment, que
+ * son message nomme (« Duplicate key 'vip' at groups.vip ») ; en TOML, tomlkt ne le dit que dans son message, et `valuePath` reste vide.
  *
  *   1. JSON : un doublon à la racine, dans un objet imbriqué, dans une map, par le lecteur tolérant (l'avant : le dernier gagne, sans un
- *      mot, l'arbre comme le flux) puis par le strict (depuis C-50 : refusé, avec la ligne) ; l'élément répété d'un tableau décodé en Set
- *      reste un seul élément, ce n'est pas une clé et il reste visible du validator par une List ;
- *   2. les mêmes fichiers en JSON5 et en TOML : refusés avec la ligne, le second par tomlkt depuis toujours ;
+ *      mot, l'arbre comme le flux) puis par le strict (depuis C-50 : refusé, avec la ligne, et le chemin depuis C-55) ; l'élément répété d'un
+ *      tableau décodé en Set reste un seul élément, ce n'est pas une clé et il reste visible du validator par une List ;
+ *   2. les mêmes fichiers en JSON5 et en TOML : refusés avec la ligne, le second par tomlkt depuis toujours, le chemin en JSON5 seulement ;
  *   3. au rechargement, un fichier édité avec un doublon est refusé et la mémoire reste intacte, dans les trois formats ;
  *   4. validateFile refuse de même, avec et sans store ;
  *   5. le coût, mesuré sur 5 000 joueurs (794 Ko) : le chargement strict contre le tolérant, la passe seule, le document JSON5 ; et les
- *      pièges du scanner, une clé échappée, deux clés sur une ligne, la même clé dans deux objets, un faux doublon dans une chaîne.
+ *      pièges du scanner, une clé échappée, deux clés sur une ligne, la même clé dans deux objets, un faux doublon dans une chaîne, un
+ *      doublon sous un élément de liste, chacun avec son chemin.
  */
 
 /** Un groupe de permissions, à la façon d'AegisPerms. */
@@ -217,7 +221,8 @@ class DuplicateKeysDemoTest {
     private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ "OK ($it)" }) { e ->
         val decode = e as? StoreDecodeException
         val where = decode?.line?.let { " at line $it" } ?: ""
-        "${e::class.simpleName}$where: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(110)}"
+        val path = decode?.valuePath?.takeIf { it.isNotEmpty() }?.let { ", path ${ErrorPath.render(it)}" } ?: ""
+        "${e::class.simpleName}$where$path: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(110)}"
     }
 
     private fun open(text: String, fileName: String, format: StoreFormat): String {
@@ -230,7 +235,8 @@ class DuplicateKeysDemoTest {
 
     private fun show(results: Map<String, String>, indent: String = "    ") = results.forEach { (label, result) -> println("$indent%-36s %s".format(label, result)) }
 
-    private fun refused(result: String, line: Int) = result.startsWith("StoreDecodeException at line $line:")
+    /** Refusé à cette ligne, et à ce chemin quand le format le donne (JSON et JSON5 ; TOML ne le dit que dans son message). */
+    private fun refused(result: String, line: Int, path: String? = null) = result.startsWith("StoreDecodeException at line $line${path?.let { ", path $it" } ?: ""}:")
 
     /** Ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
     private fun captureLog(block: () -> Unit): List<String> {
@@ -254,11 +260,11 @@ class DuplicateKeysDemoTest {
         val tree = Json.parseToJsonElement(root.json).jsonObject.getValue("version").jsonPrimitive.content
         println("        le même doublon à la racine par l'arbre (Json.parseToJsonElement) : version = $tree")
         val strict = openAll(JsonFormat(), "perms.json") { it.json }
-        println("    depuis C-50, par JsonFormat() : refusé, avec la ligne de la seconde occurrence")
+        println("    depuis C-50, par JsonFormat() : refusé, avec la ligne de la seconde occurrence, et son chemin depuis C-55")
         show(strict, "        ")
         check(tolerant.values.all { it.startsWith("OK") } && log.none { "WARN" in it } && tree == "2")
         check("version=2" in tolerant.getValue(root.label) && "defaults.priority=2" in tolerant.getValue(nested.label) && "groups=[vip->20]" in tolerant.getValue(map.label))
-        check(refused(strict.getValue(root.label), 3) && refused(strict.getValue(nested.label), 5) && refused(strict.getValue(map.label), 6))
+        check(refused(strict.getValue(root.label), 3, "version") && refused(strict.getValue(nested.label), 5, "defaults.priority") && refused(strict.getValue(map.label), 6, "groups.vip"))
         check(strict.getValue(set.label).startsWith("OK") && "admins=[steve]" in strict.getValue(set.label))
     }
 
@@ -270,7 +276,7 @@ class DuplicateKeysDemoTest {
         show(json5, "        ")
         println("    TomlFormat")
         show(toml, "        ")
-        check(refused(json5.getValue(root.label), 4) && refused(json5.getValue(nested.label), 5) && refused(json5.getValue(map.label), 6))
+        check(refused(json5.getValue(root.label), 4, "version") && refused(json5.getValue(nested.label), 5, "defaults.priority") && refused(json5.getValue(map.label), 6, "groups.vip"))
         check(refused(toml.getValue(root.label), 2) && refused(toml.getValue(nested.label), 5) && refused(toml.getValue(map.label), 7))
         check(json5.getValue(set.label).startsWith("OK") && toml.getValue(set.label).startsWith("OK"))
     }
@@ -280,12 +286,13 @@ class DuplicateKeysDemoTest {
         val cases = listOf(Triple(JsonFormat(), "perms.json", map.json to 6), Triple(Json5Format(), "perms.json5", map.json5 to 6), Triple(TomlFormat(), "perms.toml", map.toml to 7))
         for ((format, fileName, edited) in cases) {
             val (text, line) = edited
+            val valuePath = "groups.vip".takeUnless { format is TomlFormat } // tomlkt ne nomme le chemin que dans son message
             val path = newStorePath(fileName)
             StoreFactory.createFromConstructor<PermsFile>(path.toString(), format = format, config = noAutoSave).use { store ->
                 path.writeText(text) // l'admin édite le fichier : « vip » déclaré deux fois
                 val result = outcome { store.reloadFromFile(); "rechargé" }
                 println("    %-12s %s ; en mémoire : %s".format(format::class.simpleName, result, describe(store.data)))
-                check(refused(result, line) && "groups=[]" in describe(store.data) && !store.isDirty)
+                check(refused(result, line, valuePath) && "groups=[]" in describe(store.data) && !store.isDirty)
             }
         }
     }
@@ -303,7 +310,7 @@ class DuplicateKeysDemoTest {
             storePath.writeText(map.json)
             outcome { store.validateFile().toString() }.also { println("    store.validateFile(), la mémoire intacte  : $it ; en mémoire : ${describe(store.data)}") }
         }
-        check(refused(withoutStore, 6) && refused(withoutStore5, 6) && refused(withStore, 6))
+        check(refused(withoutStore, 6, "groups.vip") && refused(withoutStore5, 6, "groups.vip") && refused(withStore, 6, "groups.vip"))
     }
 
     @Test
@@ -327,20 +334,23 @@ class DuplicateKeysDemoTest {
         val siblings = """{"a": {"x": 1}, "b": {"x": 2}}"""
         val elements = """[{"a": 1}, {"a": 2}]"""
         val inString = """{"a": "x: 1, \"a\": 2", "b": 1}"""
+        val inList = """[{"a": 1}, {"a": 1, "a": 2}]"""
         val cases = listOf(
             "une clé échappée, le même nom une fois décodé" to escaped,
             "deux clés sur une seule ligne" to oneLine,
             "la même clé dans deux objets" to siblings,
             "la même clé dans deux éléments d'un tableau" to elements,
             "un faux doublon dans une chaîne" to inString,
-            "le doublon de la map, à sa ligne" to map.json,
+            "un doublon sous un élément de liste, à son rang" to inList,
+            "le doublon de la map, à sa ligne et son chemin" to map.json,
         )
         for ((label, json) in cases) {
-            val found = JsonDuplicateKeys.firstDuplicate(json)?.let { "doublon « ${it.key} » à la ligne ${it.line}" } ?: "aucun doublon"
+            val found = JsonDuplicateKeys.firstDuplicate(json)?.let { "doublon « ${it.key} » à la ligne ${it.line}, chemin ${ErrorPath.render(it.path)}" } ?: "aucun doublon"
             println("    %-48s %s".format(label, found))
         }
-        check(JsonDuplicateKeys.firstDuplicate(escaped) == JsonDuplicateKeys.Duplicate("ab", 1) && JsonDuplicateKeys.firstDuplicate(oneLine) == JsonDuplicateKeys.Duplicate("a", 1))
+        check(JsonDuplicateKeys.firstDuplicate(escaped) == JsonDuplicateKeys.Duplicate("ab", 1, listOf(PathSegment.Key("ab"))) && JsonDuplicateKeys.firstDuplicate(oneLine) == JsonDuplicateKeys.Duplicate("a", 1, listOf(PathSegment.Key("a"))))
         check(listOf(siblings, elements, inString).all { JsonDuplicateKeys.firstDuplicate(it) == null })
-        check(JsonDuplicateKeys.firstDuplicate(map.json) == JsonDuplicateKeys.Duplicate("vip", 6) && JsonDuplicateKeys.firstDuplicate(text) == null)
+        check(JsonDuplicateKeys.firstDuplicate(inList) == JsonDuplicateKeys.Duplicate("a", 1, ErrorPath.parse("[1].a")))
+        check(JsonDuplicateKeys.firstDuplicate(map.json) == JsonDuplicateKeys.Duplicate("vip", 6, ErrorPath.parse("groups.vip")) && JsonDuplicateKeys.firstDuplicate(text) == null)
     }
 }

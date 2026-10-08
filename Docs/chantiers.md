@@ -581,7 +581,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   ManyManyCommands réduit en trois étapes (la classe par famille, la `Map` sous le sérialiseur générique qui perd le schéma, la fabrique) ; la
   suite à 337 ; le banc vert en composite, gametests compris ; la KDoc de `StoreFactory` et de `BaseStore`, le README, `architecture.md`
   chapitres 1 et 3.
-- [ ] **C-55 : le chemin d'une clé en double** (S/M ; AEGIS-F). `DuplicateKeyException` porte la clé et la ligne de sa seconde occurrence, pas son
+- [x] **C-55 : le chemin d'une clé en double** (S/M ; AEGIS-F). `DuplicateKeyException` porte la clé et la ligne de sa seconde occurrence, pas son
   chemin : le scanner `JsonDuplicateKeys` tient une pile des portées ouvertes, un ensemble de clés par objet et rien pour un tableau, sans la clé
   sous laquelle chacune s'est ouverte ni le rang dans une liste. Un consommateur qui dit ses fautes par chemin, comme AegisPerms dont le cahier
   des charges veut pour chaque constat « le fichier, le chemin JSON et la ligne », sort donc « `vip`, ligne 6 » sans pouvoir dire `groups.vip` :
@@ -594,7 +594,15 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   TOML ne change pas, tomlkt écrivant déjà le chemin dans son message (`groups.vip (L7)`). Écarté : la liste de tous les doublons d'un fichier
   (une fonction `allDuplicates`, la liste portée par l'exception). Un fichier à trois doublons demande trois rechargements, comme un fichier à
   trois fautes de syntaxe : une faute de décodage se rend une à la fois, et la liste grossirait l'API pour un cas rare. Tests : un doublon à la
-  racine, dans un objet imbriqué, dans une map, sous un élément de liste, et les mêmes en JSON5.
+  racine, dans un objet imbriqué, dans une map, sous un élément de liste, et les mêmes en JSON5. **Fait le 2026-10-08** : le scanner empile un
+  cadre par portée (ses clés, ce qui l'a ouverte, la dernière clé lue, le rang compté aux virgules) et ne construit le chemin qu'au doublon ;
+  `Duplicate` et `DuplicateKeyException` portent `path`, la clé en dernier segment, et le message le nomme, « Duplicate key 'vip' at groups.vip » ;
+  `ErrorPath.render`, public, le miroir de `parse`, une clé vide ou qui porte un point ou un crochet entre crochets et guillemets ; `Json5Format`
+  empile le chemin en descendant l'AST ; `valuePathOf` prend le chemin typé avant de lire le message, comme `lineOf` prend la ligne ; TOML
+  inchangé, son `valuePath` vide épinglé. Quatre tests neufs (l'élément de liste en JSON, la map et l'élément de liste en JSON5, `ErrorPathTest`
+  pour le rendu et l'aller-retour avec `parse`), les quinze de C-50 vérifiant le chemin sur la cause et sur `valuePath` ; la démo imprime le
+  chemin ; la suite à 354 ; le banc vert en composite, gametests compris. La version reste la `0.5.0-SNAPSHOT`, son build 3 à la publication, les
+  builds 1 et 2 n'ayant eu aucun consommateur hors le banc.
 - [x] **C-56 : la ligne et le chemin d'une faute de décodage sans offset** (S/M ; AEGIS-F). `StoreDecodeException.line` vaut `null` dès que le
   message du parseur ne porte ni `offset`, ni `index`, ni `(L<n>)`, les seuls que lise `lineOf`. Mesuré le 2026-10-05, kotlinx 1.11.0, sur une
   valeur hors d'un domaine fermé (`"mood": "FURIOUS"` pour une énumération), la faute de frappe la plus courante d'une configuration : en JSON,
@@ -709,5 +717,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-07, C-28 à C-34, C-36, C-37, C-39 à C-54, C-56 et C-57 cochés, C-55 ouvert, C-35 et C-38 en attente ; les constats du banc
-à jour au 2026-09-23.*
+*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37 et C-39 à C-57 cochés, C-35 et C-38 en attente ; les constats du banc à jour au
+2026-09-23.*

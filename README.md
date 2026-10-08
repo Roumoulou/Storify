@@ -13,8 +13,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-07 (350 tests), sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-55 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
+- Build et tests : verts au 2026-10-08 (354 tests), sur la stack ci-dessous.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.
@@ -73,7 +73,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   chaque update, avec rollback et opération d'échec.
 - **Des fautes de fichier lisibles** : un fichier qui ne se lit pas ou ne se décode pas lève `StoreDecodeException` (le chemin, le format, la
   ligne quand elle se lit dans le message du parseur, qu'une clé en double la donne ou que le message nomme le chemin de la valeur, retrouvé
-  par le localisateur du format, ce chemin exposé en `valuePath` ; une fin de fichier atteinte rend la ligne où le fichier s'arrête ; la cause
+  par le localisateur du format ; le chemin de la valeur exposé en `valuePath`, que la clé en double porte typé en JSON et en JSON5, la clé en
+  dernier segment, et qu'`ErrorPath.render` écrit en texte ; une fin de fichier atteinte rend la ligne où le fichier s'arrête ; la cause
   conservée) ; elle et `ValidationException` descendent de `StorifyException`, un seul `catch` pour tout ce qui vient du fichier ; les fautes du
   code (écrire sur un store fermé ou en lecture seule) restent des `IllegalStateException`.
 - **Sidecar de métadonnées** optionnel (`<fichier>.meta.json`) : dates de création et de modification, version, données libres.

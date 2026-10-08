@@ -13,7 +13,9 @@ import fr.moulou.storify.core.StoreFactory
 import fr.moulou.storify.support.newStorePath
 import fr.moulou.storify.validateFile
 import fr.moulou.storify.validation.DuplicateKeyException
+import fr.moulou.storify.validation.ErrorPath
 import fr.moulou.storify.validation.JsonDuplicateKeys
+import fr.moulou.storify.validation.PathSegment
 import fr.moulou.storify.validation.ValidationContext
 import fr.moulou.storify.validation.Validator
 import kotlinx.serialization.Serializable
@@ -33,13 +35,14 @@ import kotlin.io.path.writeText
 /**
  * Les clés en double (C-50) : le lecteur JSON strict et le format JSON5 refusent une clé déclarée deux fois dans le même objet, par
  * `StoreDecodeException` avec la ligne de la seconde occurrence et une `DuplicateKeyException` en cause, à l'ouverture, au rechargement et dans
- * `validateFile` ; le lecteur tolérant laisse passer ; TOML refusait déjà, par sa spécification.
+ * `validateFile` ; le lecteur tolérant laisse passer ; TOML refusait déjà, par sa spécification. Depuis C-55, la cause et `valuePath` portent le
+ * chemin du doublon, la clé en dernier segment, sauf en TOML, où il reste vide.
  */
 @Serializable
 data class DupGroup(var priority: Int = 0, var prefix: String = "")
 
 @Serializable
-data class DupFile(var version: Int = 1, var defaults: DupGroup = DupGroup(), var groups: MutableMap<String, DupGroup> = mutableMapOf())
+data class DupFile(var version: Int = 1, var defaults: DupGroup = DupGroup(), var groups: MutableMap<String, DupGroup> = mutableMapOf(), var members: MutableList<DupGroup> = mutableListOf())
 
 class DupFileValidator : Validator<DupFile> {
     override fun validate(data: DupFile, ctx: ValidationContext) {
@@ -62,27 +65,37 @@ class DuplicateKeysTest {
     private fun failure(format: StoreFormat, path: Path): StoreDecodeException =
         assertThrows(StoreDecodeException::class.java) { format.validateFile(path, DupFile.serializer(), DupFileValidator()) }
 
-    private fun assertDuplicate(failure: StoreDecodeException, key: String, line: Int) {
+    /** La faute telle que la lit un consommateur : la ligne et le chemin sur l'exception enveloppée comme sur sa cause, et le message qui nomme les deux. */
+    private fun assertDuplicate(failure: StoreDecodeException, key: String, line: Int, path: String) {
         assertEquals(line, failure.line)
+        assertEquals(ErrorPath.parse(path), failure.valuePath)
         val cause = assertInstanceOf(DuplicateKeyException::class.java, failure.cause)
         assertEquals(key, cause.key)
         assertEquals(line, cause.line)
-        assertTrue(failure.message!!.contains("at line $line") && failure.message!!.contains("Duplicate key '$key'"))
+        assertEquals(ErrorPath.parse(path), cause.path)
+        assertTrue(failure.message!!.contains("at line $line") && failure.message!!.contains("Duplicate key '$key' at $path"))
     }
 
     @Test
     fun `un doublon à la racine est refusé par le lecteur strict, avec la ligne de la seconde occurrence`() {
-        assertDuplicate(failure(strict, file("dup.json", rootDuplicate)), "version", 3)
+        assertDuplicate(failure(strict, file("dup.json", rootDuplicate)), "version", 3, "version")
     }
 
     @Test
-    fun `un doublon dans un objet imbriqué est refusé, avec sa ligne`() {
-        assertDuplicate(failure(strict, file("dup.json", nestedDuplicate)), "priority", 5)
+    fun `un doublon dans un objet imbriqué est refusé, avec sa ligne et son chemin`() {
+        assertDuplicate(failure(strict, file("dup.json", nestedDuplicate)), "priority", 5, "defaults.priority")
     }
 
     @Test
-    fun `un doublon dans une map est refusé, avec sa ligne`() {
-        assertDuplicate(failure(strict, file("dup.json", mapDuplicate)), "vip", 5)
+    fun `un doublon dans une map est refusé, avec sa ligne et son chemin`() {
+        assertDuplicate(failure(strict, file("dup.json", mapDuplicate)), "vip", 5, "groups.vip")
+    }
+
+    @Test
+    fun `un doublon sous un élément de liste rend son chemin, le rang compté aux virgules du tableau`() {
+        val text = "{\n  \"version\": 1,\n  \"members\": [\n    { \"priority\": 1 },\n    { \"priority\": 1, \"priority\": 2 }\n  ]\n}"
+        assertDuplicate(failure(strict, file("list.json", text)), "priority", 5, "members[1].priority")
+        assertEquals(ErrorPath.parse("list[2][0].a"), JsonDuplicateKeys.firstDuplicate("{\"list\": [1, [2], [{\"a\": 1, \"a\": 2}]]}")?.path)
     }
 
     @Test
@@ -99,19 +112,20 @@ class DuplicateKeysTest {
         val raw = assertThrows(DuplicateKeyException::class.java) { strict.decodeFromPath(MapSerializer(String.serializer(), Int.serializer()), path) }
         assertEquals("ab", raw.key)
         assertEquals(1, raw.line)
-        assertDuplicate(failure(strict, file("escaped2.json", "{\"version\": 1, \"\\u0076ersion\": 2, \"groups\": {}}")), "version", 1)
+        assertEquals(listOf(PathSegment.Key("ab")), raw.path)
+        assertDuplicate(failure(strict, file("escaped2.json", "{\"version\": 1, \"\\u0076ersion\": 2, \"groups\": {}}")), "version", 1, "version")
     }
 
     @Test
     fun `deux clés sur une seule ligne sont vues`() {
-        assertDuplicate(failure(strict, file("compact.json", "{\"version\": 1, \"version\": 2, \"groups\": {}}")), "version", 1)
+        assertDuplicate(failure(strict, file("compact.json", "{\"version\": 1, \"version\": 2, \"groups\": {}}")), "version", 1, "version")
     }
 
     @Test
     fun `le scanner ignore une clé dans une chaîne, et un doublon dans deux éléments d'un tableau n'en est pas un`() {
         assertNull(JsonDuplicateKeys.firstDuplicate("{\"a\": \"x: 1, \\\"a\\\": 2\", \"b\": 1}"))
         assertNull(JsonDuplicateKeys.firstDuplicate("[{\"a\": 1}, {\"a\": 2}]"))
-        assertEquals(JsonDuplicateKeys.Duplicate("a", 2), JsonDuplicateKeys.firstDuplicate("{\n  \"a\": 1, \"a\": 2}"))
+        assertEquals(JsonDuplicateKeys.Duplicate("a", 2, listOf(PathSegment.Key("a"))), JsonDuplicateKeys.firstDuplicate("{\n  \"a\": 1, \"a\": 2}"))
         val path = file("string.json", "{\n  \"version\": 1,\n  \"defaults\": { \"priority\": 0, \"prefix\": \"version: 1, \\\"version\\\": 2\" },\n  \"groups\": {}\n}")
         assertEquals("version: 1, \"version\": 2", strict.decodeFromPath(DupFile.serializer(), path).defaults.prefix)
     }
@@ -135,7 +149,7 @@ class DuplicateKeysTest {
     fun `à l'ouverture d'un store, un doublon lève StoreDecodeException`() {
         val path = file("dup.json", mapDuplicate)
         val failure = assertThrows(StoreDecodeException::class.java) { StoreFactory.createFromConstructor<DupFile>(path.toString(), config = noAutoSave) }
-        assertDuplicate(failure, "vip", 5)
+        assertDuplicate(failure, "vip", 5, "groups.vip")
     }
 
     @Test
@@ -144,7 +158,7 @@ class DuplicateKeysTest {
         StoreFactory.createFromConstructor<DupFile>(path.toString(), config = noAutoSave).use { store ->
             path.writeText(rootDuplicate) // l'admin édite le fichier
             val failure = assertThrows(StoreDecodeException::class.java) { store.reloadFromFile() }
-            assertDuplicate(failure, "version", 3)
+            assertDuplicate(failure, "version", 3, "version")
             assertEquals(1, store.data.version)
             assertFalse(store.isDirty)
         }
@@ -153,11 +167,11 @@ class DuplicateKeysTest {
     @Test
     fun `validateFile refuse un doublon, avec et sans store`() {
         val path = file("dup.json", nestedDuplicate)
-        assertDuplicate(assertThrows(StoreDecodeException::class.java) { strict.validateFile(path, DupFileValidator()) }, "priority", 5)
+        assertDuplicate(assertThrows(StoreDecodeException::class.java) { strict.validateFile(path, DupFileValidator()) }, "priority", 5, "defaults.priority")
         val storePath = newStorePath("store.json")
         StoreFactory.createFromConstructor<DupFile>(storePath.toString(), config = noAutoSave, validator = DupFileValidator()).use { store ->
             storePath.writeText(nestedDuplicate)
-            assertDuplicate(assertThrows(StoreDecodeException::class.java) { store.validateFile() }, "priority", 5)
+            assertDuplicate(assertThrows(StoreDecodeException::class.java) { store.validateFile() }, "priority", 5, "defaults.priority")
             assertEquals(0, store.data.defaults.priority)
         }
     }
@@ -165,12 +179,20 @@ class DuplicateKeysTest {
     @Test
     fun `en JSON5, un doublon est refusé avec sa ligne, clés nues, apostrophes et échappements compris`() {
         val json5 = Json5Format()
-        assertDuplicate(failure(json5, file("dup.json5", "{\n  // la version\n  version: 1,\n  'version': 2,\n}")), "version", 4)
-        assertDuplicate(failure(json5, file("nested.json5", "{\n  defaults: {\n    priority: 1,\n    priority: 2,\n  },\n}")), "priority", 4)
+        assertDuplicate(failure(json5, file("dup.json5", "{\n  // la version\n  version: 1,\n  'version': 2,\n}")), "version", 4, "version")
+        assertDuplicate(failure(json5, file("nested.json5", "{\n  defaults: {\n    priority: 1,\n    priority: 2,\n  },\n}")), "priority", 4, "defaults.priority")
         val escaped = file("escaped.json5", "{ab: 1, 'a\\u0062': 2}")
         val raw = assertThrows(DuplicateKeyException::class.java) { json5.decodeFromPath(MapSerializer(String.serializer(), Int.serializer()), escaped) }
         assertEquals("ab", raw.key)
+        assertEquals(listOf(PathSegment.Key("ab")), raw.path)
         assertEquals(setOf("vip", "mod"), json5.decodeFromPath(DupFile.serializer(), file("ok.json5", "{groups: {vip: {priority: 1}, mod: {priority: 1}}}")).groups.keys)
+    }
+
+    @Test
+    fun `en JSON5, un doublon dans une map et sous un élément de liste rend son chemin`() {
+        val json5 = Json5Format()
+        assertDuplicate(failure(json5, file("map.json5", "{\n  groups: {\n    vip: {priority: 10},\n    'vip': {priority: 20},\n  },\n}")), "vip", 4, "groups.vip")
+        assertDuplicate(failure(json5, file("list.json5", "{\n  members: [\n    {priority: 1},\n    {priority: 1, priority: 2},\n  ],\n}")), "priority", 4, "members[1].priority")
     }
 
     @Test
@@ -178,7 +200,7 @@ class DuplicateKeysTest {
         val path = newStorePath("dup.json5")
         StoreFactory.createFromConstructor<DupFile>(path.toString(), config = noAutoSave).use { store ->
             path.writeText("{\n  version: 1,\n  version: 2,\n}")
-            assertDuplicate(assertThrows(StoreDecodeException::class.java) { store.reloadFromFile() }, "version", 3)
+            assertDuplicate(assertThrows(StoreDecodeException::class.java) { store.reloadFromFile() }, "version", 3, "version")
             assertEquals(1, store.data.version)
         }
         val broken = failure(Json5Format(), file("broken.json5", "{\n  version: 1,\n  version: [1, 2"))
@@ -186,9 +208,10 @@ class DuplicateKeysTest {
     }
 
     @Test
-    fun `en TOML, tomlkt refuse déjà un doublon, avec la ligne de la seconde occurrence`() {
+    fun `en TOML, tomlkt refuse déjà un doublon, avec la ligne de la seconde occurrence et sans chemin typé`() {
         val failure = failure(TomlFormat(), file("dup.toml", "version = 1\nversion = 2\n"))
         assertEquals(2, failure.line)
         assertFalse(failure.cause is DuplicateKeyException)
+        assertTrue(failure.valuePath.isEmpty()) // tomlkt ne nomme le chemin que dans son message, « version (L2) »
     }
 }

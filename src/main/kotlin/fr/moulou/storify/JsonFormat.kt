@@ -71,7 +71,7 @@ class JsonFormat(
         if (!rejectsDuplicateKeys) return path.inputStream().buffered().withoutUtf8Bom().use { stream -> json.decodeFromStream(deserializer, stream) }
         val text = path.readText().withoutUtf8Bom()
         val decoded = json.decodeFromString(deserializer, text) // un texte mal formé lève ici, avant toute recherche de doublon
-        JsonDuplicateKeys.firstDuplicate(text)?.let { throw DuplicateKeyException(it.key, it.line) }
+        JsonDuplicateKeys.firstDuplicate(text)?.let { throw DuplicateKeyException(it.key, it.line, it.path) }
         return decoded
     }
 

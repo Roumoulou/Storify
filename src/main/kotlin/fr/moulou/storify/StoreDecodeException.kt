@@ -18,8 +18,9 @@ class StoreDecodeException(
     val format: StoreFormat,
     cause: Throwable,
     /**
-     * Le chemin de la valeur fautive, quand le message du parseur le nomme (« at path $.pets['rex'].mood », kotlinx), dans la grammaire des
-     * erreurs de validation ([PathSegment], C-56) ; vide sinon, et quand la faute est à la racine.
+     * Le chemin de la valeur fautive, dans la grammaire des erreurs de validation ([PathSegment], C-56) : celui que porte une
+     * [DuplicateKeyException], la clé en dernier segment (C-55), sinon celui que le message du parseur nomme (« at path $.pets['rex'].mood »,
+     * kotlinx) ; vide sinon, et quand la faute est à la racine.
      */
     val valuePath: List<PathSegment> = valuePathOf(cause),
     /**
@@ -39,8 +40,9 @@ class StoreDecodeException(
             return "[Storify] Cannot decode '$path' (${format::class.simpleName})$where: ${cause.message ?: cause::class.simpleName}"
         }
 
-        /** Le chemin que le message du parseur nomme, dans la grammaire d'[ErrorPath] ; un chemin illisible rend la liste vide, jamais une faute dans la faute. */
+        /** Le chemin d'un doublon, typé (C-55) ; sinon celui que le message du parseur nomme, dans la grammaire d'[ErrorPath] ; un chemin illisible rend la liste vide, jamais une faute dans la faute. */
         fun valuePathOf(cause: Throwable): List<PathSegment> {
+            if (cause is DuplicateKeyException) return cause.path
             val raw = cause.message?.let { pathInMessage.find(it) }?.groupValues?.get(1) ?: return emptyList()
             return runCatching { ErrorPath.parse(raw) }.getOrDefault(emptyList())
         }

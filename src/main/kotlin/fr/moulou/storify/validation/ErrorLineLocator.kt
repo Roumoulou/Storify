@@ -12,7 +12,7 @@ sealed interface PathSegment {
 /**
  * La grammaire des chemins d'erreur (C-32) : `a.b` pour une propriété, `a[3]` pour un index, `a[steve]` ou `a["steve"]` pour une clé de map,
  * les points permis entre crochets (`homes[my.home]`). Le premier segment du `path` d'une erreur est le nom de la classe racine : il ne désigne
- * rien dans le fichier.
+ * rien dans le fichier. [render] écrit un chemin dans cette grammaire, [parse] le lit.
  */
 object ErrorPath {
 
@@ -57,6 +57,28 @@ object ErrorPath {
         val quoted = inside.length >= 2 && ((inside.first() == '"' && inside.last() == '"') || (inside.first() == '\'' && inside.last() == '\''))
         if (quoted) return PathSegment.Key(inside.substring(1, inside.length - 1))
         return if (inside.all { it.isDigit() }) PathSegment.Index(inside.toInt()) else PathSegment.Key(inside)
+    }
+
+    /**
+     * Le texte d'un chemin, le miroir de [parse] (C-55) : les clés jointes par un point, un index entre crochets, et entre crochets et
+     * guillemets une clé vide ou qui porte un point ou un crochet (`homes["my.home"]`), pour qu'un chemin rendu se relise en lui-même, une clé
+     * en chiffres comprise (`groups.123`). Seule une clé qui porte un crochet fermant ne se relit pas, parce que [parse] s'arrête au premier.
+     */
+    fun render(segments: List<PathSegment>): String = buildString {
+        for (segment in segments) {
+            when (segment) {
+                is PathSegment.Index -> append('[').append(segment.index).append(']')
+                is PathSegment.Key -> {
+                    val plain = segment.name.isNotEmpty() && segment.name.none { it == '.' || it == '[' || it == ']' }
+                    if (plain) {
+                        if (isNotEmpty()) append('.')
+                        append(segment.name)
+                    } else {
+                        append("[\"").append(segment.name).append("\"]")
+                    }
+                }
+            }
+        }
     }
 }
 
