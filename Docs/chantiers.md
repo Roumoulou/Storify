@@ -728,7 +728,13 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   migre ce qu'elle sait migrer et refuse le reste avec un message net. `StoreMeta.version` est un début de piste (C-13) ; la conception (où vit la
   version, qui écrit les migrations) mérite sa propre séance. Le curseur 1, le nom de la clé, est à trancher tôt, un consommateur veut l'écrire dès
   maintenant ; proposition du 2026-09-28 (AVIS) : `schema-version`, parce qu'un identifiant Kotlin ne peut pas porter de trait d'union, donc aucune
-  collision possible avec une propriété sans `@SerialName`.
+  collision possible avec une propriété sans `@SerialName`. Septième curseur, posé le 2026-10-08 : la forme d'une étape de migration, sur l'arbre
+  JSON (le design du 2026-09-16 : renommer, retirer, poser un défaut, par chemin), ou typée entre deux classes figées par version (une copie de la
+  data class par version, qui ne référence que des types figés, et du Kotlin ordinaire de l'une à l'autre), ou les deux dans le même pipeline, la
+  typée étant un sucre sur l'arbre (l'arbre décodé par le sérialiseur de la classe figée, ré-encodé après). Décidé : l'arbre en premier, la typée
+  ensuite. Le pipeline reste celui de l'arbre : la clé de version lue puis retirée avant le décodage, la sauvegarde nommée par la version d'origine,
+  le refus du downgrade, rien d'écrit en échec. Sans étape : un champ ajouté prend son défaut, un champ renommé se lit par `@JsonNames` en JSON et
+  JSON5 (`useAlternativeNames`, pas en TOML) ; un champ retiré bute sur le strict, le curseur 5.
 - [x] **C-18 : la distribution Minecraft** (M/L ; LECTURE). Comment un mod embarque Storify : dépendance externe publiée, jar-in-jar, ou shading ;
   l'articulation avec fabric-language-kotlin (qui fournit stdlib et kotlinx.serialization au runtime) ; et la publication sur Repsy à mettre en
   place (décidée le 2026-09-13) : circuit `maven-publish` remis en état, identifiants par la chaîne de secrets (BWS, `secrets-et-acces.md` de
