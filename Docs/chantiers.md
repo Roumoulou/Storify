@@ -716,7 +716,11 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   commit exact du build 2 ; les versions d'avant n'ont pas de commit exact et n'ont pas de branche. La release figée attend toujours les scopes
   du POM et le constructeur de `StoreConfig`. **Fait le 2026-10-08** : `mod_version=0.6.0-SNAPSHOT` ; le README (coordonnées, la recette de la
   section 4), le readme et le contexte du classeur ; la règle des branches, par chantier et par version, écrite au chapitre 6 et dans le
-  contexte du classeur ; un build propre sans cache de build, le jar et le POM relus ; la branche `0.6.0` posée sur ce commit.
+  contexte du classeur ; un build propre sans cache de build, le jar et le POM relus ; la branche `0.6.0` posée sur ce commit. Publiée sur Repsy
+  par l'utilisateur, avec le jeton, build 2 du snapshot d'après les métadonnées de Repsy (`0.6.0-20261008.175017-2`), `master`, `0.5.0` et `0.6.0`
+  poussées ; le catalogue du banc passe à `0.6.0-SNAPSHOT` et le banc construit en mode `repsy` sur l'artefact publié, dépendances rafraîchies,
+  gametests compris, son jar embarquant `storify-0.6.0-SNAPSHOT.jar` ; `getPath` sur `DuplicateKeyException` et `render` sur `ErrorPath` lus dans
+  le jar publié par `javap`.
 
 ## 5. P3, la vision
 
