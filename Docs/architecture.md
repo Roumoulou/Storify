@@ -276,7 +276,7 @@ fautes du fichier ; sans cela, kotlinx comme la brique json5 gardent la dernièr
 JSON, c'est l'affaire du lecteur strict (un `Json` ni `isLenient` ni `allowComments`) : `decodeFromPath` lit le texte entier, le décode (un texte
 mal formé est diagnostiqué par kotlinx, avant tout), puis le passe à `JsonDuplicateKeys` (`validation\`), qui empile les portées ouvertes avec ce
 qui les a ouvertes (la dernière clé lue dans l'objet parent, ou le rang dans le tableau parent, compté à ses virgules), garde les clés de chaque
-objet dans un ensemble et décode les chaînes de leurs échappements, si bien que `"ab"` et `"ab"` sont la même clé ; un doublon lève
+objet dans un ensemble et décode les chaînes de leurs échappements, si bien que `"ab"` et `"a\u0062"` sont la même clé ; un doublon lève
 `DuplicateKeyException` avec sa ligne et son chemin, que son message nomme (« Duplicate key 'vip' at groups.vip », rendu par `ErrorPath.render`),
 une `SerializationException` comme celles de kotlinx, que `decodeFile` enveloppe et dont `StoreDecodeException` lit la ligne et le chemin. Le
 lecteur tolérant, comme tout `Json` d'un consommateur qui admet les commentaires ou les clés nues, n'y est pas soumis et garde la dernière

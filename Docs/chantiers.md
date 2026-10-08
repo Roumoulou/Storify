@@ -470,7 +470,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   contrat `StoreFormat` est intact. Écartés : le lecteur d'arbre et le `JsonDecoder` enveloppé (le doublon est perdu avant tout crochet, et une map
   reste hors de portée d'un `DeserializationStrategy` enveloppant), la brique json5 pour lire le JSON (7,3 ms, une brique de plus sous `JsonFormat`,
   à contre-courant de C-38), la passe sur le flux (sans objet tant qu'aucun store ne pèse plusieurs Mo). Tests : un doublon à la racine, dans un objet
-  imbriqué, dans une map ; la même clé dans deux objets différents, acceptée ; une clé échappée (`"ab"` contre `"ab"`), reconnue ; la ligne de
+  imbriqué, dans une map ; la même clé dans deux objets différents, acceptée ; une clé échappée (`"ab"` contre `"a\u0062"`), reconnue ; la ligne de
   la seconde occurrence ; le chargement initial, `reloadFromFile` mémoire intacte, `validateFile` avec et sans store, `lenient()` qui laisse passer ;
   les mêmes en JSON5 ; TOML épinglé. Docs : README section 2, `architecture.md` chapitre 9 ; la démo passe à sa forme « avant, depuis ».
   **Fait le 2026-10-01**, avec deux retouches de design en route : le format lève une `DuplicateKeyException` nue (une `SerializationException`,
@@ -642,6 +642,63 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   l'utilisateur, avec le jeton, build 1 du snapshot (`0.5.0-20261007.191930-1`) ; le catalogue du banc passe à `0.5.0-SNAPSHOT` et le banc
   construit en mode `repsy` sur l'artefact publié, gametests compris, son jar embarquant `storify-0.5.0-SNAPSHOT.jar` ; `createFromProvider` lu
   dans le jar publié par `javap`.
+- [x] **C-58 : l'exemple de la clé échappée, amputé de son échappement** (S ; LECTURE). Le scanner de C-50 décode les chaînes de leurs
+  échappements avant de comparer les clés, et l'exemple qui le dit a perdu le sien à quatre endroits : l'entrée C-50 (« une clé échappée
+  (`"ab"` contre `"ab"`) »), `architecture.md` chapitre 9 (« si bien que `"ab"` et `"ab"` sont la même clé »), la KDoc de `JsonDuplicateKeys`
+  (la même phrase) et l'étape 5 de `DuplicateKeysDemo` (`{"ab": 1, "ab": 2}`, étiqueté « une clé échappée »), où le cas montre un doublon
+  ordinaire. La forme juste est celle du test de `DuplicateKeysTest` qui reconnaît la clé échappée : `"ab"` contre `"a\u0062"`. Les trois
+  questions. Utile : à qui lit la doc, à qui la phrase dit aujourd'hui qu'une chaîne est égale à elle-même, et à la démo, qui doit montrer ce
+  qu'elle annonce. Vaut la peine : quatre lignes. Cohérente : de la doc, et le texte d'un cas de démo dont le `check` reste vrai, `"a\u0062"` se
+  décodant en `ab`. Design : écrire `"a\u0062"` du second côté aux quatre endroits, rien d'autre ne bouge. Tests : aucun de neuf, l'étape 5 de la
+  démo prouve le cas tel qu'étiqueté. **Fait le 2026-10-08** : les quatre endroits, et la cause trouvée en route : la couche d'outils de la
+  session IA décode une séquence d'échappement Unicode en son caractère avant d'écrire, dans une édition comme dans une commande, ce qui avait
+  amputé l'exemple et amputait de même cette entrée ; la séquence s'est écrite par un script Perl qui la construit sans la taper (`chr(92)`).
+  L'étape 5 de la démo verte sur un cas échappé pour de vrai, la suite à 354.
+- [ ] **C-59 : la démo chronométrée qui rougit la suite** (S ; les témoins du 2026-10-05 au 2026-10-08). L'étape 2 de `SaveLockDemoTest` affirme
+  `waitedNs > aloneNs * 3` : un mutate seul, mesuré une fois, puis un mutate lancé pendant une sauvegarde, dont l'attente doit valoir trois
+  fois le premier. Le premier est une mesure unique, sans chauffe, qui sort parfois à 12 ou 15 ms au lieu de 0,5 (12,45 ms le 2026-10-05,
+  14,62 ms le 2026-10-08 pour une attente de 13,6 ms) : la suite entière rougit une fois sur deux ou trois, verte rejouée, et chaque témoin se
+  rejoue avant de s'interpréter. Les trois questions. Utile : à toute session, dont le témoin dépend de ce rouge. Vaut la peine : ce que la
+  démo veut prouver est un ordre, le mutate couru après l'encodage de la sauvegarde, et un ordre se prouve sans chronomètre ; les chiffres
+  restent imprimés, c'est leur rôle de démo. Cohérente : le format témoin `SignallingFormat` sait déjà quand l'encodage commence, il saura
+  quand il finit. Design proposé : `SignallingFormat` pose un drapeau `encodingFinished` (volatile) au retour de `delegate.encodeToPath`,
+  encore sous le read lock de la sauvegarde ; le mutate lancé pendant la sauvegarde relève ce drapeau dans sa lambda, sous le write lock, qui
+  ne se prend qu'après la libération du read lock ; `check(encodingDoneWhenMutating)` remplace la comparaison de temps, vrai par construction
+  du verrou, faux le jour où une sauvegarde encoderait hors de lui. Les trois mesures restent imprimées. Tests : la démo, rejouée plusieurs
+  fois.
+- [ ] **C-60 : la clé de map faite de chiffres perd sa ligne** (S ; mesure du 2026-10-05). `validateEach` sur une map écrit `champ[clé]`, la clé
+  telle quelle (C-32) ; la grammaire d'`ErrorPath` lit des chiffres seuls entre crochets comme un index, si bien que `groups[123]` cherche le
+  cent vingt-quatrième élément de `groups`, un objet, et rend la ligne de la map, quand `groups["123"]` rend celle de la clé. Un identifiant
+  numérique en clé de map est courant. Les trois questions. Utile : à tout consommateur qui valide une map à clés numériques, pour la ligne
+  de ses erreurs. Vaut la peine : une condition dans `validateEach`, la grammaire gardant son contrat, les tests de C-32 et C-53 intacts.
+  Cohérente : la grammaire offre les guillemets pour ce cas ; les mettre toujours (`players["steve"]`) changerait le texte de chaque erreur de
+  map, que les consommateurs affichent et que le banc écrit à la main sans guillemets (`players[$uuid]`), pour un gain nul hors des chiffres.
+  Design proposé : `validateEach(Map)` écrit la clé entre guillemets quand la grammaire la lirait autrement, vide ou faite de chiffres seuls
+  (`groups["123"]`), telle quelle sinon ; la KDoc le dit, et la doc rappelle qu'un chemin écrit à la main suit la même règle. Tests :
+  `ValidationContextTest`, une clé en chiffres entre guillemets, une clé ordinaire sans ; `ErrorEnricherTest`, une erreur sous `groups["123"]`
+  prend la ligne de la clé, et `groups[123]` épinglé à la ligne de la map, le contrat de la grammaire. Docs : `architecture.md` chapitre 8, le
+  README section 2.
+- [ ] **C-61 : le lecteur strict tolère ce que la doc dit refusé** (S ; AEGIS-F, MMC, mesure du 2026-10-05). Le README (section 2) écrit que
+  `JsonFormat` lit « le JSON standard, strict à la lecture », `architecture.md` (chapitre 9) qu'il lit « le JSON standard et rien d'autre »
+  (C-36). Mesuré le 2026-10-05 et rejoué le 2026-10-08 par `JsonStrictDemo`, le strict accepte un nombre entre guillemets (`"count": "1"`) et
+  un booléen entre guillemets (`"enabled": "true"`), et, mesuré par sonde, une virgule manquante entre deux membres d'un objet. Vérifié dans
+  les sources de kotlinx 1.11.0 : `AbstractJsonLexer.consumeNumericLiteral` admet le guillemet quel que soit `isLenient` (ligne 594),
+  `StreamingJsonDecoder.decodeBoolean` appelle toujours `consumeBooleanLenient` (ligne 280, « the primitives are allowed to be quoted and
+  unquoted »), et `decodeObjectIndex` enchaîne les membres tant qu'une valeur se lit, la virgule consommée si elle est là (lignes 223 à 246),
+  quand `decodeListIndex` la réclame entre deux éléments (ligne 267) ; aucun des seize réglages de `JsonConfiguration` ne les refuse. La
+  donnée décodée est juste dans les trois cas : la tolérance ne perd rien, à la différence du doublon de C-50. Les trois questions. Utile : à
+  qui lit la doc, et à AegisPerms et ManyManyCommands, qui l'ont constaté. Vaut la peine : faire dire vrai à la doc coûte trois phrases et
+  trois `check` ; durcir le lecteur demanderait une passe sur le texte, une grammaire JSON entière cette fois (chaînes, nombres, virgules),
+  pour refuser des fichiers dont la lecture est juste : un chantier à lui (C-62). Cohérente : C-36 a défini le strict par ce qu'il refuse ; la
+  doc nommera aussi ce qu'il laisse passer. Design proposé : la doc dit vrai (README section 2, `architecture.md` chapitre 9, la KDoc de
+  `JsonFormat`), le strict de C-36 et trois libertés de kotlinx que rien ne règle ; `JsonStrictDemo` gagne la variante « une virgule
+  manquante », et son étape 2 épingle les trois tolérances par `check`, à kotlinx 1.11.0, pour que la montée de version qui les refermerait
+  se voie. Tests : les `check` de la démo. Docs : les trois endroits.
+- [ ] **C-62 : le lecteur strict durci** (M ; issu de C-61). Une passe sur le texte, après le décodage comme `JsonDuplicateKeys`, qui refuserait ce
+  que kotlinx tolère sans réglage (C-61) : un nombre ou un booléen entre guillemets, une virgule manquante entre deux membres. C'est une
+  grammaire JSON entière sur le texte (chaînes, nombres, littéraux, virgules), payée à chaque chargement strict, pour refuser des fichiers dont
+  la lecture est juste. En attente, à la condition d'un consommateur qui ait besoin de ce refus, comme C-35 ; sans lui, la doc de C-61 dit ce
+  que le lecteur fait, et cela suffit.
 
 ## 5. P3, la vision
 

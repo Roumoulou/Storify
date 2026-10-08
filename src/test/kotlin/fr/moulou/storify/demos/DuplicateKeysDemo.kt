@@ -329,7 +329,7 @@ class DuplicateKeysDemoTest {
         println("    Json5.parseToJsonElement, l'avant de Json5Format   : %5.2f ms".format(ms { Json5.parseToJsonElement(text) }))
         println("    Json5.parseToDocument, l'AST aux doublons, depuis  : %5.2f ms".format(ms { Json5.parseToDocument(text) }))
 
-        val escaped = """{"ab": 1, "ab": 2}"""
+        val escaped = """{"ab": 1, "a\u0062": 2}""" // une chaîne brute : le \u0062 reste dans le texte, c'est le scanner qui le décode
         val oneLine = """{"a": 1, "a": 2}"""
         val siblings = """{"a": {"x": 1}, "b": {"x": 2}}"""
         val elements = """[{"a": 1}, {"a": 2}]"""

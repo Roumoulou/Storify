@@ -14,7 +14,7 @@ class DuplicateKeyException(val key: String, val line: Int, val path: List<PathS
 
 /**
  * Le scanner des clés en double d'un texte JSON strict (C-50) : les portées ouvertes en pile, les clés de chaque objet dans un ensemble, les
- * chaînes décodées de leurs échappements avant comparaison (`"ab"` et `"ab"` sont la même clé), la ligne comptée au passage. Chaque portée
+ * chaînes décodées de leurs échappements avant comparaison (`"ab"` et `"a\u0062"` sont la même clé), la ligne comptée au passage. Chaque portée
  * retient ce qui l'a ouverte, la dernière clé lue dans l'objet parent ou le rang dans le tableau parent, compté à ses virgules, et le chemin
  * du doublon s'en construit (C-55), au doublon seulement. Un tableau ouvre une portée sans clés, et une chaîne n'est une clé que si le premier
  * caractère significatif qui la suit est `:`. Le texte est supposé être du JSON strict, sans commentaire ni clé nue : ce que le lecteur
