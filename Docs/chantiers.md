@@ -601,8 +601,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   empile le chemin en descendant l'AST ; `valuePathOf` prend le chemin typé avant de lire le message, comme `lineOf` prend la ligne ; TOML
   inchangé, son `valuePath` vide épinglé. Quatre tests neufs (l'élément de liste en JSON, la map et l'élément de liste en JSON5, `ErrorPathTest`
   pour le rendu et l'aller-retour avec `parse`), les quinze de C-50 vérifiant le chemin sur la cause et sur `valuePath` ; la démo imprime le
-  chemin ; la suite à 354 ; le banc vert en composite, gametests compris. La version reste la `0.5.0-SNAPSHOT`, son build 3 à la publication, les
-  builds 1 et 2 n'ayant eu aucun consommateur hors le banc.
+  chemin ; la suite à 354 ; le banc vert en composite, gametests compris. La version : la `0.6.0-SNAPSHOT` de C-63, décidée le même jour avec
+  la règle des branches de version, à la place du build 3 du snapshot que le design prévoyait.
 - [x] **C-56 : la ligne et le chemin d'une faute de décodage sans offset** (S/M ; AEGIS-F). `StoreDecodeException.line` vaut `null` dès que le
   message du parseur ne porte ni `offset`, ni `index`, ni `(L<n>)`, les seuls que lise `lineOf`. Mesuré le 2026-10-05, kotlinx 1.11.0, sur une
   valeur hors d'un domaine fermé (`"mood": "FURIOUS"` pour une énumération), la faute de frappe la plus courante d'une configuration : en JSON,
@@ -708,6 +708,15 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   grammaire JSON entière sur le texte (chaînes, nombres, littéraux, virgules), payée à chaque chargement strict, pour refuser des fichiers dont
   la lecture est juste. En attente, à la condition d'un consommateur qui ait besoin de ce refus, comme C-35 ; sans lui, la doc de C-61 dit ce
   que le lecteur fait, et cela suffit.
+- [x] **C-63 : la version 0.6.0-SNAPSHOT et sa branche** (S ; décision du 2026-10-08). C-55 ajoute des entrées à l'API (`DuplicateKeyException.path`,
+  `ErrorPath.render`) et C-60 change le texte d'un chemin d'erreur : un numéro visible plutôt qu'une republication silencieuse, la règle de C-39,
+  C-44, C-51 et C-57, à la place du build 3 de la `0.5.0-SNAPSHOT` que C-55 prévoyait. Et une règle neuve, décidée le même jour : chaque
+  publication d'un numéro neuf laisse une branche nommée comme la version (`0.6.0`), créée sur le commit publié, poussée et jamais supprimée,
+  pour y revenir un jour ; `master` continue, et la publication suivante prend le numéro suivant. `0.5.0` est posée après coup sur `83f6055`, le
+  commit exact du build 2 ; les versions d'avant n'ont pas de commit exact et n'ont pas de branche. La release figée attend toujours les scopes
+  du POM et le constructeur de `StoreConfig`. **Fait le 2026-10-08** : `mod_version=0.6.0-SNAPSHOT` ; le README (coordonnées, la recette de la
+  section 4), le readme et le contexte du classeur ; la règle des branches, par chantier et par version, écrite au chapitre 6 et dans le
+  contexte du classeur ; un build propre sans cache de build, le jar et le POM relus ; la branche `0.6.0` posée sur ce commit.
 
 ## 5. P3, la vision
 
@@ -779,9 +788,13 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 4. Si le comportement à l'exécution est touché : un passage au banc, en jeu, avec le log pour témoin.
 5. Cocher la case ici, avec la date, et raconter au journal du classeur.
 
+Un chantier se mène sur une branche `c-<n>-<slug>` créée depuis `master` et revient par `merge --ff-only`, la branche supprimée : l'historique reste
+linéaire, un commit par chantier. Une publication qui porte un numéro neuf laisse une branche nommée comme la version (`0.6.0`), créée sur le
+commit publié, poussée et jamais supprimée, pour y revenir un jour ; `master` continue, et la publication suivante prend le numéro suivant.
+
 Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la liste au lieu de s'étendre en silence.
 
 ---
 
-*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37 et C-39 à C-61 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour au
-2026-09-23.*
+*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37, C-39 à C-61 et C-63 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
+au 2026-09-23.*
