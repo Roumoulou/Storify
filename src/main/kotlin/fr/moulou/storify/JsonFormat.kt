@@ -26,7 +26,10 @@ import kotlin.io.path.readText
  * Le format JSON : le JSON standard, strict à la lecture (C-36). Un commentaire, une clé ou une chaîne sans guillemets échouent au décodage
  * comme une virgule finale ou une clé inconnue, et une clé déclarée deux fois dans le même objet aussi (C-50, [DuplicateKeyException]
  * levée après le décodage, pour qu'un texte mal formé reste diagnostiqué par le parseur) ; le store lève [StoreDecodeException] avec la
- * ligne, celle de la seconde occurrence pour un doublon. Le fichier édité à la main qui veut ces libertés a son format, [Json5Format]. Le
+ * ligne, celle de la seconde occurrence pour un doublon. Trois libertés de kotlinx restent, qu'aucun de ses réglages ne ferme (C-61) : un
+ * nombre ou un booléen entre guillemets se lit, et une virgule manquante entre deux membres d'un objet passe, quand un tableau la réclame ;
+ * la donnée décodée est juste, le refus est un chantier en attente (C-62). Le fichier édité à la main qui veut commentaires et clés nues a
+ * son format, [Json5Format]. Le
  * défaut garde `prettyPrint` et `encodeDefaults` (un fichier lisible qui porte tous ses champs), `allowStructuredMapKeys` (une map à clés
  * structurées s'écrit en tableau ; le réglage ne tolère aucune syntaxe) et `allowSpecialFloatingPointValues` (un `NaN` s'écrit et se relit :
  * le refuser ferait échouer chaque sauvegarde du store, loin du code qui a produit la valeur).

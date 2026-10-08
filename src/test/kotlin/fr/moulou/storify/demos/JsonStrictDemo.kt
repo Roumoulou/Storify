@@ -23,10 +23,12 @@ import kotlin.io.path.writeText
 /*
  * La démo de C-36 : ce que le lecteur JSON tolérant accepte, et ce que le lecteur strict en dit. Le fil :
  *
- *   1. huit fichiers `config.json` ouverts par un store au lecteur tolérant, le défaut d'avant C-36 (`JsonFormat.lenient()`) : le JSON standard,
- *      un commentaire, des clés et une chaîne sans guillemets, un booléen et un nombre entre guillemets, `NaN`, une virgule finale, une clé inconnue ;
+ *   1. dix fichiers `config.json` ouverts par un store au lecteur tolérant, le défaut d'avant C-36 (`JsonFormat.lenient()`) : le JSON standard,
+ *      un commentaire, des clés et une chaîne sans guillemets, un booléen et un nombre entre guillemets, `NaN`, une virgule finale, une virgule
+ *      manquante entre deux membres d'un objet, puis entre deux éléments d'un tableau, une clé inconnue ;
  *   2. les mêmes fichiers par le lecteur strict, le défaut depuis C-36 (`JsonFormat()`) : ce qui cesse de charger arrive en StoreDecodeException,
- *      avec la ligne ;
+ *      avec la ligne ; et ce que kotlinx laisse passer quel que soit le réglage, épinglé (C-61) : le nombre et le booléen entre guillemets, la
+ *      virgule manquante entre deux membres d'un objet, quand un tableau la réclame ;
  *   3. le fichier à commentaire et clés nues en `.json5` : c'est le format fait pour lui ;
  *   4. `allowSpecialFloatingPointValues`, gardé par C-36 et étendu aux trois formats par C-42 : un `NaN` en mémoire, sauvegardé par un lecteur
  *      qui le tolère puis par un qui le refuse ;
@@ -76,6 +78,8 @@ class JsonStrictDemoTest {
         plain("un nombre entre guillemets", "{\n  \"name\": \"steve\",\n  \"count\": \"1\",\n  \"tags\": []\n}"),
         tuning("NaN", "{\n  \"enabled\": true,\n  \"ratio\": NaN\n}"),
         plain("une virgule finale", "{\n  \"name\": \"steve\",\n  \"count\": 1,\n  \"tags\": [],\n}"),
+        plain("une virgule manquante, objet", "{\n  \"name\": \"steve\"\n  \"count\": 1,\n  \"tags\": []\n}"),
+        plain("une virgule manquante, tableau", "{\n  \"name\": \"steve\",\n  \"count\": 1,\n  \"tags\": [\"a\" \"b\"]\n}"),
         plain("une clé inconnue", "{\n  \"name\": \"steve\",\n  \"colour\": \"red\",\n  \"count\": 1,\n  \"tags\": []\n}"),
     )
 
@@ -109,6 +113,11 @@ class JsonStrictDemoTest {
         show(results)
         check(results.getValue("JSON standard").startsWith("OK"))
         check(!results.getValue("un commentaire").startsWith("OK") && !results.getValue("clés et chaîne sans guillemets").startsWith("OK"))
+        // Ce que kotlinx 1.11.0 laisse passer quel que soit le réglage (C-61) : les primitives entre guillemets, et la virgule entre deux membres
+        // d'un objet, que decodeObjectIndex ne réclame pas quand decodeListIndex la réclame entre deux éléments. La donnée décodée est juste ; le
+        // refus est C-62, en attente. Ces check épinglent la version : une montée de kotlinx qui refermerait une porte se verra ici.
+        check(results.getValue("un booléen entre guillemets").startsWith("OK") && results.getValue("un nombre entre guillemets").startsWith("OK"))
+        check(results.getValue("une virgule manquante, objet").startsWith("OK") && !results.getValue("une virgule manquante, tableau").startsWith("OK"))
     }
 
     @Test

@@ -684,7 +684,7 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   telle quelle sinon ; `players[steve]` et `players[my.home]` inchangés, les tests de C-32 et C-53 intacts ; un test dans
   `ValidationContextTest`, rouge d'abord, et un dans `ErrorEnricherTest`, `groups["123"]` à la ligne de la clé et `groups[123]` épinglé à celle
   de la map ; la KDoc, `architecture.md` chapitre 8, le README section 2 ; la suite à 356, le banc vert en composite.
-- [ ] **C-61 : le lecteur strict tolère ce que la doc dit refusé** (S ; AEGIS-F, MMC, mesure du 2026-10-05). Le README (section 2) écrit que
+- [x] **C-61 : le lecteur strict tolère ce que la doc dit refusé** (S ; AEGIS-F, MMC, mesure du 2026-10-05). Le README (section 2) écrit que
   `JsonFormat` lit « le JSON standard, strict à la lecture », `architecture.md` (chapitre 9) qu'il lit « le JSON standard et rien d'autre »
   (C-36). Mesuré le 2026-10-05 et rejoué le 2026-10-08 par `JsonStrictDemo`, le strict accepte un nombre entre guillemets (`"count": "1"`) et
   un booléen entre guillemets (`"enabled": "true"`), et, mesuré par sonde, une virgule manquante entre deux membres d'un objet. Vérifié dans
@@ -699,7 +699,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   doc nommera aussi ce qu'il laisse passer. Design proposé : la doc dit vrai (README section 2, `architecture.md` chapitre 9, la KDoc de
   `JsonFormat`), le strict de C-36 et trois libertés de kotlinx que rien ne règle ; `JsonStrictDemo` gagne la variante « une virgule
   manquante », et son étape 2 épingle les trois tolérances par `check`, à kotlinx 1.11.0, pour que la montée de version qui les refermerait
-  se voie. Tests : les `check` de la démo. Docs : les trois endroits.
+  se voie. Tests : les `check` de la démo. Docs : les trois endroits. **Fait le 2026-10-08** : la doc dit vrai aux trois endroits (README
+  section 2, `architecture.md` chapitre 9 avec les fonctions de kotlinx en cause, la KDoc de `JsonFormat`), le durcissement renvoyé à C-62 ;
+  `JsonStrictDemo` gagne deux variantes, la virgule manquante entre deux membres d'un objet, qui passe, et entre deux éléments d'un tableau, qui
+  échoue, et son étape 2 épingle par `check` les trois tolérances à kotlinx 1.11.0 ; la suite à 356, le banc vert en composite.
 - [ ] **C-62 : le lecteur strict durci** (M ; issu de C-61). Une passe sur le texte, après le décodage comme `JsonDuplicateKeys`, qui refuserait ce
   que kotlinx tolère sans réglage (C-61) : un nombre ou un booléen entre guillemets, une virgule manquante entre deux membres. C'est une
   grammaire JSON entière sur le texte (chaînes, nombres, littéraux, virgules), payée à chaque chargement strict, pour refuser des fichiers dont
@@ -780,5 +783,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37 et C-39 à C-57 cochés, C-35 et C-38 en attente ; les constats du banc à jour au
+*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37 et C-39 à C-61 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour au
 2026-09-23.*

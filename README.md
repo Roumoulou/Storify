@@ -14,7 +14,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-10-08 (356 tests), sur la stack ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35 et C-38 en attente) vivent dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35, C-38 et C-62 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
   porte son en-tête SPDX.
@@ -33,7 +33,9 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 - **Trois formats de fichier fournis** : JSON (`JsonFormat`, le JSON standard, strict à la lecture : un commentaire, une clé sans guillemets ou
   une clé déclarée deux fois dans le même objet font échouer le chargement avec la ligne, comme une clé inconnue ; `JsonFormat.lenient()` les
-  tolère), TOML (`TomlFormat`, qui refuse aussi une clé en double, par sa spécification) et JSON5 (`Json5Format`, le JSON des configs éditées à
+  tolère ; kotlinx laisse passer, sans réglage pour les refuser, un nombre ou un booléen entre guillemets et une virgule manquante entre deux
+  membres d'un objet, la donnée décodée restant juste), TOML (`TomlFormat`, qui refuse aussi une clé en double, par sa spécification) et JSON5
+  (`Json5Format`, le JSON des configs éditées à
   la main : commentaires, clés nues, virgules traînantes, et des sauvegardes qui **préservent** les commentaires et le style ; une clé en double
   y est refusée aussi, avec sa ligne), résolus par l'extension du chemin quand on ne les précise pas ; un BOM UTF-8 en tête de fichier (le
   Bloc-notes en pose un) est toléré à la lecture et jamais écrit ; et un vrai point d'extension (C-09) : un format tiers implémente

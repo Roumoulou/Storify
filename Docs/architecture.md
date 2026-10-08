@@ -266,9 +266,13 @@ mécanisme du dispatch (elle exige des méthodes inline, donc non virtuelles) ; 
 | `TomlFormat` | ignoreUnknownKeys | Crée les dossiers parents à l'écriture (C-04) ; une clé en double refusée par tomlkt, avec sa ligne |
 | `Json5Format` | sortie indentée quatre espaces, apostrophes simples, clés nues ; pont `Json { encodeDefaults, allowSpecialFloatingPointValues }` | Crée les dossiers parents ; sauvegarde préservante (C-26) : seules les valeurs changées se réécrivent ; une clé en double refusée, par l'AST de la brique (C-50) |
 
-`JsonFormat` lit le JSON standard et rien d'autre (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une
-virgule finale ou une clé inconnue, et le store lève `StoreDecodeException` avec la ligne. `NaN` et les infinis restent tolérés, à l'écriture comme
-à la lecture, parce qu'un refus ferait échouer chaque sauvegarde du store loin du code qui a produit la valeur, quand un `NaN` écrit se relit ;
+`JsonFormat` lit le JSON standard (C-36) : un commentaire, une clé ou une chaîne sans guillemets échouent au décodage comme une virgule finale ou
+une clé inconnue, et le store lève `StoreDecodeException` avec la ligne. Trois libertés de kotlinx restent, qu'aucun de ses seize réglages ne
+ferme et que `JsonStrictDemo` épingle à sa version (C-61) : un nombre et un booléen entre guillemets se lisent (`consumeNumericLiteral` et
+`decodeBoolean` admettent le guillemet quel que soit `isLenient`), et une virgule manquante entre deux membres d'un objet passe
+(`decodeObjectIndex` ne la réclame pas, quand `decodeListIndex` la réclame entre deux éléments) ; la donnée décodée est juste, et le refus, une
+grammaire JSON sur le texte, est C-62, en attente. `NaN` et les infinis restent tolérés, à l'écriture comme à la lecture, parce qu'un refus ferait
+échouer chaque sauvegarde du store loin du code qui a produit la valeur, quand un `NaN` écrit se relit ;
 `allowStructuredMapKeys` ne tolère aucune syntaxe (une map à clés textuelles écrite en tableau est refusée), il permet une map à clés structurées.
 `JsonFormat.lenient()` rend le lecteur tolérant, et le constructeur accepte tout `Json`.
 
@@ -360,6 +364,6 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 
 ---
 
-*Dernière vérification : 2026-10-08, C-55 porté aux chapitres 8 et 9, C-54 aux chapitres 1 et 3 et C-56 au chapitre 8 le 2026-10-07, C-53 au chapitre 8 le
-2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le 2026-09-30 ; ce qui doit changer est ouvert dans
-`chantiers.md` (C-17, C-19 et C-20 ; C-35 et C-38 en attente).*
+*Dernière vérification : 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
+chapitre 8 le 2026-10-07, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le
+2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19 et C-20 ; C-35, C-38 et C-62 en attente).*
