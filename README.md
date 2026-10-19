@@ -7,26 +7,30 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.6.0-SNAPSHOT`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le 2026-10-08 ; c'est
-  elle que la recette de la section 4 cite. Aucune release figée : l'API bouge, le snapshot se republie à volonté.
+- Coordonnées : `fr.moulou:storify`, version `0.7.0`, la première release, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le
+  2026-10-19 ; c'est elle que la recette de la section 4 cite. L'artefact porte deux variantes sous cette seule coordonnée, Java 8 et Java 25,
+  que Gradle choisit d'après la cible du consommateur (section 4). `master` continue en `0.8.0-SNAPSHOT` ; avant `1.0.0`, le mineur monte à
+  chaque ajout ou rupture, et un consommateur épingle une release, jamais un snapshot.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-08 (356 tests), sur la stack ci-dessous.
+- Build et tests : verts au 2026-10-19 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 8, section 6), sur la stack
+  ci-dessous.
 - L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-64 ; C-35, C-38 et C-62 en attente) vivent dans `Docs\chantiers.md`.
-- Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un commit par chantier.
+- Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
+  release par tag `v<version>` (`git-et-versions.md` de The Human Readme) ; `CHANGELOG.md` tient les versions.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
-  porte son en-tête SPDX.
+  porte son en-tête SPDX ; la copie de kotlin-json5 qu'elle embarque est sous Apache-2.0 (`LICENSE.json5`, `NOTICE`).
 
 | Outil | Version |
 |---|---|
-| Gradle (wrapper) | 9.7.1 |
-| Kotlin | 2.4.20 |
-| Java (toolchain) | 25 |
+| Gradle (wrapper) | 9.8.1 |
+| Kotlin | 2.4.21 |
+| Java (toolchain) | 25, et un JDK 8 pour l'essai de fumée de la variante Java 8 |
 | kotlinx.serialization | 1.11.0 |
 | tomlkt | 0.6.1 |
-| li.songe:json5 | 0.8.0 |
+| kotlin-json5, copiée dans les sources (`internal.json5`) | 0.8.0 |
 | kotlinx-datetime | 0.8.0 |
 
 ## 2. Les fonctionnalités
@@ -148,7 +152,7 @@ homesStore.reloadFromFile() // relit le fichier, le revalide (mémoire intacte e
 ## 4. Embarquer Storify dans un mod
 
 À la compilation, Gradle télécharge Storify depuis Repsy ; au runtime, un serveur n'a plus de Gradle : le jar du mod doit donc embarquer la
-lib. La recette Fabric tient en trois `include` (le jar-in-jar de Loom, qui wrappe tout seul les jars non-mods) :
+lib. La recette Fabric tient en deux `include` (le jar-in-jar de Loom, qui wrappe tout seul les jars non-mods) :
 
 ```kotlin
 repositories {
@@ -156,23 +160,54 @@ repositories {
 }
 
 dependencies {
-    implementation("fr.moulou:storify:0.6.0-SNAPSHOT")  // compiler contre la lib...
-    include("fr.moulou:storify:0.6.0-SNAPSHOT")         // ... et l'embarquer dans le jar du mod
-    include("dev.eav.tomlkt:tomlkt:0.6.1")              // include n'est pas transitif :
-    include("li.songe:json5:0.8.0")                     // chaque jar se déclare
+    implementation("fr.moulou:storify:0.7.0")  // compiler contre la lib...
+    include("fr.moulou:storify:0.7.0")         // ... et l'embarquer dans le jar du mod
+    include("dev.eav.tomlkt:tomlkt:0.6.1")     // include n'est pas transitif : chaque jar se déclare
 }
 ```
 
 Et dans `fabric.mod.json`, le plancher qui garantit le runtime Kotlin :
 
 ```json
-"depends": { "fabric-language-kotlin": ">=1.14.1" }
+"depends": { "fabric-language-kotlin": ">=1.14.2" }
 ```
 
-Pourquoi trois jars seulement : fabric-language-kotlin 1.14.1 fournit au runtime la stdlib, kotlin-reflect 2.4.20, kotlinx-serialization
-core, json et cbor 1.11.0 et kotlinx-datetime 0.8.0, exactement les versions attendues par Storify, et Minecraft fournit slf4j. Un FLK plus
-vieux est refusé net par le loader (le `depends`) ; un plus récent est couvert par la rétrocompatibilité binaire de Kotlin ; et le loader
-déduplique les jars embarqués entre mods (une seule version chargée, la plus récente compatible).
+Pourquoi deux jars seulement : fabric-language-kotlin 1.14.2 fournit au runtime la stdlib, kotlin-reflect 2.4.21, kotlinx-serialization
+core, json et cbor 1.11.0 et kotlinx-datetime 0.8.0, exactement les versions attendues par Storify ; kotlin-json5 est copiée dans Storify
+(section 9) ; et Minecraft fournit slf4j depuis 1.17.1. Un FLK plus vieux est refusé net par le loader (le `depends`) ; un plus récent est
+couvert par la rétrocompatibilité binaire de Kotlin ; et le loader déduplique les jars embarqués entre mods (une seule version chargée, la
+plus récente compatible). Minecraft 1.16.5 ne fournit pas slf4j : un mod pour cette version embarque `slf4j-api` et sa liaison vers le
+log4j 2.8.1 du jeu.
+
+### 4.1 Les deux variantes, Java 8 et Java 25
+
+L'artefact `fr.moulou:storify` porte deux variantes, compilées des mêmes sources (C-65) : la variante Java 25, `storify-0.7.0.jar`, celle que
+le POM décrit, et la variante Java 8, `storify-0.7.0-jdk8.jar`, en bytecode 52, compilée avec `-Xjdk-release=1.8` contre l'API de Java 8.
+Les métadonnées Gradle (`.module`) les publient toutes deux sous la même coordonnée, chacune avec son `org.gradle.jvm.version`, 8 ou 25, et
+Gradle choisit d'après la cible du consommateur, celle que `release` (javac) ou `jvmTarget` (Kotlin) demande :
+
+| Le consommateur vise | Il reçoit |
+|---|---|
+| Java 8 à 24 (un mod pour Minecraft 1.16.5 à 1.21.x, par exemple) | la variante Java 8 |
+| Java 25 (un mod pour Minecraft 26.x) | la variante Java 25 |
+| Maven, ou tout outil qui ne lit que le POM | la variante Java 25, le jar sans classifier |
+
+Un piège, mesuré sur Loom 1.18.2 : `include` se résout par la configuration `includeInternal`, qui ne demande pas de cible Java, et Gradle
+y prend alors la variante du Java le plus récent, la 25, quelle que soit la cible du mod. Un mod qui vise moins que Java 25 lui dit sa cible,
+et le jar-in-jar embarque la variante Java 8 :
+
+```kotlin
+import org.gradle.api.attributes.java.TargetJvmVersion
+
+configurations.named("includeInternal") {
+    attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 8) // la cible du mod
+}
+```
+
+Le jar de sources de chaque variante suit (`storify-0.7.0-sources.jar`, `storify-0.7.0-jdk8-sources.jar`) ; les sources sont les mêmes. La
+variante Java 8 est éprouvée à chaque build de la lib par un essai de fumée lancé sur un JDK 8 (section 6).
+
+### 4.2 Le shading
 
 Le shading avec relocation est écarté comme voie par défaut : kotlinx et reflect sont la langue commune entre Storify et les data classes du
 mod (les `KSerializer` et `KProperty1` traversent l'API dans les deux sens), les relocater couperait la lib de ses consommateurs. Option
@@ -201,8 +236,21 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 .\gradlew build
 ```
 
-Le build exige un JDK 25 (toolchain) ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) et écrivent leurs fichiers dans
-`build\tmp\storify-tests`. La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
+Le build exige un JDK 25 (la toolchain) et un JDK 8, déclaré à Gradle (`org.gradle.java.installations.paths`, ou l'auto-détection), pour
+l'essai de fumée de la variante Java 8 ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) sur la variante Java 25 et écrivent leurs
+fichiers dans `build\tmp\storify-tests`. `check` enchaîne trois preuves (C-65) :
+
+- `test`, les 356 tests, sur la variante Java 25 ;
+- `checkBytecode`, qui lit chaque classe des deux jars : bytecode 69 dans `storify-<version>.jar`, 52 dans `storify-<version>-jdk8.jar` ;
+- `smokeJdk8Run`, l'essai de fumée de `src\smokeJdk8` : compilé en cible 1.8 contre le jar `jdk8`, comme un consommateur, et lancé sur la
+  toolchain 8 avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2 fournit ; il ouvre, modifie,
+  sauve et relit un store JSON, un TOML et un JSON5, vérifie la sauvegarde préservante et la clé en double, et échoue si un résultat diffère.
+
+La variante Java 8 compile une copie de `src\main\kotlin` (la tâche `syncJdk8Sources`, vers `build\jdk8\kotlin`) en `jvmTarget` 1.8 avec
+`-Xjdk-release=1.8`, qui refuse à la compilation toute API de Java 9 et plus : le code est commun aux deux variantes, et le jour où un fichier
+devra s'écrire autrement pour l'une, il ira dans `src\jdk8\kotlin`, au même chemin relatif, un fichier par différence.
+
+La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte
 les démos des chantiers, un fichier `<Mécanisme>Demo.kt` par mécanisme (copie profonde, lecture seule, BOM, lignes de validation, erreurs de
 décodage, écriture atomique, JSON strict, logger nommé, ressource embarquée, snapshot du save, flottants spéciaux, pipeline d'update,
@@ -212,7 +260,9 @@ s'exécute avec les tests. L'essai en conditions réelles se fait depuis le banc
 `.\gradlew runServer` dans `..\Storibench`, dont le README décrit les scénarios et les commandes en jeu.
 
 La publication : `.\gradlew publishToMavenLocal` répète le circuit sans secret (dépôt Maven local) ; `.\gradlew publish` pousse sur Repsy, le
-jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement.
+jeton arrivant par la chaîne de secrets (`dev-secrets.ps1 -Apply REPSY_MAVEN_TOKEN`) dans le terminal qui publie, jamais autrement. Une
+version publiée est une release : un tag `v<version>` sur `master`, une release GitHub qui porte les quatre jars et le changelog
+(`CHANGELOG.md`), puis `master` qui repart en `-SNAPSHOT` ; les gestes sont ceux de `git-et-versions.md` (The Human Readme), chapitre 3.
 
 ## 7. Les limites connues
 
@@ -231,6 +281,7 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 - `Docs\architecture.md` : comment la lib est faite, mécanisme par mécanisme.
 - `Docs\chantiers.md` : le bilan (forces et faiblesses) et la liste priorisée de tout ce qui est à revoir, refaire ou construire.
 - `Docs\info.md` et `Docs\TODO` : les documents historiques (l'ancien brief d'analyse et les premières notes), absorbés par les deux précédents.
+- `CHANGELOG.md` : les versions publiées, de la plus récente à la plus ancienne, et ce que chacune apporte.
 
 ## 9. La licence
 
@@ -241,3 +292,9 @@ texte fait foi : `LICENSE`, et `LICENSE.GPL` pour la GPL v3 qu'il incorpore. En 
   condition de conserver la licence et les mentions de Storify et de laisser l'utilisateur remplacer la lib par une autre version, ce que le jar-in-jar
   et la dépendance externe permettent ;
 - une version modifiée de Storify se redistribue sous la même licence, sources comprises.
+
+Storify contient une copie modifiée de kotlin-json5 0.8.0 (`li.songe:json5`, `https://github.com/lisonge/kotlin-json5`, copyright lisonge), sous
+la licence Apache, version 2.0 (C-65) : ses sources vivent sous `fr.moulou.storify.internal.json5`, paquet relocalisé et déclarations de premier
+niveau passées `internal` sauf `Json5EncoderConfig` et `Json5QuoteStrategy`, chaque fichier disant en tête ce qui a changé ; le texte de la licence
+est `LICENSE.json5`, et `NOTICE` nomme la copie. Les quatre textes entrent dans chaque jar, suffixés du nom de l'artefact (`LICENSE_storify`,
+`LICENSE.GPL_storify`, `LICENSE.json5_storify`, `NOTICE_storify`) : un mod qui embarque Storify les redistribue avec elle.

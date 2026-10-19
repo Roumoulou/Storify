@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import li.songe.json5.Json5
+import fr.moulou.storify.internal.json5.Json5
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
@@ -34,7 +34,7 @@ import kotlin.system.measureNanoTime
 /*
  * La démo de C-50 : les clés en double. Un objet JSON qui porte deux fois la même clé était accepté : kotlinx garde la dernière valeur, à
  * l'arbre (`JsonTreeReader.readObjectImpl`, `result[key] = element`) comme au flux, et ni `JsonFormat` ni la validation ne le voyaient ;
- * li.songe:json5 fait pareil, et sa sauvegarde préservante gardait le doublon dans le fichier, que chaque relecture tranchait à nouveau ;
+ * kotlin-json5 (`li.songe:json5`, copiée dans Storify depuis C-65) fait pareil, et sa sauvegarde préservante gardait le doublon dans le fichier, que chaque relecture tranchait à nouveau ;
  * seul tomlkt refusait, par sa spécification. Pour un fichier de vérité édité à la main (AegisPerms, `groups` avec `vip` déclaré deux fois),
  * un doublon effaçait une définition en silence, avant le code du consommateur. Depuis C-50, le lecteur JSON strict et le format JSON5
  * refusent le doublon par StoreDecodeException, avec la ligne de la seconde occurrence ; le lecteur tolérant (`JsonFormat.lenient()`) reste

@@ -1,0 +1,30 @@
+# Changelog
+
+Les versions publiées de Storify, de la plus récente à la plus ancienne. Avant `1.0.0`, le mineur monte à chaque ajout ou rupture, le correctif pour
+une correction seule ; chaque version est un tag `v<version>` du dépôt et une release GitHub qui porte ses jars.
+
+## 0.7.0
+
+Première release, le 2026-10-19 : `fr.moulou:storify:0.7.0` sur Repsy, en deux variantes sous la même coordonnée, Java 8 et Java 25.
+
+- **Deux variantes, compilées des mêmes sources** (C-65) : `storify-0.7.0.jar` en bytecode Java 25, la variante par défaut et celle du POM, et
+  `storify-0.7.0-jdk8.jar` en bytecode Java 8, compilée avec `-Xjdk-release=1.8`. Les métadonnées Gradle publient les deux avec leur
+  `org.gradle.jvm.version` : un consommateur qui vise Java 8 à 24 reçoit la variante 8, un consommateur qui vise 25 la variante 25, Maven la 25.
+  L'`include` de Loom ne demande pas de cible : un mod sous Java 25 pose `org.gradle.jvm.version` sur `includeInternal` (README, section 4).
+- **kotlin-json5 0.8.0 copiée dans Storify**, sous `fr.moulou.storify.internal.json5`, Apache-2.0 (`LICENSE.json5`, `NOTICE`), relocalisée et
+  `internal` sauf `Json5EncoderConfig` et `Json5QuoteStrategy` : le POM ne déclare plus `li.songe:json5`, et un mod n'embarque plus que storify
+  et tomlkt. Rupture : `Json5EncoderConfig` change de paquet, `li.songe.json5` devenant `fr.moulou.storify.internal.json5`.
+- **`Utf8Bom`** lit le BOM par une boucle sur `read` : la seule API de Java 9 que le code appelait disparaît.
+- **Deux preuves à chaque build** : `checkBytecode` (69 et 52, chaque classe) et `smokeJdk8Run`, un essai de fumée compilé contre le jar Java 8 et
+  lancé sur un JDK 8.
+- Les versions : Gradle 9.8.1, Kotlin 2.4.21 ; au runtime, fabric-language-kotlin 1.14.2 fournit le reste, et Minecraft 1.16.5, sans slf4j, le
+  reçoit du mod.
+
+## Avant la 0.7.0
+
+Des snapshots, publiés sur Repsy sans release : `0.1.0-SNAPSHOT` (septembre 2026, la première publication, C-18) ; `0.2.0-SNAPSHOT` (2026-09-29 : la
+licence LGPL-3.0-only, la copie profonde par l'arbre JSON, le mode lecture seule, le BOM toléré, les lignes de validation, `StoreDecodeException`,
+l'écrivain atomique public, le JSON strict, le logger nommé) ; `0.3.0-SNAPSHOT` (2026-09-30 : la ressource embarquée copiée telle quelle,
+l'écriture JSON tamponnée, le pipeline d'update hors de l'inline) ; `0.4.0-SNAPSHOT` (2026-10-01, republiée le 2026-10-05 : les clés en double
+refusées, le localisateur borné à son parent) ; `0.5.0-SNAPSHOT` (2026-10-07 : `createFromProvider`, la ligne d'une faute sans offset) ;
+`0.6.0-SNAPSHOT` (2026-10-08 : le chemin d'une clé en double, `ErrorPath.render`). Le détail, chantier par chantier, vit dans `Docs\chantiers.md`.
