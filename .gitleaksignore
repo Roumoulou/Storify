@@ -1,0 +1,5 @@
+# Les faux positifs de scan-secrets.ps1 -Path (S:\c\Scripts\scan-secrets.md), une empreinte par ligne :
+# <nom montré>:<règle>:<ligne>, le nom tel que le scan le montre. Le nom du jar porte sa version : une release, une ligne.
+# DuplicateKeyException.class (JsonDuplicateKeys.kt) : le gabarit « Duplicate key '…' at … » et les métadonnées Kotlin, aucun secret (2026-10-19).
+storify-0.7.0.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
+storify-0.7.0-jdk8.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
