@@ -17,7 +17,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-10-19 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 8, section 6), sur la stack
   ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-64 ; C-35, C-38 et C-62 en attente) vivent dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-64 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
   release par tag `v<version>` (`git-et-versions.md` de The Human Readme) ; `CHANGELOG.md` tient les versions.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source

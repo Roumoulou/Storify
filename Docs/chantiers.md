@@ -871,6 +871,26 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   mais est expérimentale, en Kotlin 1.8 et archivée depuis 2024 ; une passe sur le texte TOML pour y glisser des `#`. Tests : un fichier neuf
   commenté en JSON5 et en TOML, un fichier existant qui garde ses commentaires, l'option qui les réécrit, un objet imbriqué, le JSON strict qui
   ignore. Docs : README section 2, `architecture.md` chapitres 2 et 9.
+- [ ] **C-67 : une variante par cible Java, en une fonction du build** (M ; réflexion du 2026-10-19). Depuis C-65, l'artefact porte deux
+  variantes, Java 25 et Java 8, et aucun fichier propre à l'une d'elles : les deux jars font la même chose, aux idiomes du compilateur près. Une
+  variante de plus (17, 21) ne vaut que si elle contient ce que la 8 ne peut pas contenir, une API du JDK (les threads virtuels de Java 21 pour
+  l'auto-save, par exemple) ou un idiome que le compilateur n'émet qu'au-dessus d'une cible ; sans cela, c'est une compilation, un jar, une preuve
+  et 400 Ko publiés pour rien. Les cibles qui comptent sont celles des consommateurs, pas la liste des LTS : Minecraft donne 8 (1.16.5), 16
+  (1.17.1), 17 (1.18.2 à 1.20.4), 21 (1.20.5 à 1.21.11) et 25 (26.x) ; Gradle prend la variante la plus récente qui ne dépasse pas la cible, une
+  17 servirait 1.18 à 1.20.4, une 21 servirait 1.20.5 à 1.21.11, et 1.17.1 prendrait toujours la 8. Design esquissé : une base écrite pour la
+  cible la plus haute, `src\main`, et une couche par cible plus basse, `src\jdk21\kotlin`, `src\jdk8\kotlin`, sur le modèle des couches de
+  Sampler (une couche vaut pour sa cible et toutes les plus basses, un fichier au même chemin relatif remplace celui d'en dessous, un fichier par
+  différence) ; une couche se nomme par sa cible, `jdk<N>`, et sert N et moins : la variante 21 compile la base puis la couche 21, la variante
+  8 la base, la couche 21 puis la couche 8, la tâche `Sync` les empilant dans cet ordre, la plus haute gagnant ; une vérification des
+  recouvrements morts à la manière du `checkLayers` de Sampler, qui refuse un fichier de couche identique à celui d'en dessous ou qui ne remplace
+  rien ; une liste d'omissions par couche pour un fichier que la cible ne peut pas compiler, plutôt qu'une copie vidée ; une fonction du build
+  qui, pour une cible, crée le jeu de
+  sources, la copie, la feature avec la capability du composant, les deux attributs, `release` et `jvmTarget` avec `-Xjdk-release`, le jar au
+  classifier `jdkN`, pilotée par une liste de cibles ; une preuve par variante, `checkBytecode` à sa majeure et un essai sur la toolchain de la
+  cible, la suite JUnit entière rejouable sur 17 et 21 si les tests sont recompilés pour la cible. Kotlin ne change pas avec la cible : le langage
+  2.4.21 et ses fonctionnalités valent en 1.8 ; seuls le bytecode, l'API du JDK admise (`-Xjdk-release`) et l'inlining (une cible au moins égale)
+  en dépendent, et la stdlib, elle-même en Java 8, vient de fabric-language-kotlin au runtime. **En attente, règle du 2026-10-19** : une variante
+  naît avec son premier fichier différent, jamais avant ; la fonction du build s'écrit ce jour-là.
 
 ## 6. La méthode, chantier par chantier
 
@@ -892,5 +912,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65 et C-66 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65 et C-66 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
 au 2026-09-23.*
