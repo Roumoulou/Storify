@@ -770,6 +770,21 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   vert sur le JDK 8u504, `module.json` à deux variantes d'API et d'exécution, 25 et 8, sans `li.songe`, le POM aux scopes inchangés, le banc
   vert en composite, gametests compris. Les docs : README (sections 1, 4, 6, 8 et 9), `architecture.md` (chapitres 1, 9, 13 et 14), le readme et
   le contexte du classeur, le chapitre 6 de ce document et le `CHANGELOG.md` du dépôt. La release `0.7.0` suit, selon `git-et-versions.md`.
+- [x] **C-66 : le build au cordeau, sur le modèle de TravellingDimension** (S ; décision du 2026-10-19). Les fichiers de build de la lib n'avaient ni
+  la bannière ni les sections numérotées des builds de la maison (TravellingDimension et son banc, Outfitter) : des commentaires qui disent le quoi,
+  rarement le pourquoi et le mesuré ; un `settings.gradle.kts` au bloc de dépôts vide pendant que `mavenCentral()` vivait dans le build ; un
+  `gradle.properties` sans un mot, et `mod_version` pour une lib ; un catalogue sans ses raisons ; `publish` qui, sans jeton, réussissait sans rien
+  envoyer, le piège refermé chez Outfitter le 2026-09-28 ; `standardInput` sur tout `JavaExec` et deux suppressions d'inspection que personne d'autre
+  ne porte. Les trois questions. Utile : à qui relit le build, Roumoulou ou une session, et au prochain chantier du build (C-38). Vaut la peine : une
+  passe de doc et de forme qui ne change pas ce que le build produit, prouvée par les métadonnées publiées identiques avant et après. Cohérente : les
+  mêmes bannières et sections que les autres builds de la maison. Design, validé le 2026-10-19 : huit sections (l'identité, les dépendances, Java et
+  les compilateurs, la variante Java 8, les jars, les tests, les preuves de la variante 8, la publication) ; les dépôts dans `settings.gradle.kts`
+  sous `FAIL_ON_PROJECT_REPOS` ; `lib_version` ; `publish` qui refuse sans `REPSY_MAVEN_TOKEN` ; `standardInput` et les suppressions retirés ; le cache
+  de configuration mesuré, allumé seulement vert. **Fait le 2026-10-19** : les quatre fichiers réécrits (`build.gradle.kts`, `settings.gradle.kts`,
+  `gradle.properties`, `libs.versions.toml`) ; le build vert, les 357 tests rejoués sans un avertissement, `module.json` et le POM identiques à ceux
+  d'avant, le banc vert en composite ; le cache de configuration d'abord refusé sur deux closures qui capturaient le script (le `rename` des jars et
+  `checkBytecode`), réécrites sur des valeurs locales, puis vert sur un build complet et sur les tests rejoués, une entrée stockée et réutilisée :
+  allumé dans `gradle.properties`.
 
 ## 5. P3, la vision
 
@@ -877,5 +892,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 et C-65 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65 et C-66 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
 au 2026-09-23.*
