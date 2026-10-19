@@ -34,6 +34,7 @@ Les packages :
 | `fr.moulou.storify.core` | Le moteur : `Store`, `BaseStore`, `StoreConfig`, la factory, les extensions `set`/`mutate`/`transaction` |
 | `fr.moulou.storify.validation` | `Validator`, `ValidationContext`, `ValidationResult`, `ValidationError`, `ValidationException`, l'enrichisseur de lignes JSON |
 | `fr.moulou.storify.utils` | Le copieur profond (`DeepCopier`, l'arbre JSON), l'écrivain atomique (`AtomicFiles`), le registre des formats, le formatage des dates |
+| `fr.moulou.storify.internal.json5` | La copie de kotlin-json5 0.8.0 (C-65), relocalisée et `internal` sauf `Json5EncoderConfig` et `Json5QuoteStrategy` : le parseur, l'AST aux plages source, l'écrivain et l'éditeur JSON5 |
 
 ## 2. La data class et ses annotations
 
@@ -291,9 +292,10 @@ sur une config. En JSON5, le texte est parsé en document (`parseToDocument`), d
 parcouru après le contrôle de syntaxe, avant la conversion en arbre, le chemin empilé en descendant ; en TOML, tomlkt refuse de lui-même, par sa
 spécification, le chemin dans son message seul (`groups.vip (L7)`) et `valuePath` vide.
 
-`Json5Format` (C-21) suit la conception de sa brique `li.songe:json5` : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que
-de moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le
-créneau étant la config et non la donnée de masse.
+`Json5Format` (C-21) suit la conception de sa brique, kotlin-json5 (`li.songe:json5` 0.8.0), copiée dans les sources sous `internal.json5`
+depuis C-65 pour que les deux variantes la compilent (chapitre 14) : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que de
+moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le créneau
+étant la config et non la donnée de masse.
 
 La règle des flottants spéciaux vaut pour les trois formats (C-42) : un `NaN` ou un infini présent en mémoire se sauve et se relit, et la même
 valeur écrite à la main dans le fichier se charge. JSON les écrit `NaN`, `Infinity` et `-Infinity`, JSON5 de même (ils sont dans sa grammaire,
@@ -357,13 +359,39 @@ sauvegardes, toujours en JSON, quel que soit le format du store, comme son nom l
 |---|---|
 | `kotlinx-serialization-json` | Le format JSON, le pont d'arbre de JSON5 et le véhicule des copies profondes (chapitre 10) |
 | `dev.eav.tomlkt:tomlkt` | Le format TOML |
-| `li.songe:json5` | Le format JSON5 : le parse et l'écriture du texte ; le mapping passe par un pont `JsonElement` kotlinx |
+| kotlin-json5 0.8.0, copiée sous `internal.json5` (C-65) | Le format JSON5 : le parse, l'écriture et l'édition du texte ; le mapping passe par un pont `JsonElement` kotlinx. Copiée plutôt que tirée de Maven, parce que son artefact `li.songe:json5` est en bytecode Java 11 et que la variante Java 8 de Storify la compile en 1.8 avec le reste ; le POM ne la déclare plus, et elle n'entre pas en collision avec un json5 d'origine qu'un autre mod embarquerait |
 | `kotlin-reflect` | Le scan des annotations, `createInstance`, `memberProperties` (factories et policies) |
 | `kotlinx-datetime` | Les horodatages du sidecar meta |
 | `slf4j-api` | Le logging (le binding est laissé au consommateur ; `slf4j-simple` en test) |
 
+## 14. Les deux variantes, Java 8 et Java 25
+
+Depuis C-65, l'artefact `fr.moulou:storify` porte deux variantes compilées des mêmes sources, pour qu'un mod qui vise Java 8 à 24 (Minecraft
+1.16.5 à 1.21.x) embarque Storify comme un mod pour 26.x. La variante Java 25 est celle de `main`, compilée sur la toolchain 25 comme toujours,
+la variante par défaut, celle que le POM décrit. La variante Java 8 est un second jeu de sources, `jdk8`, qui compile une copie de
+`src\main\kotlin` (la tâche `syncJdk8Sources`, vers `build\jdk8\kotlin`, pour que l'IDE ne voie pas deux racines identiques) en `jvmTarget` 1.8
+avec `-Xjdk-release=1.8`, qui compile contre l'API de Java 8 et refuse toute API plus récente, `readNBytes` par exemple ; `release` 8 sur son
+`compileJdk8Java`, sans source Java, donne à la variante son attribut. `java.registerFeature("jdk8")` la publie avec la capability du composant,
+pour que Gradle choisisse par `org.gradle.jvm.version`, 8 ou 25, et non par capability : un consommateur reçoit la variante la plus récente
+compatible avec sa cible. Son jar porte le classifier `jdk8`, ses sources `jdk8-sources`, et les deux variantes portent les mêmes attributs
+(`org.gradle.jvm.environment`, `org.jetbrains.kotlin.platform.type`) et les mêmes dépendances. Mesuré le 2026-10-18 sur Gradle 9.8.1 : un
+consommateur qui vise 8 ou 21 reçoit la 8, un qui vise 25 la 25, Maven la 25 ; l'`include` de Loom, résolu par `includeInternal` sans cible,
+embarque la 25 tant que le mod ne pose pas `org.gradle.jvm.version` sur cette configuration (README, section 4).
+
+Le code est commun : aucun fichier n'est propre à une variante. `Utf8Bom.kt` lit ses trois octets par une boucle sur `read`, qui vaut pour les
+deux Javas, et la copie de kotlin-json5 (chapitre 13) se compile en 1.8 comme le reste, là où son artefact publié est en Java 11. Le jour d'une
+première différence, un fichier posé dans `src\jdk8\kotlin` au même chemin relatif remplacera celui de la copie, un fichier par différence,
+nommé d'après ce qu'il déclare, sur le modèle des couches de sources de Sampler.
+
+Les preuves, sur `check` : les tests sur la variante 25 ; `checkBytecode`, chaque classe du jar principal en 69 et du jar `jdk8` en 52 ;
+`smokeJdk8Run`, l'essai de fumée de `src\smokeJdk8`, compilé en cible 1.8 contre le jar `jdk8` et lancé sur la toolchain 8 avec les dépendances
+du catalogue, celles que fabric-language-kotlin 1.14.2 fournit, qui vérifie trois stores relus, la sauvegarde préservante et la clé en double.
+Les tests JUnit ne tournent pas sur Java 8 (JUnit 6 exige Java 17), et `-Xjdk-release` garde l'API, pas le comportement : sans l'essai, rien ne
+tiendrait la promesse d'une version à l'autre. Un écart connu entre les deux Javas : les clés nues de JSON5 se classent par `Char.category`, qui
+suit l'Unicode du JDK ; une lettre récente passe sur 25 et pas sur 8, marginal pour une config.
+
 ---
 
-*Dernière vérification : 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
+*Dernière vérification : 2026-10-19, C-65 aux chapitres 1, 9, 13 et 14 ; 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
 chapitre 8 le 2026-10-07, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le
 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 et C-64 ; C-35, C-38 et C-62 en attente).*

@@ -35,9 +35,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 
 - **Pas de versionnage de schéma** : un fichier écrit par la data class d'hier se charge tel quel ou échoue, sans migration ni message net
   (C-17, dont la conception attend sa séance).
-- **Une API non stabilisée, sans release figée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le
-  POM déclare en `runtime` des dépendances dont les types traversent l'API ; les deux se règlent avec la première release figée.
-- **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt et json5 (C-38, en attente).
+- **Une API non stabilisée** : un champ ajouté à `StoreConfig` change un constructeur auquel un mod compilé est lié, et le POM déclare en
+  `runtime` des dépendances dont les types traversent l'API ; la `0.7.0` est la première release (C-65), et avant `1.0.0` le mineur monte à
+  chaque rupture : les deux points restent ouverts.
+- **Les trois formats toujours embarqués** : un mod JSON seul emporte tomlkt, et la copie de kotlin-json5 que Storify porte (C-38, en attente).
 - **Le banc ne se vérifie en jeu que côté serveur** : ses étages 0 et 1 sont vides, et le cycle solo du client, un monde fermé puis un autre
   ouvert dans la même session, n'a pas de gametest (les gametests clients de Fabric, un étage de plus à décider).
 - **Deux limites assumées** : le sidecar meta se modifie sans verrou propre, et une édition extérieure du fichier n'est vue qu'au rechargement
@@ -53,7 +54,9 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
   point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges ; `MMC` = la
   remontée de ManyManyCommands du 2026-10-05, chapitre 5.2 de son `architecture.md` ; `AEGIS-F` = la remontée de la session des fichiers
-  d'AegisPerms du 2026-10-05 (`S:\16\_V\AegisPerms\06-ai-fourre-tout\2026-10-05\demandes-a-storify.md`), vérifiée contre le code le même jour.
+  d'AegisPerms du 2026-10-05 (`S:\16\_V\AegisPerms\06-ai-fourre-tout\2026-10-05\demandes-a-storify.md`), vérifiée contre le code le même jour ;
+  `SAMPLER` = le relevé de Storify du 2026-10-18, par Sampler (`S:\16\_V\Sampler\06-ai-fourre-tout\2026-10-18\releve-storify\`, quatre rapports),
+  vérifié par un essai jetable le même jour.
 
 ## 3. P1, les fondations
 
@@ -721,6 +724,52 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   poussées ; le catalogue du banc passe à `0.6.0-SNAPSHOT` et le banc construit en mode `repsy` sur l'artefact publié, dépendances rafraîchies,
   gametests compris, son jar embarquant `storify-0.6.0-SNAPSHOT.jar` ; `getPath` sur `DuplicateKeyException` et `render` sur `ErrorPath` lus dans
   le jar publié par `javap`.
+- [x] **C-65 : deux variantes, Java 8 et Java 25, et la release 0.7.0** (L ; SAMPLER). Storify est publiée en bytecode Java 25, de la `0.1.0` à la
+  `0.6.0-SNAPSHOT`, `org.gradle.jvm.version` 25 au `.module` ; json5 0.8.0 est en Java 11 ; et `StoreFormats` instancie `Json5Format` au premier
+  contact, même pour un store JSON : sur Java 8, le premier store lève `UnsupportedClassVersionError`. Sampler sert neuf versions de Minecraft, de
+  1.16.5 (Java 8) à 26.3 (Java 25), et chaque jar embarque Storify ; Gradle refuse déjà la variante 25 à un module qui vise moins (mesuré sur
+  Chronoloom le 2026-10-07), et Kotlin refuse d'inliner les `create*` et `set` de Storify dans du bytecode plus bas (`INLINE_FROM_HIGHER_PLATFORM`).
+  Le relevé du 2026-10-18 a mesuré que le code principal n'appelle qu'une API absente de Java 8, `readNBytes` dans `Utf8Bom.kt`, les quatre autres
+  absences étant des bootstraps que la cible 1.8 ne produit pas, et que Storify et json5 recompilés en cible 1.8 tournent sur le JDK 8 (stores JSON,
+  TOML et JSON5, sauvegarde préservante, clé en double). Les trois questions. Utile : à Sampler et à tout mod sous 26.x ; sans elle, Storify ne sert
+  que Java 25. Vaut la peine : une ligne de code, une seconde compilation des mêmes sources et la copie de json5 ; l'alternative, deux coordonnées
+  (`storify` et `storify-jvm8`), ferait choisir chaque projet à la main. Cohérente : la lib reste une, mêmes sources, même API, et la variante 25
+  reste celle d'aujourd'hui. Design validé le 2026-10-18, en cinq choix. (1) Deux variantes sous `fr.moulou:storify` : la variante 25 est celle de
+  `main`, la variante par défaut, celle que le POM décrit ; la variante 8 est un second jeu de sources, `jdk8`, qui compile une copie de
+  `src\main\kotlin` (une tâche `Sync` vers `build\jdk8\`, pour que l'IDE ne voie pas deux racines identiques) en `jvmTarget` 1.8 avec
+  `-Xjdk-release=1.8`, et `release` 8 sur `compileJdk8Java`, d'où l'attribut ; `java.registerFeature("jdk8")` avec la capability du composant,
+  classifier `jdk8`, jar de sources `jdk8-sources`, les attributs `org.gradle.jvm.environment` et `org.jetbrains.kotlin.platform.type` posés comme
+  sur `main`, `jdk8Api` et `jdk8Implementation` héritant d'`api` et d'`implementation`. Mesuré le 2026-10-18 sur un producteur jetable, Gradle 9.8.1
+  (`S:\c\Temp\storify-c65-2026-10-18\`) : un consommateur qui vise 8 ou 21 reçoit la variante 8 et la lance sur son JDK, un consommateur qui vise 25
+  reçoit la 25, le POM reste celui d'une seule variante, et l'`include` de Loom 1.18.2, résolu par `includeInternal` sans `org.gradle.jvm.version`,
+  embarque la 25 quelle que soit la cible du mod, la 8 dès que l'attribut est posé sur `includeInternal`. (2) Le code est commun : `Utf8Bom.kt` lit
+  ses trois octets par une boucle sur `read`, qui vaut pour les deux Javas, et aucun fichier n'est propre à une variante ; le jour d'une première
+  différence, un `src\jdk8\kotlin` posé par-dessus la copie, où un fichier au même chemin relatif remplace celui de `main`, un fichier par
+  différence, sur le modèle des couches de Sampler. (3) json5 0.8.0 copié dans Storify : ses 21 fichiers sous `fr.moulou.storify.internal.json5`,
+  les déclarations de premier niveau passées `internal` sauf `Json5EncoderConfig` et `Json5QuoteStrategy`, que le constructeur de `Json5Format`
+  expose ; chaque fichier porte en tête l'origine (kotlin-json5 0.8.0, lisonge, Apache-2.0), la date et les modifications (paquet, visibilité) ; le
+  texte Apache-2.0 en `LICENSE.json5` à la racine et dans les jars (`LICENSE.json5_storify`), une `NOTICE` qui nomme la copie, dans les jars aussi ;
+  le POM reste LGPL-3.0-only et ne déclare plus `li.songe:json5` : un mod n'embarque plus que storify et tomlkt. (4) Les preuves, sur `check` : les
+  356 tests sur la variante 25 ; `checkBytecode` lit chaque classe du jar principal, 69, et du jar `jdk8`, 52 ; `smokeJdk8` compile un essai de fumée
+  en cible 1.8 contre le jar `jdk8` et le lance sur la toolchain 8, avec les dépendances de la lib aux versions du catalogue, celles que
+  fabric-language-kotlin 1.14.2 fournit : trois stores créés, modifiés, sauvés et relus, la sauvegarde préservante, la clé en double, chaque
+  résultat vérifié. (5) `0.7.0-SNAPSHOT` pendant le chantier, et la release `0.7.0` le clôt selon `git-et-versions.md`, chapitre 3 : le mineur
+  monte parce que `Json5EncoderConfig` change de paquet et que les dépendances publiées changent ; la première release de Storify, parce qu'un mod né
+  de Sampler épingle une version publiée, jamais un snapshot. Écarté : deux coordonnées ; json5 republié sous des coordonnées de la maison (un build
+  amont multiplateforme à fourcher, et une collision possible avec le json5 d'origine qu'un autre mod embarquerait, que la relocalisation évite) ;
+  JvmDowngrader ; rejouer les 356 tests sur Java 17 contre les classes 8, parce que les classes de test sortent en 69 et que les `inline` de Storify
+  y sont copiés depuis les classes 25, une troisième compilation pour un gain faible, les deux variantes venant des mêmes sources ; une couche pour
+  `Utf8Bom.kt`, dont la version 25 n'apporterait rien. Tests : les 356 inchangés, plus les deux tâches. Docs : le README (sections 1, 4, 6 et 9, et
+  comment un consommateur reçoit sa variante, l'attribut sur `includeInternal` compris), `architecture.md` (chapitres 9 et 13, la règle des
+  couches), le readme et le contexte du classeur, le chapitre 6 de ce document et la ligne « Dépôts Git » du contexte réécrits selon
+  `git-et-versions.md` ; le changelog de `0.7.0`. **Fait le 2026-10-19** : le build (`syncJdk8Sources`, le jeu de sources `jdk8`,
+  `registerFeature` avec la capability du composant, les deux attributs, `release` par tâche, les quatre textes de licence dans les quatre jars,
+  `checkBytecode` et `smokeJdk8Run` sur `check`) ; `Utf8Bom.kt` ; les 21 fichiers de kotlin-json5 sous `internal\json5`, 49 déclarations passées
+  `internal`, un en-tête d'origine et de modification par fichier, `LICENSE.json5` et `NOTICE` ; l'essai de fumée `src\smokeJdk8` ;
+  `0.7.0-SNAPSHOT`. Mesuré : 357 tests verts (les 356 et le bac à sable), 192 classes en 69 et 192 en 52 dans les deux jars, l'essai de fumée
+  vert sur le JDK 8u504, `module.json` à deux variantes d'API et d'exécution, 25 et 8, sans `li.songe`, le POM aux scopes inchangés, le banc
+  vert en composite, gametests compris. Les docs : README (sections 1, 4, 6, 8 et 9), `architecture.md` (chapitres 1, 9, 13 et 14), le readme et
+  le contexte du classeur, le chapitre 6 de ce document et le `CHANGELOG.md` du dépôt. La release `0.7.0` suit, selon `git-et-versions.md`.
 
 ## 5. P3, la vision
 
@@ -817,13 +866,16 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 4. Si le comportement à l'exécution est touché : un passage au banc, en jeu, avec le log pour témoin.
 5. Cocher la case ici, avec la date, et raconter au journal du classeur.
 
-Un chantier se mène sur une branche `c-<n>-<slug>` créée depuis `master` et revient par `merge --ff-only`, la branche supprimée : l'historique reste
-linéaire, un commit par chantier. Une publication qui porte un numéro neuf laisse une branche nommée comme la version (`0.6.0`), créée sur le
-commit publié, poussée et jamais supprimée, pour y revenir un jour ; `master` continue, et la publication suivante prend le numéro suivant.
+Depuis le 2026-10-18, les branches, les merges et les versions suivent `git-et-versions.md` de The Human Readme. Un chantier long ou incertain
+prend sa branche, `c-<n>-<slug>`, depuis `master`, et y revient par `git merge --no-ff`, un commit de merge qui garde le chantier d'un bloc dans
+l'historique ; la branche se supprime ensuite ; un chantier de quelques commits se fait sur `master`. `master` porte la prochaine version en
+`-SNAPSHOT`, et une version publiée est une release : un tag annoté `v<version>` sur `master`, une release GitHub avec les jars et le changelog,
+jamais une branche ; les branches `0.5.0` et `0.6.0`, posées sur les snapshots du 2026-10-08, restent et on n'en crée plus. Avant `1.0.0`, le
+mineur monte à chaque ajout ou rupture, le correctif pour une correction seule, et le numéro se choisit à la publication.
 
 Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la liste au lieu de s'étendre en silence.
 
 ---
 
-*Dernière vérification : 2026-10-08, C-28 à C-34, C-36, C-37, C-39 à C-61 et C-63 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 et C-65 cochés, C-35, C-38 et C-62 en attente ; les constats du banc à jour
 au 2026-09-23.*

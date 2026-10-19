@@ -1,0 +1,8 @@
+Storify
+Copyright (c) 2025-2026 Roumoulou
+Distribuée sous la GNU Lesser General Public License, version 3 seulement (LICENSE ; LICENSE.GPL pour la GPL v3 qu'elle incorpore).
+
+Ce logiciel contient une copie modifiée de kotlin-json5 0.8.0 (https://github.com/lisonge/kotlin-json5, li.songe:json5), copyright lisonge,
+distribuée sous la licence Apache, version 2.0 (LICENSE.json5). Ses sources vivent sous src/main/kotlin/fr/moulou/storify/internal/json5 :
+le paquet li.songe.json5 est relocalisé en fr.moulou.storify.internal.json5 et les déclarations de premier niveau passées internal, sauf
+Json5EncoderConfig et Json5QuoteStrategy, que l'API de Storify expose. Chaque fichier copié dit en tête ce qui a changé (C-65, 2026-10-19).

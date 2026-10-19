@@ -16,16 +16,16 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import li.songe.json5.Json5
-import li.songe.json5.Json5Array
-import li.songe.json5.Json5EditConfig
-import li.songe.json5.Json5EncoderConfig
-import li.songe.json5.Json5Object
-import li.songe.json5.Json5Path
-import li.songe.json5.Json5Value
-import li.songe.json5.putProperty
-import li.songe.json5.remove
-import li.songe.json5.set
+import fr.moulou.storify.internal.json5.Json5
+import fr.moulou.storify.internal.json5.Json5Array
+import fr.moulou.storify.internal.json5.Json5EditConfig
+import fr.moulou.storify.internal.json5.Json5EncoderConfig
+import fr.moulou.storify.internal.json5.Json5Object
+import fr.moulou.storify.internal.json5.Json5Path
+import fr.moulou.storify.internal.json5.Json5Value
+import fr.moulou.storify.internal.json5.putProperty
+import fr.moulou.storify.internal.json5.remove
+import fr.moulou.storify.internal.json5.set
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
@@ -35,11 +35,12 @@ import kotlin.io.path.writeText
  * Le format JSON5 (C-21) : le JSON des configs éditées à la main, commentaires, clés sans
  * guillemets, virgules traînantes et apostrophes compris.
  *
- * Le montage suit la conception de la brique `li.songe:json5` elle-même : le texte est du JSON5 de
- * bout en bout (parsé et écrit par [Json5]), et le [Json] de kotlinx ne sert que de moteur d'arbre
- * (data class vers `JsonElement` et retour), sans jamais produire de texte. L'API de la brique
- * étant entièrement texte, le fichier se lit entier : le créneau est la config, pas la donnée de
- * masse.
+ * Le montage suit la conception de la brique kotlin-json5 elle-même (`li.songe:json5` 0.8.0, copiée dans
+ * les sources de Storify sous `internal.json5` depuis C-65, pour que les deux variantes, Java 8 et Java 25,
+ * la compilent) : le texte est du JSON5 de bout en bout (parsé et écrit par [Json5]), et le [Json] de
+ * kotlinx ne sert que de moteur d'arbre (data class vers `JsonElement` et retour), sans jamais produire
+ * de texte. L'API de la brique étant entièrement texte, le fichier se lit entier : le créneau est la
+ * config, pas la donnée de masse.
  *
  * La sauvegarde est préservante ([PreservingStoreFormat], C-26) : le fichier existant est
  * réconcilié plutôt que réécrit : seules les valeurs changées se retouchent, les clés nouvelles
