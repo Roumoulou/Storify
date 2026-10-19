@@ -784,7 +784,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `gradle.properties`, `libs.versions.toml`) ; le build vert, les 357 tests rejoués sans un avertissement, `module.json` et le POM identiques à ceux
   d'avant, le banc vert en composite ; le cache de configuration d'abord refusé sur deux closures qui capturaient le script (le `rename` des jars et
   `checkBytecode`), réécrites sur des valeurs locales, puis vert sur un build complet et sur les tests rejoués, une entrée stockée et réutilisée :
-  allumé dans `gradle.properties`.
+  allumé dans `gradle.properties`. Puis, le même jour, les blocs `/** */` du build passés en `/* */`, sans astérisque en tête de ligne, comme chez
+  Outfitter : ce ne sont pas des KDoc, aucun outil ne les lit, et la forme ne doit pas le laisser croire.
 
 ## 5. P3, la vision
 
