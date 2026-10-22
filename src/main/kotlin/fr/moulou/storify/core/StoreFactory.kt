@@ -189,7 +189,8 @@ object StoreFactory {
                 readOnly = it.readOnly,
                 withShutdownHook = it.withShutdownHook,
                 createIfMissing = it.createIfMissing,
-                loggerName = it.loggerName
+                loggerName = it.loggerName,
+                commentPolicy = it.commentPolicy
             )
         }
 

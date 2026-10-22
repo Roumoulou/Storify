@@ -3,6 +3,8 @@
 
 package fr.moulou.storify.core
 
+import fr.moulou.storify.CommentPolicy
+import fr.moulou.storify.StoreComment
 import fr.moulou.storify.StoreUpdatePolicy
 import fr.moulou.storify.UpdatePolicy
 import fr.moulou.storify.ValidationFailedOperation
@@ -39,6 +41,11 @@ import fr.moulou.storify.ValidationFailedOperation
  *                             Défaut `true`.
  * @property loggerName        Le nom du logger SLF4J du store (C-37) : le nom du mod (`aegisperms`) range les lignes du store sous son journal,
  *                             préfixe `[Storify]` gardé. Défaut `Storify`.
+ * @property commentPolicy     Qui gagne, du commentaire du code ([StoreComment]) ou de celui du fichier, dans un format qui écrit des commentaires
+ *                             (JSON5, C-64). [CommentPolicy.FILE_WINS] : une clé que le fichier porte déjà garde ce qu'elle a, seule une clé qui
+ *                             s'ajoute reçoit le commentaire du code, l'admin gagne (C-26). [CommentPolicy.CODE_WINS] : à chaque sauvegarde, les
+ *                             commentaires de tête d'une clé commentée dans le code sont remplacés par les siens. Un fichier qui naît reçoit les
+ *                             commentaires du code dans les deux cas. Défaut `FILE_WINS`.
  */
 data class StoreConfig(
     val withValidation: Boolean = true,
@@ -51,5 +58,6 @@ data class StoreConfig(
     val readOnly: Boolean = false,
     val withShutdownHook: Boolean = true,
     val createIfMissing: Boolean = true,
-    val loggerName: String = "Storify"
+    val loggerName: String = "Storify",
+    val commentPolicy: CommentPolicy = CommentPolicy.FILE_WINS
 )

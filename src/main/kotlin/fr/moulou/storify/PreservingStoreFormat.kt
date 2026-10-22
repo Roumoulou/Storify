@@ -19,4 +19,11 @@ interface PreservingStoreFormat : StoreFormat {
      * cible (`null` quand il n'existe pas) ; un texte invalide ou irréconciliable vaut encode à neuf.
      */
     fun <DATA> encodeToPathPreserving(serializer: SerializationStrategy<DATA>, data: DATA, path: Path, previousText: String?)
+
+    /**
+     * La même sauvegarde, avec la politique des commentaires du store (C-64) : qui gagne, du commentaire du code ([StoreComment]) ou de celui du
+     * fichier. Un format qui n'écrit pas de commentaires garde ce défaut, qui ignore la politique.
+     */
+    fun <DATA> encodeToPathPreserving(serializer: SerializationStrategy<DATA>, data: DATA, path: Path, previousText: String?, commentPolicy: CommentPolicy) =
+        encodeToPathPreserving(serializer, data, path, previousText)
 }

@@ -4,6 +4,7 @@
 package fr.moulou.storify.formats
 
 import fr.moulou.storify.Json5Format
+import fr.moulou.storify.support.OuterData
 import fr.moulou.storify.support.PlainData
 import fr.moulou.storify.support.newStorePath
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -96,5 +97,36 @@ class Json5PreservingSaveTest {
         assertTrue(text.contains("count: 6"))
         assertFalse(text.startsWith("\uFEFF")) // Storify écrit toujours sans BOM
         assertEquals("manuel", format.decodeFromPath(PlainData.serializer(), path).name)
+    }
+
+    @Test
+    fun `une clé neuve à valeur objet s'aligne sur ses voisines, bloc compris`() {
+        val path = newStorePath("nested-indent.json5")
+        val previous = "{\n    title: 'x',\n    registry: {},\n}\n"
+
+        format.encodeToPathPreserving(OuterData.serializer(), OuterData(title = "x"), path, previous)
+
+        assertEquals("{\n    title: 'x',\n    registry: {},\n    leaf: {\n        label: 'leaf',\n        hits: []\n    },\n}\n", path.readText())
+    }
+
+    @Test
+    fun `un tableau remplacé entier garde l'indentation de sa ligne`() {
+        val path = newStorePath("array-indent.json5")
+        val previous = "{\n    name: 'x',\n    count: 1,\n    tags: [\n        'a',\n    ],\n}\n"
+
+        preserve(PlainData(name = "x", count = 1, tags = mutableListOf("a", "b")), path, previous)
+
+        val text = path.readText()
+        assertTrue(text.contains("'b'"))
+        assertTrue(text.lines().filter { it.isNotEmpty() }.all { it == "{" || it == "}" || it.startsWith("    ") }, text)
+    }
+
+    @Test
+    fun `une clé neuve dans un objet vide prend l'indentation de l'encodeur`() {
+        val path = newStorePath("empty-indent.json5")
+
+        preserve(PlainData(name = "x", count = 1, tags = mutableListOf()), path, "{\n}\n")
+
+        assertTrue(path.readText().startsWith("{\n    name: 'x',\n    count: 1,\n    tags: []"), path.readText())
     }
 }

@@ -17,7 +17,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-10-22 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 11, section 6), sur la stack
   ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-64 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
   release par tag `v<version>` (`git-et-versions.md` de The Human Readme) ; `CHANGELOG.md` tient les versions.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
@@ -50,8 +50,12 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   et les données initiales en valeurs, sans rien lire sur la classe, pour un fichier dont la forme naît d'une table ou d'un schéma composé à
   l'exécution ; la racine n'a alors pas à être une classe `@Serializable`, une `Map` suffit, et se met à jour par `transaction`.
 - **Configuration par annotations ou par code** (`@StorePath`, `@StoreFileFormat`, `@StoreConfiguration`, `@StoreValidator`,
-  `@StoreDefaultResource`, `@StoreUpdatePolicy`), avec la préséance explicite > annotation > défaut, objet par objet : une `StoreConfig` passée
-  à la factory remplace `@StoreConfiguration` en bloc, jamais champ par champ.
+  `@StoreDefaultResource`, `@StoreUpdatePolicy`, `@StoreComment`), avec la préséance explicite > annotation > défaut, objet par objet : une
+  `StoreConfig` passée à la factory remplace `@StoreConfiguration` en bloc, jamais champ par champ.
+- **Les commentaires depuis le code** (`@StoreComment`, C-64) : une propriété annotée porte, dans le fichier JSON5, ses lignes de commentaire
+  au-dessus de sa clé, et la classe racine les siennes en tête du fichier ; ils s'écrivent quand le fichier naît et quand une clé s'ajoute, l'admin
+  gardant les siens (`CommentPolicy.FILE_WINS`, le défaut), ou à chaque sauvegarde sur les clés que le code commente (`CODE_WINS`). JSON les
+  ignore ; TOML écrit `@TomlComment` de tomlkt.
 - **Accès global thread-safe** : `store.data` sous read lock, mises à jour sous write lock, callbacks notifiés hors du lock et enregistrables à
   tout moment, dispatch compris.
 - **Mises à jour typées** par référence de propriété : `set` et `setIn` (remplacer une valeur), `mutate` et `mutateIn` (modifier un objet mutable en
@@ -220,9 +224,10 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 | Notion | Rôle |
 |---|---|
 | `BaseStore<DATA>` | Le store : chargement, verrous, updates, callbacks, persistance ; implémente l'interface `Store<DATA>` |
-| `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut, lecture seule, hook d'arrêt, fichier initial, nom du logger |
+| `StoreConfig` | Les options d'une instance : validation, auto-save et son intervalle, meta, deep copy, policy par défaut, lecture seule, hook d'arrêt, fichier initial, nom du logger, politique des commentaires |
 | `StoreFactory` | La factory : `create` (companion `Defaultable`), `createFromConstructor`, `createFromDefaultable`, `createFromResource`, et `createFromProvider` (le sérialiseur et les données initiales donnés en valeurs, sans classe) |
 | `UpdatePolicy` | Ce qu'un update capture et notifie : `SNAPSHOT`, `SHALLOW` ou `SKIP` |
+| `StoreComment` / `CommentPolicy` | Le commentaire du code au-dessus d'une clé (JSON5), et qui gagne entre lui et celui du fichier : `FILE_WINS` ou `CODE_WINS` |
 | `Operation` / `CapturedValue` | Ce que reçoivent les callbacks : le type d'opération, et les valeurs avant et après (copie profonde, lecture directe, ou indisponible) |
 | `StoreFormat` | Le contrat d'un format : extension, encode/decode à sérialiseur explicite ; `JsonFormat`, `TomlFormat` et `Json5Format` fournis, formats tiers via `StoreFormats.registerFormat` |
 | `AtomicFiles` | L'écrivain atomique des stores, public : `write(target) { temp -> }`, le balayage des temporaires orphelins ; `encodeToPathAtomically` sur tout format |

@@ -3,6 +3,17 @@
 Les versions publiées de Storify, de la plus récente à la plus ancienne. Avant `1.0.0`, le mineur monte à chaque ajout ou rupture, le correctif pour
 une correction seule ; chaque version est un tag `v<version>` du dépôt et une release GitHub qui porte ses jars.
 
+## 0.9.0
+
+En cours sur `master` (`0.9.0-SNAPSHOT`), non publiée ; la date se fixe à la release.
+
+- **Les commentaires depuis le code** (C-64) : `@StoreComment(vararg lines)` sur une propriété, ou sur la classe racine pour l'en-tête du fichier ;
+  en JSON5, un `//` par ligne au-dessus de la clé, écrit quand le fichier naît et quand une clé s'ajoute ; `commentPolicy` dans `StoreConfig` et
+  `@StoreConfiguration`, `FILE_WINS` par défaut (l'admin gagne, C-26) ou `CODE_WINS` (le code remet ses commentaires à chaque sauvegarde). JSON
+  l'ignore ; TOML écrit `@TomlComment` de tomlkt. Rupture : `StoreConfig` gagne un champ, un mod compilé contre la `0.8.0` se recompile.
+- **La réconciliation JSON5 indente juste** (C-69) : une clé neuve à valeur objet et un tableau remplacé entier suivent l'indentation de leurs
+  voisines, le bloc compris ; avant, le bloc inséré partait de la colonne 0 et la clé prenait deux espaces.
+
 ## 0.8.0
 
 Le 2026-10-22 : `fr.moulou:storify:0.8.0` sur Repsy, en deux variantes sous la même coordonnée, Java 11 et Java 25 ; Java 8 n'est plus servi.

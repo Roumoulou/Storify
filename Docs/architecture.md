@@ -39,21 +39,24 @@ Les packages :
 ## 2. La data class et ses annotations
 
 La racine d'un store est une data class `@Serializable` dont les propriétés sont des `var` (les `val` se sérialisent mais ne se mettent pas à jour
-par l'API typée). Six annotations la complètent, toutes facultatives dès lors que l'appel à la factory fournit l'information :
+par l'API typée). Sept annotations la complètent, toutes facultatives dès lors que l'appel à la factory fournit l'information :
 
 | Annotation | Porte sur | Rôle |
 |---|---|---|
 | `@StorePath(path)` | la classe | Le chemin du fichier, pour les variantes de factory sans path explicite |
 | `@StoreFileFormat(type)` | la classe | Le format (`JSON`, `TOML` ou `JSON5`) ; sinon, résolution par l'extension du chemin |
-| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`), `readOnly` (`false`), `withShutdownHook` (`true`), `createIfMissing` (`true`), `loggerName` (`Storify`) |
+| `@StoreConfiguration(...)` | la classe | Les options : `withValidation` (défaut `true`), `withAutoSave` (`true`), `withMeta` (`false`), `useDeepCopy` (`true`), `autoSaveIntervalMs` (300 000), `defaultUpdatePolicy` (`SKIP`), `validateOnUpdate` (`false`), `readOnly` (`false`), `withShutdownHook` (`true`), `createIfMissing` (`true`), `loggerName` (`Storify`), `commentPolicy` (`FILE_WINS`) |
 | `@StoreValidator(classe)` | la classe | Le `Validator` instancié par réflexion (constructeur sans argument) |
 | `@StoreDefaultResource(path)` | la classe | La ressource du classpath copiée au premier lancement (`createFromResource`) |
 | `@StoreUpdatePolicy(policy)` | une propriété | La politique de capture de cette propriété, où qu'elle soit dans l'arborescence |
+| `@StoreComment(lignes...)` | une propriété, ou la classe racine | Le commentaire que le fichier porte au-dessus de la clé, une ligne par élément, en tête du fichier pour la racine (C-64) ; lu dans le descripteur du sérialiseur (`@SerialInfo`), écrit par JSON5 (chapitre 9), ignoré par JSON et par TOML, qui écrit `@TomlComment` de tomlkt |
 
 Le défaut de `defaultUpdatePolicy` est `SKIP` (C-22) : le store type est une config que personne n'observe, et le défaut ne doit rien coûter.
 Sans policy explicite, les callbacks se taisent, la persistance restant garantie (C-03), et en garde-fou l'enregistrement d'un callback d'update
 voué au silence émet un avertissement au log. `withValidation` vaut `true` des deux côtés, annotation et `StoreConfig()` (C-24) : sans validator
-elle ne coûte rien, poser un validator c'est vouloir qu'il tourne, et `false` reste l'échappatoire explicite.
+elle ne coûte rien, poser un validator c'est vouloir qu'il tourne, et `false` reste l'échappatoire explicite. `commentPolicy` vaut `FILE_WINS`
+(C-64) : une clé que le fichier porte déjà garde ce qu'elle a, l'admin gagne, par la doctrine de C-26 ; `CODE_WINS` remet les commentaires du code
+à chaque sauvegarde sur les clés qu'il commente.
 
 ## 3. La factory et la résolution
 
@@ -293,7 +296,7 @@ parcouru après le contrôle de syntaxe, avant la conversion en arbre, le chemin
 spécification, le chemin dans son message seul (`groups.vip (L7)`) et `valuePath` vide.
 
 `Json5Format` (C-21) suit la conception de sa brique, kotlin-json5 (`li.songe:json5` 0.8.0), copiée dans les sources sous `internal.json5`
-depuis C-65 pour que les deux variantes la compilent (chapitre 14) : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que de
+depuis C-65, un jar de moins pour un mod et un paquet relocalisé (chapitre 13) : le texte est du JSON5 de bout en bout, le `Json` de kotlinx ne sert que de
 moteur d'arbre (`JsonElement`) sans jamais produire de texte ; l'API de la brique étant entièrement texte, le fichier se lit entier, le créneau
 étant la config et non la donnée de masse.
 
@@ -308,7 +311,18 @@ reste intact). L'arbre encodé est différencié contre le document parsé (`par
 attachés), et seules les retouches s'appliquent (`set`, `putProperty`, `remove`) : les valeurs changées se réécrivent, les clés nouvelles
 s'ajoutent, les disparues s'en vont avec leurs commentaires, tout le reste du fichier reste au caractère près, et un save sans changement est
 identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un diff par index apparierait mal commentaires et éléments
-déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
+déplacés), et un fichier cible absent ou invalide vaut encode à neuf. Une valeur insérée ou remplacée est réindentée au niveau de sa ligne, et une
+clé ajoutée s'aligne sur le dernier enfant de son conteneur, l'unité de l'encodeur sinon (C-69).
+
+Les commentaires du code (C-64) passent par le même éditeur. `StoreComments` relève les `@StoreComment` dans le descripteur du sérialiseur, chemin
+par chemin, les noms étant ceux du fichier : les classes et les objets se descendent, une liste, une map, un type polymorphe, contextuel ou énuméré
+non (leurs éléments n'ont pas de propriété à annoter), une value class se traverse sans segment, un type récursif est coupé à sa seconde occurrence.
+`Json5Format` les pose par `addCommentBefore`, un `//` par ligne au-dessus de la clé, avant le `{` pour la racine, une ligne qui porte un retour à la
+ligne coupée en autant de lignes : dans un fichier neuf, tous ; dans un fichier existant, sous `FILE_WINS`, ceux des seules clés que les retouches
+créent (`putProperty`, ou un `set` qui réécrit un sous-arbre au-dessus), si bien qu'un save sans retouche reste identique à l'octet ; sous
+`CODE_WINS`, tous, les commentaires de tête de chaque clé commentée retirés d'abord, leur ligne entière avec, pour ne pas laisser de vide, et un
+second save redonne le même texte. La politique vient de `StoreConfig` par une surcharge de `encodeToPathPreserving`, à défaut délégant, qu'un
+format tiers préservant ignore.
 
 `StoreFormats` tient le registre extension vers format (`json`, `toml`, `json5`), interrogé quand aucun format n'est donné ; `registerFormat` y
 ajoute un format tiers, résolu par l'extension du chemin comme les formats fournis, et le registre est thread-safe (C-46). Une extension inconnue
@@ -393,6 +407,6 @@ l'essai, rien ne tiendrait la promesse d'une version à l'autre. Un écart connu
 
 ---
 
-*Dernière vérification : 2026-10-22, C-68 aux chapitres 13 et 14 ; 2026-10-19, C-65 aux chapitres 1, 9, 13 et 14 ; 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
+*Dernière vérification : 2026-10-22, C-64 aux chapitres 2 et 9, C-69 au chapitre 9 et C-68 aux chapitres 13 et 14 ; 2026-10-19, C-65 aux chapitres 1, 9, 13 et 14 ; 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
 chapitre 8 le 2026-10-07, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le
-2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19, C-20 et C-64 ; C-35, C-38, C-62 et C-67 en attente).*
+2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente).*

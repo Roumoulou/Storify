@@ -3,7 +3,9 @@
 //
 // Copié de kotlin-json5 0.8.0 (https://github.com/lisonge/kotlin-json5, li.songe:json5), sous la licence Apache, version 2.0, dont le texte
 // est LICENSE.json5 à la racine du dépôt. Modifié par Roumoulou le 2026-10-19 (Storify, C-65) : le paquet li.songe.json5 relocalisé en
-// fr.moulou.storify.internal.json5, et les déclarations de premier niveau passées de public à internal. Le reste du fichier est inchangé.
+// fr.moulou.storify.internal.json5, et les déclarations de premier niveau passées de public à internal ; le 2026-10-22 (C-69) : une valeur
+// insérée ou remplacée (`set`, `putProperty`, `insertArrayElement`) est réindentée au niveau de sa ligne (`reindent`), et une clé ajoutée prend
+// l'indentation du dernier enfant de son conteneur. Le reste du fichier est inchangé.
 
 package fr.moulou.storify.internal.json5
 
@@ -31,11 +33,12 @@ internal fun Json5Document.set(
     config: Json5EditConfig = Json5EditConfig(),
 ): Json5EditResult {
     val target = requireResolved(path)
+    val encoded = Json5.encodeToString(value, config.encoderConfig)
     return applyEdit(
         Json5TextEdit(
             offset = target.value.range.start,
             length = target.value.range.length,
-            content = Json5.encodeToString(value, config.encoderConfig),
+            content = reindent(encoded, lineIndentAt(target.value.range.start), editLineSeparator(config.formatConfig)),
         ),
     )
 }
@@ -135,12 +138,11 @@ private fun Json5Document.insertArrayElement(
     val next = arrayValue.elements[index]
     val insertionOffset = leadingStart(next)
     val multiline = isMultiline(arrayValue.range)
-    val suffix = if (multiline) {
-        "," + editLineSeparator(config.formatConfig) + lineIndentAt(insertionOffset)
-    } else {
-        ","
-    }
-    return applyEdit(Json5TextEdit(insertionOffset, 0, content + suffix))
+    val indent = lineIndentAt(insertionOffset)
+    val lineSeparator = editLineSeparator(config.formatConfig)
+    val suffix = if (multiline) "," + lineSeparator + indent else ","
+    val inserted = if (multiline) reindent(content, indent, lineSeparator) else content
+    return applyEdit(Json5TextEdit(insertionOffset, 0, inserted + suffix))
 }
 
 internal fun Json5Document.appendArrayElement(
@@ -261,13 +263,16 @@ private fun Json5Document.appendToContainer(
     val separateComma = separateCommaOffset != null
     val lineSeparator = editLineSeparator(config.formatConfig)
     val closeIndent = lineIndentAt(closingOffset)
-    val childIndent = closeIndent + config.formatConfig.indent
+    // Storify (C-69) : la clé ajoutée s'aligne sur le dernier enfant quand il a sa propre ligne, l'unité du format sinon, et son bloc suit.
+    val childIndent = lastChild?.takeIf { containsLineBreak(container.range.start, it.range.start) }?.let { lineIndentAt(it.range.start) }
+        ?: (closeIndent + config.formatConfig.indent)
+    val indented = reindent(content, childIndent, lineSeparator)
     val insertion = if (isEmpty) {
-        if (multiline) lineSeparator + childIndent + content else content
+        if (multiline) lineSeparator + childIndent + indented else content
     } else if (multiline) {
         buildString {
             if (!trailingComma && !separateComma) append(',')
-            append(lineSeparator).append(childIndent).append(content)
+            append(lineSeparator).append(childIndent).append(indented)
             if (trailingComma) append(',')
         }
     } else {
@@ -333,6 +338,20 @@ private fun Json5Document.containsLineBreak(start: Int, end: Int): Boolean {
 private fun Json5Document.followingSyntaxOffset(offset: Int): Int = tokens.firstOrNull {
     it.range.start >= offset && !it.kind.isTrivia
 }?.range?.start ?: source.length
+
+/** Storify (C-69) : [content] dont chaque ligne après la première reçoit [indent], pour qu'une valeur encodée depuis la colonne 0 suive le niveau de sa ligne. */
+private fun reindent(content: String, indent: String, lineSeparator: String): String {
+    val lines = content.lines()
+    if (lines.size == 1) return content
+    return buildString {
+        append(lines[0])
+        for (line in lines.drop(1)) {
+            append(lineSeparator)
+            if (line.isNotEmpty()) append(indent)
+            append(line)
+        }
+    }
+}
 
 private fun Json5Document.lineIndentAt(offset: Int): String {
     var lineStart = offset
