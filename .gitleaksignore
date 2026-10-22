@@ -5,3 +5,5 @@ storify-0.7.0.jar!fr/moulou/storify/validation/DuplicateKeyException.class (text
 storify-0.7.0-jdk8.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
 storify-0.8.0.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
 storify-0.8.0-jdk11.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
+storify-0.9.0.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1
+storify-0.9.0-jdk11.jar!fr/moulou/storify/validation/DuplicateKeyException.class (texte extrait):generic-api-key:1

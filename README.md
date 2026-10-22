@@ -7,15 +7,15 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.8.0`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le 2026-10-22 ; c'est elle
+- Coordonnées : `fr.moulou:storify`, version `0.9.0`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le 2026-10-22 ; c'est elle
   que la recette de la section 4 cite. L'artefact porte deux variantes sous cette seule coordonnée, Java 11 et Java 25, que Gradle choisit
-  d'après la cible du consommateur (section 4) ; Storify demande Java 11 au moins. `master` continue en `0.9.0-SNAPSHOT` ; avant `1.0.0`, le
+  d'après la cible du consommateur (section 4) ; Storify demande Java 11 au moins. `master` continue en `0.10.0-SNAPSHOT` ; avant `1.0.0`, le
   mineur monte à chaque ajout ou rupture, et un consommateur épingle une release, jamais un snapshot.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-22 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 11, section 6), sur la stack
+- Build et tests : verts au 2026-10-22 (371 tests, le bytecode des deux variantes et l'essai de fumée sur Java 11, section 6), sur la stack
   ci-dessous.
 - L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
@@ -164,8 +164,8 @@ repositories {
 }
 
 dependencies {
-    implementation("fr.moulou:storify:0.8.0")  // compiler contre la lib...
-    include("fr.moulou:storify:0.8.0")         // ... et l'embarquer dans le jar du mod
+    implementation("fr.moulou:storify:0.9.0")  // compiler contre la lib...
+    include("fr.moulou:storify:0.9.0")         // ... et l'embarquer dans le jar du mod
     include("dev.eav.tomlkt:tomlkt:0.6.1")     // include n'est pas transitif : chaque jar se déclare
 }
 ```
@@ -185,8 +185,8 @@ log4j 2.8.1 du jeu.
 
 ### 4.1 Les deux variantes, Java 11 et Java 25
 
-L'artefact `fr.moulou:storify` porte deux variantes, compilées des mêmes sources (C-65, C-68) : la variante Java 25, `storify-0.8.0.jar`, celle
-que le POM décrit, et la variante Java 11, `storify-0.8.0-jdk11.jar`, en bytecode 55, compilée avec `-Xjdk-release=11` contre l'API de Java 11.
+L'artefact `fr.moulou:storify` porte deux variantes, compilées des mêmes sources (C-65, C-68) : la variante Java 25, `storify-0.9.0.jar`, celle
+que le POM décrit, et la variante Java 11, `storify-0.9.0-jdk11.jar`, en bytecode 55, compilée avec `-Xjdk-release=11` contre l'API de Java 11.
 Les métadonnées Gradle (`.module`) les publient toutes deux sous la même coordonnée, chacune avec son `org.gradle.jvm.version`, 11 ou 25, et
 Gradle choisit d'après la cible du consommateur, celle que `release` (javac) ou `jvmTarget` (Kotlin) demande :
 
@@ -209,7 +209,7 @@ configurations.named("includeInternal") {
 }
 ```
 
-Le jar de sources de chaque variante suit (`storify-0.8.0-sources.jar`, `storify-0.8.0-jdk11-sources.jar`) ; les sources sont les mêmes. La
+Le jar de sources de chaque variante suit (`storify-0.9.0-sources.jar`, `storify-0.9.0-jdk11-sources.jar`) ; les sources sont les mêmes. La
 variante Java 11 est éprouvée à chaque build de la lib par un essai de fumée lancé sur un JDK 11 (section 6).
 
 ### 4.2 Le shading
@@ -246,7 +246,7 @@ Le build exige un JDK 25 (la toolchain) et un JDK 11, déclaré à Gradle (`org.
 l'essai de fumée de la variante Java 11 ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) sur la variante Java 25 et écrivent leurs
 fichiers dans `build\tmp\storify-tests`. `check` enchaîne trois preuves (C-65) :
 
-- `test`, les 356 tests, sur la variante Java 25 ;
+- `test`, les 371 tests, sur la variante Java 25 ;
 - `checkBytecode`, qui lit chaque classe des deux jars : bytecode 69 dans `storify-<version>.jar`, 55 dans `storify-<version>-jdk11.jar` ;
 - `smokeJdk11Run`, l'essai de fumée de `src\smokeJdk11` : compilé en cible 11 contre le jar `jdk11`, comme un consommateur, et lancé sur la
   toolchain 11 avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2 fournit ; il ouvre, modifie,

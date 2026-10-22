@@ -5,7 +5,7 @@ une correction seule ; chaque version est un tag `v<version>` du dépôt et une 
 
 ## 0.9.0
 
-En cours sur `master` (`0.9.0-SNAPSHOT`), non publiée ; la date se fixe à la release.
+Le 2026-10-22 : `fr.moulou:storify:0.9.0` sur Repsy, en deux variantes sous la même coordonnée, Java 11 et Java 25 ; les commentaires depuis le code.
 
 - **Les commentaires depuis le code** (C-64) : `@StoreComment(vararg lines)` sur une propriété, ou sur la classe racine pour l'en-tête du fichier ;
   en JSON5, un `//` par ligne au-dessus de la clé, écrit quand le fichier naît et quand une clé s'ajoute ; `commentPolicy` dans `StoreConfig` et
