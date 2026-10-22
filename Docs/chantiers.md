@@ -868,25 +868,24 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   recette au README, une panne de plus à documenter) pour une demi-mesure : le POM déclarerait toujours tomlkt et json5. S'ouvre le jour où un
   consommateur a besoin de la taille, ou d'un consommateur Maven hors Minecraft, et se fait alors en une fois par la solution complète,
   `storify-core` plus un artefact par format ; le registre paresseux seul, une demi-mesure, est abandonné (décision confirmée le 2026-09-29 au soir).
-- [ ] **C-64 : les commentaires depuis le code** (M ; demande du 2026-10-08). Un commentaire dans un fichier de config n'a aujourd'hui qu'une
-  source, l'admin qui édite le fichier, ou une ressource JSON5 commentée à la main et copiée telle quelle (C-40) ; une data class composée dans le
-  code ne peut pas dire, à côté de sa clé, ce qu'elle attend. Les trois questions. Utile : à tout mod dont la config est éditée à la main, en JSON5
-  et en TOML. Vaut la peine : la brique json5 sait poser un commentaire sur un nœud (`addCommentBefore`, `addCommentAfter`, sortes `Line` et
-  `Block`, vérifié dans ses sources 0.8.0), et tomlkt lit déjà `@TomlComment` sur une propriété (`Annotations.kt`, ligne 49), que `TomlFormat`
-  encode par son sérialiseur : le gros du travail est un design. Cohérente : une annotation de plus à côté de `@StoreUpdatePolicy`, lue dans le
-  descripteur du sérialiseur (`getElementAnnotations`), le mécanisme de tomlkt et de json5k. Design proposé : `@StoreComment(vararg lines)`, une
-  annotation `@SerialInfo` de Storify, indépendante du format, une ligne par élément ; en JSON5, posée par l'éditeur de la brique après l'encodage,
-  un `//` par ligne au-dessus de la clé, les objets imbriqués par le chemin du descripteur ; en TOML, traduite vers tomlkt si la séance prouve que
-  c'est bon marché (un descripteur enveloppé qui porte un `TomlComment`), sinon `@TomlComment` accepté tel quel et documenté ; en JSON strict,
-  ignorée, parce que le JSON standard n'a pas de commentaire (C-36). La règle du fichier, décidée le 2026-10-08 : le commentaire du code s'écrit
-  quand le fichier naît et quand une clé s'ajoute à un fichier existant ; une clé que le fichier commente déjà garde son commentaire, l'admin
-  gagne, par la doctrine de C-26 ; une option de `StoreConfig` force la réécriture des commentaires depuis le code à chaque sauvegarde (nom à
-  trancher, `commentPolicy`, `FILE_WINS` par défaut et `CODE_WINS`). Curseurs pour la séance : le multi-ligne, un `//` par ligne ou un bloc ; la
-  place, au-dessus de la clé seulement ou aussi en fin de ligne ; les entrées de map, qui n'ont pas de propriété à annoter ; une clé existante sans
-  commentaire dans un fichier existant, qui reste nue ou reçoit celui du code ; la traduction TOML. Écarté : json5k, qui porte `@SerialComment`
-  mais est expérimentale, en Kotlin 1.8 et archivée depuis 2024 ; une passe sur le texte TOML pour y glisser des `#`. Tests : un fichier neuf
-  commenté en JSON5 et en TOML, un fichier existant qui garde ses commentaires, l'option qui les réécrit, un objet imbriqué, le JSON strict qui
-  ignore. Docs : README section 2, `architecture.md` chapitres 2 et 9.
+- [x] **C-64 : les commentaires depuis le code** (M ; demande du 2026-10-08). Un commentaire dans un fichier de config n'avait qu'une source,
+  l'admin qui édite le fichier, ou une ressource JSON5 commentée à la main et copiée telle quelle (C-40) ; une data class composée dans le code ne
+  pouvait pas dire, à côté de sa clé, ce qu'elle attend. Les trois questions. Utile : à tout mod dont la config est éditée à la main, en JSON5
+  d'abord, où le commentaire survit aux sauvegardes (C-26). Vaut la peine : la brique json5 pose un commentaire sur un nœud (`addCommentBefore`), le
+  diff de C-26 dit quelles clés sont neuves, et tomlkt lit déjà `@TomlComment` ; le gros du travail était un design. Cohérente : une annotation à côté
+  de `@StoreUpdatePolicy`, une option à côté de `defaultUpdatePolicy`, la doctrine de C-26 inchangée. Design validé le 2026-10-22 :
+  `@StoreComment(vararg lines)`, une annotation `@SerialInfo` sur une propriété ou sur la classe racine, lue dans le descripteur du sérialiseur
+  (`StoreComments`), donc portée par les sérialiseurs générés et valable hors store (`encodeToPathAtomically`) ; en JSON5, posée par l'éditeur de la
+  brique après l'encodage, un `//` par ligne au-dessus de la clé, en tête du fichier pour la racine, les objets imbriqués par le chemin du
+  descripteur, les listes, maps et types polymorphes non descendus ; la règle du fichier du 2026-10-08 : le commentaire du code s'écrit quand le
+  fichier naît et quand une clé s'ajoute, une clé que le fichier porte déjà garde ce qu'elle a, commentée ou nue (`CommentPolicy.FILE_WINS`, le défaut
+  de `StoreConfig` et de `@StoreConfiguration`), et `CODE_WINS` remplace à chaque sauvegarde les commentaires de tête des clés que le code commente ;
+  la politique arrive au format par une surcharge de `encodeToPathPreserving`, à défaut délégant ; en TOML, `@TomlComment` de tomlkt, que
+  `TomlFormat` écrit déjà, épinglé par un test, `@StoreComment` ignoré ; en JSON strict, ignoré (C-36). Les curseurs : un `//` par ligne, pas de bloc ;
+  au-dessus de la clé seulement ; pas de commentaire sur une entrée de map, la propriété qui porte la map garde le sien ; une clé nue reste nue sous
+  `FILE_WINS`. Écarté : json5k ; une passe sur le texte TOML ; la traduction de `@StoreComment` vers tomlkt, parce qu'un sérialiseur généré donne son
+  propre descripteur à `beginStructure` et qu'il faudrait envelopper l'encodeur et chaque sérialiseur imbriqué, ce que les sérialiseurs des
+  `TomlElement` de tomlkt refuseraient ; la lecture par réflexion, les formats ne recevant que le sérialiseur. **Fait le 2026-10-22** : `StoreComment` et `CommentPolicy` (`StoreAnnotations.kt`), `commentPolicy` dans `StoreConfig`, `@StoreConfiguration` et la factory, `StoreComments`, la surcharge de `PreservingStoreFormat` que `BaseStore` appelle, `Json5Format` (`encodeNew`, `reconcile`, `withComments`, `withoutComment`) ; huit tests dans `CommentsTest` et la démo `CommentsDemo`. Mesuré : 368 tests verts (les 357 et les 11 nouveaux), 198 classes en 69 et 198 en 55, l'essai de fumée vert sur le JDK 11, le banc vert en composite, gametests compris. Les docs : README (sections 1, 2 et 5), `architecture.md` (chapitres 2 et 9, où la raison de la copie json5 est réécrite), le `CHANGELOG.md` à la `0.9.0`, le readme du classeur.
 - [ ] **C-67 : une variante par cible Java, en une fonction du build** (M ; réflexion du 2026-10-19). Depuis C-65, l'artefact porte deux
   variantes, Java 25 et Java 11 depuis C-68, et aucun fichier propre à l'une d'elles : les deux jars font la même chose, aux idiomes du compilateur près. Une
   variante de plus (17, 21) ne vaut que si elle contient ce que la 11 ne peut pas contenir, une API du JDK (les threads virtuels de Java 21 pour
@@ -929,5 +928,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65, C-66 et C-68 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 à C-66 et C-68 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
 au 2026-09-23.*

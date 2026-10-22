@@ -596,12 +596,12 @@ class BaseStore<DATA : Any> internal constructor(
         if (operation != null) onSaveCallbacks.forEach { it(operation) }
     }
 
-    /** Encode les données vers [temp] ; un format préservant reçoit en plus le texte actuel de la cible, pour ne réécrire que ce qui change (C-26). */
+    /** Encode les données vers [temp] ; un format préservant reçoit en plus le texte actuel de la cible, pour ne réécrire que ce qui change (C-26), et la politique des commentaires du code (C-64). */
     private fun encodeDataTo(temp: Path) {
         val preserving = format as? PreservingStoreFormat
         if (preserving != null) {
             val previousText = if (path.exists()) runCatching { path.readText() }.getOrNull() else null
-            preserving.encodeToPathPreserving(dataSerializer, _data, temp, previousText)
+            preserving.encodeToPathPreserving(dataSerializer, _data, temp, previousText, config.commentPolicy)
         } else {
             format.encodeToPath(dataSerializer, _data, temp)
         }
