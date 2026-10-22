@@ -801,6 +801,17 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   C-67 ici, le readme et le contexte du classeur, le banc, le `CHANGELOG.md`. **Fait le 2026-10-22** : le build vert, 357 tests (les 356 et le
   bac à sable), 192 classes en 69 et 192 en 55 dans les deux jars, l'essai de fumée vert sur le JDK 11.0.32.1 ; les docs ; la release `0.8.0`
   suit, selon `git-et-versions.md`.
+- [x] **C-69 : la valeur insérée réindentée, dans la réconciliation JSON5** (S ; vu le 2026-10-22 dans la démo de C-64). `putProperty`, `set` et
+  `insertArrayElement` de l'éditeur de la brique inséraient la valeur encodée telle quelle, depuis la colonne 0, et une clé ajoutée prenait l'unité de
+  `Json5FormatConfig` (deux espaces), que Storify ne réglait pas : une clé neuve à valeur objet dans un fichier à quatre espaces sortait à deux, son bloc
+  à quatre puis zéro ; du JSON5 valide, mais pas la forme du fichier. Les trois questions. Utile : à tout fichier JSON5 existant qui reçoit une clé neuve
+  ou un tableau réécrit, le cas de chaque montée de version d'un mod. Vaut la peine : une fonction de réindentation et deux lignes. Cohérente : la
+  réconciliation ne touche que ce qui change, et ce qu'elle écrit doit ressembler à ce qui l'entoure (C-26). **Fait le 2026-10-22**, sur la branche de
+  C-64 : dans `Json5Editor.kt`, `reindent` préfixe chaque ligne après la première de l'indentation de la ligne d'insertion (`set`, `insertArrayElement`,
+  `appendToContainer`), et une clé ajoutée s'aligne sur le dernier enfant du conteneur quand il a sa propre ligne, l'unité du format sinon ; dans
+  `Json5Format`, un `editConfig` unique dont l'unité est l'indentation de l'encodeur (quatre espaces ; celle de la brique si l'encodeur est compact) ;
+  l'en-tête du fichier copié dit la modification. Trois tests dans `Json5PreservingSaveTest` : l'objet neuf aligné bloc compris, le tableau remplacé à sa
+  ligne, l'objet vide à l'unité de l'encodeur. Docs : `architecture.md` chapitre 9, le `CHANGELOG.md`.
 
 ## 5. P3, la vision
 
@@ -928,5 +939,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 à C-66 et C-68 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 à C-66, C-68 et C-69 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
 au 2026-09-23.*

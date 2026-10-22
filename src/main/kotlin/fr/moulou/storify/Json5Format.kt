@@ -24,6 +24,7 @@ import fr.moulou.storify.internal.json5.Json5CommentPlacement
 import fr.moulou.storify.internal.json5.Json5Document
 import fr.moulou.storify.internal.json5.Json5EditConfig
 import fr.moulou.storify.internal.json5.Json5EncoderConfig
+import fr.moulou.storify.internal.json5.Json5FormatConfig
 import fr.moulou.storify.internal.json5.Json5Object
 import fr.moulou.storify.internal.json5.Json5Path
 import fr.moulou.storify.internal.json5.Json5PathSegment
@@ -84,6 +85,9 @@ class Json5Format(
 
     /** Le copieur profond des stores JSON5 : l'arbre JSON du pont kotlinx, le même qui décode et encode les fichiers (C-29). */
     private val copier = JsonTreeCopier(json)
+
+    /** Les retouches de l'éditeur : l'encodeur du format, et son indentation pour unité quand un conteneur vide reçoit sa première clé (C-69) ; celle de la brique si l'encodeur est compact. */
+    private val editConfig = Json5EditConfig(encoderConfig = encoderConfig, formatConfig = Json5FormatConfig(indent = encoderConfig.indent.ifEmpty { Json5FormatConfig().indent }))
 
     override fun fileExtension(): String = "json5"
 
@@ -154,7 +158,6 @@ class Json5Format(
         val edits = mutableListOf<ReconcileEdit>()
         diffInto(edits, document.toJsonElement(), newElement, Json5Path.Root)
         if (edits.isEmpty() && commentPolicy == CommentPolicy.FILE_WINS) return previousText // rien n'a changé : pas un octet ne bouge
-        val editConfig = Json5EditConfig(encoderConfig = encoderConfig)
         for (edit in edits) {
             document = when (edit) {
                 is ReconcileEdit.Set -> document.set(edit.path, edit.value, editConfig)
@@ -174,7 +177,6 @@ class Json5Format(
      * l'ordre du code, avant le `{` pour la racine ; avec [replace], les commentaires de tête que la clé portait s'en vont d'abord.
      */
     private fun withComments(start: Json5Document, comments: List<StoreComments.Entry>, replace: Boolean): Json5Document {
-        val editConfig = Json5EditConfig(encoderConfig = encoderConfig)
         var document = start
         for (entry in comments) {
             val path = entry.keys.fold(Json5Path.Root) { parent, key -> parent[key] }

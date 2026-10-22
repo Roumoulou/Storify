@@ -311,7 +311,8 @@ reste intact). L'arbre encodé est différencié contre le document parsé (`par
 attachés), et seules les retouches s'appliquent (`set`, `putProperty`, `remove`) : les valeurs changées se réécrivent, les clés nouvelles
 s'ajoutent, les disparues s'en vont avec leurs commentaires, tout le reste du fichier reste au caractère près, et un save sans changement est
 identique à l'octet. Décisions v1 : un tableau modifié se remplace entier (un diff par index apparierait mal commentaires et éléments
-déplacés), et un fichier cible absent ou invalide vaut encode à neuf.
+déplacés), et un fichier cible absent ou invalide vaut encode à neuf. Une valeur insérée ou remplacée est réindentée au niveau de sa ligne, et une
+clé ajoutée s'aligne sur le dernier enfant de son conteneur, l'unité de l'encodeur sinon (C-69).
 
 Les commentaires du code (C-64) passent par le même éditeur. `StoreComments` relève les `@StoreComment` dans le descripteur du sérialiseur, chemin
 par chemin, les noms étant ceux du fichier : les classes et les objets se descendent, une liste, une map, un type polymorphe, contextuel ou énuméré
@@ -406,6 +407,6 @@ l'essai, rien ne tiendrait la promesse d'une version à l'autre. Un écart connu
 
 ---
 
-*Dernière vérification : 2026-10-22, C-64 aux chapitres 2 et 9 et C-68 aux chapitres 13 et 14 ; 2026-10-19, C-65 aux chapitres 1, 9, 13 et 14 ; 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
+*Dernière vérification : 2026-10-22, C-64 aux chapitres 2 et 9, C-69 au chapitre 9 et C-68 aux chapitres 13 et 14 ; 2026-10-19, C-65 aux chapitres 1, 9, 13 et 14 ; 2026-10-08, C-55 porté aux chapitres 8 et 9, C-60 au chapitre 8 et C-61 au chapitre 9, C-54 aux chapitres 1 et 3 et C-56 au
 chapitre 8 le 2026-10-07, C-53 au chapitre 8 le 2026-10-05, C-50 aux chapitres 8 et 9 le 2026-10-01, le reste relu en entier contre `src\main` le
 2026-09-30 ; ce qui doit changer est ouvert dans `chantiers.md` (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente).*
