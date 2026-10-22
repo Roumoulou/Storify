@@ -3,6 +3,18 @@
 Les versions publiées de Storify, de la plus récente à la plus ancienne. Avant `1.0.0`, le mineur monte à chaque ajout ou rupture, le correctif pour
 une correction seule ; chaque version est un tag `v<version>` du dépôt et une release GitHub qui porte ses jars.
 
+## 0.8.0
+
+Le 2026-10-22 : `fr.moulou:storify:0.8.0` sur Repsy, en deux variantes sous la même coordonnée, Java 11 et Java 25 ; Java 8 n'est plus servi.
+
+- **La variante Java 11 remplace la variante Java 8** (C-68) : `storify-0.8.0-jdk11.jar`, bytecode 55, compilée avec `-Xjdk-release=11` ; la
+  variante Java 25, `storify-0.8.0.jar`, reste la variante par défaut et celle du POM. Un consommateur qui vise Java 11 à 24 reçoit la 11, Java 25
+  la 25, Maven la 25. Rupture : un consommateur en cible 8 à 10 ne trouve plus de variante, Gradle refuse ; un mod pour Minecraft 1.16.5 vise
+  Java 11 et lance le jeu sur Java 11. Le classifier passe de `jdk8` à `jdk11`, et l'attribut à poser sur `includeInternal` est la cible du mod,
+  11 à 21 (README, section 4).
+- **Les preuves suivent** : `checkBytecode` lit 69 et 55, et l'essai de fumée tourne sur un JDK 11 (`smokeJdk11Run`).
+- La copie de kotlin-json5 reste (un jar de moins pour un mod, un paquet relocalisé) ; le code est celui de la `0.7.0`, aucune API ne bouge.
+
 ## 0.7.0
 
 Première release, le 2026-10-19 : `fr.moulou:storify:0.7.0` sur Repsy, en deux variantes sous la même coordonnée, Java 8 et Java 25.

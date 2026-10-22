@@ -16,7 +16,7 @@ private val UTF8_BOM = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
 internal fun InputStream.withoutUtf8Bom(): InputStream {
     val stream = PushbackInputStream(this, UTF8_BOM.size)
     val head = ByteArray(UTF8_BOM.size)
-    // Une boucle sur read, et non readNBytes, une API de Java 9 : ce fichier sert aux deux variantes, Java 8 comprise (C-65).
+    // Une boucle sur read plutôt que readNBytes : elle ne dépend d'aucune API au-dessus de Java 8 et vaut telle quelle pour les deux variantes (C-65, C-68).
     var read = 0
     while (read < head.size) {
         val n = stream.read(head, read, head.size - read)

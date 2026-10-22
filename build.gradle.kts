@@ -5,18 +5,18 @@
 
  Une racine Gradle à un seul projet, Kotlin/JVM, sans Loom : la lib n'est pas un mod,
  elle en est une dépendance. Elle publie `fr.moulou:storify` sur Repsy en deux variantes
- sous la même coordonnée, Java 25 et Java 8 (C-65), que Gradle choisit d'après la cible
+ sous la même coordonnée, Java 25 et Java 11 (C-65, C-68), que Gradle choisit d'après la cible
  du consommateur. Le banc d'essai, Storibench, la consomme en build composite depuis le
  classeur (`..\Storibench`) et l'éprouve dans un vrai serveur Fabric.
 
  ┌───────────────────────────────────────────────────────────────────────────┐
  │  1  l'identité, lue dans gradle.properties                                │
  │  2  les dépendances : ce que FLK fournit, ce qu'un mod embarque, les tests│
- │  3  Java et les compilateurs : la toolchain 25, la cible 8 de la variante │
- │  4  la variante Java 8 : la copie des sources, la feature, ses attributs  │
+ │  3  Java et les compilateurs : la toolchain 25, la variante en cible 11  │
+ │  4  la variante Java 11 : la copie des sources, la feature, ses attributs │
  │  5  les jars : les quatre textes de licence                               │
  │  6  les tests : JUnit 6, sur la variante Java 25                          │
- │  7  les preuves de la variante 8 : le bytecode et l'essai de fumée        │
+ │  7  les preuves de la variante 11 : le bytecode et l'essai de fumée       │
  │  8  la publication : le POM, Repsy derrière le jeton, le dépôt local      │
  └───────────────────────────────────────────────────────────────────────────┘
 
@@ -30,7 +30,7 @@
 
  Les dépôts vivent dans settings.gradle.kts, et nulle part ici (FAIL_ON_PROJECT_REPOS).
  La doc de la lib est dans Docs\ : architecture.md (le chapitre 14 pour les variantes)
- et chantiers.md (C-65, C-66) ; la recette d'un consommateur, au README, section 4.
+ et chantiers.md (C-65, C-66, C-68) ; la recette d'un consommateur, au README, section 4.
 ════════════════════════════════════════════════════════════════════════════════
 */
 
@@ -63,7 +63,8 @@ plugins {
                     (git-et-versions.md, The Human Readme, chapitre 3).
 
  Les deux cibles Java du build : celle de la lib, clé `java` du catalogue (25), et celle
- de la variante Java 8 (section 4), 8, la plus basse qu'un mod Fabric sert (1.16.5).
+ de la variante Java 11 (section 4), 11, la plus basse que mes mods visent, 1.16.5 compris,
+ lancé sur Java 11 : Java 8 n'est plus servi (C-68).
 ════════════════════════════════════════════════════════════════════════════════
 */
 group = providers.gradleProperty("maven_group").get()
@@ -71,7 +72,7 @@ version = providers.gradleProperty("lib_version").get()
 base { archivesName = providers.gradleProperty("archives_base_name") }
 
 val targetJavaVersion = libs.versions.java.get().toInt()
-val jdk8JavaVersion = 8
+val jdk11JavaVersion = 11
 val toolchains = extensions.getByType<JavaToolchainService>()
 
 /*
@@ -96,14 +97,15 @@ val toolchains = extensions.getByType<JavaToolchainService>()
  embarque. Ici, la 2.0.20 pour compiler et pour les tests.
 
  ── JSON5, UNE COPIE ET NON UNE DÉPENDANCE ─────────────────────────────────
- kotlin-json5 0.8.0 (li.songe:json5) est publiée en bytecode Java 11 : la variante
- Java 8 ne pourrait pas l'embarquer. Ses sources sont copiées sous
- src\main\kotlin\fr\moulou\storify\internal\json5, Apache-2.0 (LICENSE.json5, NOTICE), et
- compilées avec le reste dans les deux variantes (C-65) : le POM ne la déclare plus.
+ kotlin-json5 0.8.0 (li.songe:json5) est copiée dans Storify (C-65) : ses sources vivent
+ sous src\main\kotlin\fr\moulou\storify\internal\json5, Apache-2.0 (LICENSE.json5,
+ NOTICE), paquet relocalisé, et se compilent avec le reste dans les deux variantes. Le
+ POM ne la déclare plus : un mod embarque un jar de moins, et la copie ne heurte pas le
+ json5 qu'un autre mod embarquerait.
 
  ── LES TESTS ──────────────────────────────────────────────────────────────
  JUnit 6 (la plateforme unifiée, qui exige Java 17 : la suite tourne sur la toolchain 25,
- jamais sur Java 8, que la section 7 éprouve autrement), slf4j-simple pour lire les logs
+ jamais sur Java 11, que la section 7 éprouve autrement), slf4j-simple pour lire les logs
  de la lib dans le terminal, et CBOR, qui ne sert plus qu'à la démo et au benchmark des
  copies profondes (C-29) : la lib copie par l'arbre JSON.
 ════════════════════════════════════════════════════════════════════════════════
@@ -135,15 +137,15 @@ dependencies {
 
  ── RELEASE, PAR TÂCHE ─────────────────────────────────────────────────────
  `release` fixe la cible de javac et, par le plugin Java, l'attribut org.gradle.jvm.version
- de la variante que le jeu de sources publie : 25 pour main et test, 8 pour la variante
- jdk8 et son essai de fumée. Il n'y a aucune source Java : compileJdk8Java reste
+ de la variante que le jeu de sources publie : 25 pour main et test, 11 pour la variante
+ jdk11 et son essai de fumée. Il n'y a aucune source Java : compileJdk11Java reste
  NO-SOURCE, et l'attribut vient de là quand même (mesuré le 2026-10-18).
 
- ── KOTLIN EN CIBLE 1.8 ────────────────────────────────────────────────────
- Les compilations de la variante 8 reçoivent jvmTarget 1.8 et -Xjdk-release=1.8, qui
- compile contre l'API de Java 8 du JDK 25 (son ct.sym) et refuse à la compilation toute
- API plus récente : readNBytes, la seule que le code appelait, a été refusée ainsi avant
- d'être réécrite (Utf8Bom.kt). Le plugin Kotlin vérifie que jvmTarget et release
+ ── KOTLIN EN CIBLE 11 ─────────────────────────────────────────────────────
+ Les compilations de la variante 11 reçoivent jvmTarget 11 et -Xjdk-release=11, qui
+ compile contre l'API de Java 11 du JDK 25 (son ct.sym) et refuse à la compilation toute
+ API plus récente ; en cible 1.8, c'est ainsi que readNBytes avait été refusé, puis réécrit
+ en boucle sur read (Utf8Bom.kt, C-65). Le plugin Kotlin vérifie que jvmTarget et release
  concordent, tâche par tâche. L'encodage UTF-8 est forcé côté Java : sans lui, javac suit
  l'encodage du système, et les accents de ce projet sortent en charabia ailleurs.
 ════════════════════════════════════════════════════════════════════════════════
@@ -153,80 +155,83 @@ java {
     withSourcesJar()
 }
 
-val jdk8JavaCompileTasks = setOf("compileJdk8Java", "compileSmokeJdk8Java")
-val jdk8KotlinCompileTasks = setOf("compileJdk8Kotlin", "compileSmokeJdk8Kotlin")
+val jdk11JavaCompileTasks = setOf("compileJdk11Java", "compileSmokeJdk11Java")
+val jdk11KotlinCompileTasks = setOf("compileJdk11Kotlin", "compileSmokeJdk11Kotlin")
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.release = if (name in jdk8JavaCompileTasks) jdk8JavaVersion else targetJavaVersion
+    options.release = if (name in jdk11JavaCompileTasks) jdk11JavaVersion else targetJavaVersion
 }
 
-tasks.withType<KotlinCompile>().matching { it.name in jdk8KotlinCompileTasks }.configureEach {
+tasks.withType<KotlinCompile>().matching { it.name in jdk11KotlinCompileTasks }.configureEach {
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_1_8
-        freeCompilerArgs.add("-Xjdk-release=1.8")
+        jvmTarget = JvmTarget.JVM_11
+        freeCompilerArgs.add("-Xjdk-release=11")
     }
 }
 
 /*
 ════════════════════════════════════════════════════════════════════════════════
- SECTION 4 — LA VARIANTE JAVA 8
+ SECTION 4 — LA VARIANTE JAVA 11
 ════════════════════════════════════════════════════════════════════════════════
 
- Les mêmes sources, compilées une seconde fois en cible 1.8, pour qu'un mod qui vise
- Java 8 à 24 (Minecraft 1.16.5 à 1.21.x) embarque Storify comme un mod pour 26.x (C-65).
- La variante Java 25 est celle de main, la variante par défaut, celle que le POM décrit.
+ Les mêmes sources, compilées une seconde fois en cible 11, pour qu'un mod qui vise
+ Java 11 à 24 (Minecraft 1.16.5 lancé sur Java 11, puis 1.17.1 à 1.21.x) embarque Storify
+ comme un mod pour 26.x (C-65, C-68) ; une cible 8 à 10 n'a plus de variante, et Gradle
+ la refuse. La variante Java 25 est celle de main, la variante par défaut, celle que le
+ POM décrit.
 
  ── UNE COPIE DES SOURCES ──────────────────────────────────────────────────
- Le jeu de sources `jdk8` lit une copie de src\main\kotlin, posée par syncJdk8Sources
- dans build\jdk8\kotlin : deux jeux de sources sur la même racine feraient à l'IDE deux
+ Le jeu de sources `jdk11` lit une copie de src\main\kotlin, posée par syncJdk11Sources
+ dans build\jdk11\kotlin : deux jeux de sources sur la même racine feraient à l'IDE deux
  racines identiques, et IntelliJ en retire une d'un module sans dire lequel. Un fichier
- qu'une variante écrirait autrement irait dans src\jdk8\kotlin, posé par-dessus la copie
+ qu'une variante écrirait autrement irait dans src\jdk11\kotlin, posé par-dessus la copie
  au même chemin relatif, un fichier par différence ; il n'y en a aucun aujourd'hui.
 
  ── UNE FEATURE SOUS LA MÊME COORDONNÉE ────────────────────────────────────
- registerFeature publie la variante avec ses propres configurations (jdk8ApiElements,
- jdk8RuntimeElements, jdk8SourcesElements), son jar au classifier jdk8 et ses sources en
- jdk8-sources. Sa capability est celle du composant, fr.moulou:storify, et non la
- storify-jdk8 que Gradle donnerait par défaut : avec deux capabilities, Gradle ne
+ registerFeature publie la variante avec ses propres configurations (jdk11ApiElements,
+ jdk11RuntimeElements, jdk11SourcesElements), son jar au classifier jdk11 et ses sources en
+ jdk11-sources. Sa capability est celle du composant, fr.moulou:storify, et non la
+ storify-jdk11 que Gradle donnerait par défaut : avec deux capabilities, Gradle ne
  choisirait jamais entre les deux ; avec une seule, il choisit par les attributs, dont
- org.gradle.jvm.version, 8 ou 25. Le plugin Kotlin pose org.gradle.jvm.environment et
- org.jetbrains.kotlin.platform.type sur les variantes de main ; la variante jdk8 les
+ org.gradle.jvm.version, 11 ou 25. Le plugin Kotlin pose org.gradle.jvm.environment et
+ org.jetbrains.kotlin.platform.type sur les variantes de main ; la variante jdk11 les
  reçoit ici, pour que les deux ne diffèrent que par la version de Java. Ses configurations
  de dépendances héritent de celles de main : les deux variantes déclarent les mêmes.
 
  ── CE QUE L'ESSAI DU 2026-10-18 A MESURÉ (Gradle 9.8.1, Loom 1.18.2) ────
- Un consommateur qui vise 8 ou 21 reçoit la variante 8 et la lance sur son JDK ; un qui
+ Avec une variante basse en 8, le mécanisme étant le même en 11 : un consommateur qui
+ vise la cible basse ou 21 reçoit la variante basse et la lance sur son JDK ; un qui
  vise 25 reçoit la 25 ; Maven, qui ne lit que le POM, la 25. L'include de Loom, résolu
  par includeInternal sans attribut de version, embarque la 25 quelle que soit la cible
- du mod, et la 8 dès que le mod pose org.gradle.jvm.version sur cette configuration
- (README, section 4 ; architecture.md, chapitre 14).
+ du mod, et la variante basse dès que le mod pose org.gradle.jvm.version sur cette
+ configuration (README, section 4 ; architecture.md, chapitre 14).
 ════════════════════════════════════════════════════════════════════════════════
 */
-val syncJdk8Sources = tasks.register<Sync>("syncJdk8Sources") {
-    description = "Copie src/main/kotlin dans build/jdk8/kotlin, les sources de la variante Java 8 (C-65)."
+val syncJdk11Sources = tasks.register<Sync>("syncJdk11Sources") {
+    description = "Copie src/main/kotlin dans build/jdk11/kotlin, les sources de la variante Java 11 (C-65, C-68)."
     from("src/main/kotlin")
-    into(layout.buildDirectory.dir("jdk8/kotlin"))
+    into(layout.buildDirectory.dir("jdk11/kotlin"))
 }
-val jdk8: SourceSet = sourceSets.create("jdk8")
-kotlin.sourceSets.named("jdk8") { kotlin.setSrcDirs(listOf(syncJdk8Sources)) }
+val jdk11: SourceSet = sourceSets.create("jdk11")
+kotlin.sourceSets.named("jdk11") { kotlin.setSrcDirs(listOf(syncJdk11Sources)) }
 
 configurations {
-    named("jdk8Api") { extendsFrom(getByName("api")) }
-    named("jdk8Implementation") { extendsFrom(getByName("implementation")) }
-    named("jdk8CompileOnly") { extendsFrom(getByName("compileOnly")) }
-    named("jdk8RuntimeOnly") { extendsFrom(getByName("runtimeOnly")) }
+    named("jdk11Api") { extendsFrom(getByName("api")) }
+    named("jdk11Implementation") { extendsFrom(getByName("implementation")) }
+    named("jdk11CompileOnly") { extendsFrom(getByName("compileOnly")) }
+    named("jdk11RuntimeOnly") { extendsFrom(getByName("runtimeOnly")) }
 }
 
 java {
-    registerFeature("jdk8") {
-        usingSourceSet(jdk8)
+    registerFeature("jdk11") {
+        usingSourceSet(jdk11)
         capability(project.group.toString(), base.archivesName.get(), project.version.toString())
         withSourcesJar()
     }
 }
 
-listOf("jdk8ApiElements", "jdk8RuntimeElements").forEach { name ->
+listOf("jdk11ApiElements", "jdk11RuntimeElements").forEach { name ->
     configurations.named(name) {
         attributes {
             attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, objects.named(TargetJvmEnvironment.STANDARD_JVM))
@@ -269,7 +274,7 @@ tasks.withType<Jar>().configureEach {
  La suite JUnit (356 tests au 2026-10-19, plus le bac à sable local) tourne sur la
  variante Java 25, la toolchain du projet, et écrit ses fichiers dans
  build\tmp\storify-tests. Elle valide la logique une fois : les deux variantes viennent
- des mêmes sources, et la promesse Java 8 se tient à la section 7.
+ des mêmes sources, et la promesse Java 11 se tient à la section 7.
 
  Les tests se lisent dans le terminal : ce sont des phrases, et les démos de
  src\test\kotlin\fr\moulou\storify\demos impriment ce que la lib fait avant et après
@@ -289,43 +294,43 @@ tasks.test {
 
 /*
 ════════════════════════════════════════════════════════════════════════════════
- SECTION 7 — LES PREUVES DE LA VARIANTE JAVA 8
+ SECTION 7 — LES PREUVES DE LA VARIANTE JAVA 11
 ════════════════════════════════════════════════════════════════════════════════
 
- Les tests JUnit ne tournent pas sur Java 8 (JUnit 6 exige Java 17), et -Xjdk-release
+ Les tests JUnit ne tournent pas sur Java 11 (JUnit 6 exige Java 17), et -Xjdk-release
  garde l'API, pas le comportement : sans ces deux tâches, rien ne tiendrait la promesse
- « tourne sur Java 8 » d'une version à l'autre. Toutes deux sur `check`, donc sur `build`.
+ « tourne sur Java 11 » d'une version à l'autre. Toutes deux sur `check`, donc sur `build`.
 
  ── CHECKBYTECODE ──────────────────────────────────────────────────────────
  Ouvre les deux jars et lit la version de chaque classe : 69 (Java 25) dans le jar
- principal, 52 (Java 8) dans le jar jdk8, toutes, et nomme celles qui s'en écartent. La
+ principal, 55 (Java 11) dans le jar jdk11, toutes, et nomme celles qui s'en écartent. La
  cible mesurée sur ce qui est publié, et non déduite des options.
 
  ── L'ESSAI DE FUMÉE ───────────────────────────────────────────────────────
- src\smokeJdk8 est un jeu de sources compilé en cible 1.8 contre le jar jdk8, comme un
- consommateur (les inline de Storify s'y copient depuis du bytecode 52), et lancé par
- smokeJdk8Run sur la toolchain 8, avec les dépendances de la lib aux versions du
+ src\smokeJdk11 est un jeu de sources compilé en cible 11 contre le jar jdk11, comme un
+ consommateur (les inline de Storify s'y copient depuis du bytecode 55), et lancé par
+ smokeJdk11Run sur la toolchain 11, avec les dépendances de la lib aux versions du
  catalogue, celles que fabric-language-kotlin 1.14.2 fournit. Il ouvre, modifie, sauve
  et relit un store JSON, un TOML et un JSON5, vérifie la sauvegarde préservante et la
  clé en double, et sort en échec si un résultat diffère. Son dossier de travail,
- build\tmp\smoke-jdk8, se vide à chaque run.
+ build\tmp\smoke-jdk11, se vide à chaque run.
 ════════════════════════════════════════════════════════════════════════════════
 */
-val smokeJdk8: SourceSet = sourceSets.create("smokeJdk8")
-configurations.named("smokeJdk8Implementation") { extendsFrom(configurations.getByName("jdk8Implementation")) }
+val smokeJdk11: SourceSet = sourceSets.create("smokeJdk11")
+configurations.named("smokeJdk11Implementation") { extendsFrom(configurations.getByName("jdk11Implementation")) }
 dependencies {
-    "smokeJdk8Implementation"(files(tasks.named("jdk8Jar")))
-    "smokeJdk8RuntimeOnly"(libs.slf4j.simple)
+    "smokeJdk11Implementation"(files(tasks.named("jdk11Jar")))
+    "smokeJdk11RuntimeOnly"(libs.slf4j.simple)
 }
 
 val checkBytecode = tasks.register("checkBytecode") {
     group = "verification"
-    description = "Lit chaque classe des deux jars : bytecode 69 (Java 25) dans le jar principal, 52 (Java 8) dans le jar jdk8 (C-65)."
+    description = "Lit chaque classe des deux jars : bytecode 69 (Java 25) dans le jar principal, 55 (Java 11) dans le jar jdk11 (C-65, C-68)."
     val mainJar = tasks.jar.flatMap { it.archiveFile }
-    val jdk8Jar = tasks.named<Jar>("jdk8Jar").flatMap { it.archiveFile }
+    val jdk11Jar = tasks.named<Jar>("jdk11Jar").flatMap { it.archiveFile }
     val mainExpected = targetJavaVersion + 44 // la version majeure d'un fichier de classe : 44 + le Java qu'il vise
-    val jdk8Expected = jdk8JavaVersion + 44
-    inputs.files(mainJar, jdk8Jar)
+    val jdk11Expected = jdk11JavaVersion + 44
+    inputs.files(mainJar, jdk11Jar)
     doLast {
         fun verify(jarFile: File, expected: Int) {
             var count = 0
@@ -344,20 +349,20 @@ val checkBytecode = tasks.register("checkBytecode") {
             println("${jarFile.name} : $count classes, toutes en bytecode $expected")
         }
         verify(mainJar.get().asFile, mainExpected)
-        verify(jdk8Jar.get().asFile, jdk8Expected)
+        verify(jdk11Jar.get().asFile, jdk11Expected)
     }
 }
 
-val smokeJdk8Run = tasks.register<JavaExec>("smokeJdk8Run") {
+val smokeJdk11Run = tasks.register<JavaExec>("smokeJdk11Run") {
     group = "verification"
-    description = "Lance l'essai de fumée de la variante Java 8 sur une toolchain 8 (C-65)."
-    classpath = smokeJdk8.runtimeClasspath
+    description = "Lance l'essai de fumée de la variante Java 11 sur une toolchain 11 (C-65, C-68)."
+    classpath = smokeJdk11.runtimeClasspath
     mainClass = "fr.moulou.storify.smoke.SmokeKt"
-    javaLauncher = toolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk8JavaVersion) }
-    args(layout.buildDirectory.dir("tmp/smoke-jdk8").get().asFile.absolutePath)
+    javaLauncher = toolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk11JavaVersion) }
+    args(layout.buildDirectory.dir("tmp/smoke-jdk11").get().asFile.absolutePath)
 }
 
-tasks.check { dependsOn(checkBytecode, smokeJdk8Run) }
+tasks.check { dependsOn(checkBytecode, smokeJdk11Run) }
 
 /*
 ════════════════════════════════════════════════════════════════════════════════

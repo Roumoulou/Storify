@@ -7,15 +7,15 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 
 ## 1. L'état du projet
 
-- Coordonnées : `fr.moulou:storify`, version `0.7.0`, la première release, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le
-  2026-10-19 ; c'est elle que la recette de la section 4 cite. L'artefact porte deux variantes sous cette seule coordonnée, Java 8 et Java 25,
-  que Gradle choisit d'après la cible du consommateur (section 4). `master` continue en `0.8.0-SNAPSHOT` ; avant `1.0.0`, le mineur monte à
-  chaque ajout ou rupture, et un consommateur épingle une release, jamais un snapshot.
+- Coordonnées : `fr.moulou:storify`, version `0.8.0`, publiée sur Repsy (`https://repo.repsy.io/roumoulou/maven`) le 2026-10-22 ; c'est elle
+  que la recette de la section 4 cite. L'artefact porte deux variantes sous cette seule coordonnée, Java 11 et Java 25, que Gradle choisit
+  d'après la cible du consommateur (section 4) ; Storify demande Java 11 au moins. `master` continue en `0.9.0-SNAPSHOT` ; avant `1.0.0`, le
+  mineur monte à chaque ajout ou rupture, et un consommateur épingle une release, jamais un snapshot.
 - Consommation : depuis Repsy pour un mod ou tout projet JVM (la recette vit en section 4), ou par build composite pour développer la lib.
   Le consommateur de référence est Storibench, le banc d'essai en conditions réelles (un mod Fabric pour Minecraft 26.2), qui vit hors de ce
   dépôt, dans le classeur : `..\Storibench`, et reste en composite par défaut ; sa propriété `storify_source=repsy` le fait consommer l'artefact
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
-- Build et tests : verts au 2026-10-19 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 8, section 6), sur la stack
+- Build et tests : verts au 2026-10-22 (356 tests, le bytecode des deux variantes et l'essai de fumée sur Java 11, section 6), sur la stack
   ci-dessous.
 - L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19, C-20 et C-64 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
@@ -27,7 +27,7 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
 |---|---|
 | Gradle (wrapper) | 9.8.1 |
 | Kotlin | 2.4.21 |
-| Java (toolchain) | 25, et un JDK 8 pour l'essai de fumée de la variante Java 8 |
+| Java (toolchain) | 25, et un JDK 11 pour l'essai de fumée de la variante Java 11 |
 | kotlinx.serialization | 1.11.0 |
 | tomlkt | 0.6.1 |
 | kotlin-json5, copiée dans les sources (`internal.json5`) | 0.8.0 |
@@ -160,8 +160,8 @@ repositories {
 }
 
 dependencies {
-    implementation("fr.moulou:storify:0.7.0")  // compiler contre la lib...
-    include("fr.moulou:storify:0.7.0")         // ... et l'embarquer dans le jar du mod
+    implementation("fr.moulou:storify:0.8.0")  // compiler contre la lib...
+    include("fr.moulou:storify:0.8.0")         // ... et l'embarquer dans le jar du mod
     include("dev.eav.tomlkt:tomlkt:0.6.1")     // include n'est pas transitif : chaque jar se déclare
 }
 ```
@@ -179,33 +179,34 @@ couvert par la rétrocompatibilité binaire de Kotlin ; et le loader déduplique
 plus récente compatible). Minecraft 1.16.5 ne fournit pas slf4j : un mod pour cette version embarque `slf4j-api` et sa liaison vers le
 log4j 2.8.1 du jeu.
 
-### 4.1 Les deux variantes, Java 8 et Java 25
+### 4.1 Les deux variantes, Java 11 et Java 25
 
-L'artefact `fr.moulou:storify` porte deux variantes, compilées des mêmes sources (C-65) : la variante Java 25, `storify-0.7.0.jar`, celle que
-le POM décrit, et la variante Java 8, `storify-0.7.0-jdk8.jar`, en bytecode 52, compilée avec `-Xjdk-release=1.8` contre l'API de Java 8.
-Les métadonnées Gradle (`.module`) les publient toutes deux sous la même coordonnée, chacune avec son `org.gradle.jvm.version`, 8 ou 25, et
+L'artefact `fr.moulou:storify` porte deux variantes, compilées des mêmes sources (C-65, C-68) : la variante Java 25, `storify-0.8.0.jar`, celle
+que le POM décrit, et la variante Java 11, `storify-0.8.0-jdk11.jar`, en bytecode 55, compilée avec `-Xjdk-release=11` contre l'API de Java 11.
+Les métadonnées Gradle (`.module`) les publient toutes deux sous la même coordonnée, chacune avec son `org.gradle.jvm.version`, 11 ou 25, et
 Gradle choisit d'après la cible du consommateur, celle que `release` (javac) ou `jvmTarget` (Kotlin) demande :
 
 | Le consommateur vise | Il reçoit |
 |---|---|
-| Java 8 à 24 (un mod pour Minecraft 1.16.5 à 1.21.x, par exemple) | la variante Java 8 |
+| Java 11 à 24 (un mod pour Minecraft 1.16.5 lancé sur Java 11, ou pour 1.17.1 à 1.21.x) | la variante Java 11 |
 | Java 25 (un mod pour Minecraft 26.x) | la variante Java 25 |
+| Java 8 à 10 | aucune : Gradle refuse, Storify demande Java 11 |
 | Maven, ou tout outil qui ne lit que le POM | la variante Java 25, le jar sans classifier |
 
 Un piège, mesuré sur Loom 1.18.2 : `include` se résout par la configuration `includeInternal`, qui ne demande pas de cible Java, et Gradle
 y prend alors la variante du Java le plus récent, la 25, quelle que soit la cible du mod. Un mod qui vise moins que Java 25 lui dit sa cible,
-et le jar-in-jar embarque la variante Java 8 :
+et le jar-in-jar embarque la variante Java 11 :
 
 ```kotlin
 import org.gradle.api.attributes.java.TargetJvmVersion
 
 configurations.named("includeInternal") {
-    attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 8) // la cible du mod
+    attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 11) // la cible du mod, 11 à 21
 }
 ```
 
-Le jar de sources de chaque variante suit (`storify-0.7.0-sources.jar`, `storify-0.7.0-jdk8-sources.jar`) ; les sources sont les mêmes. La
-variante Java 8 est éprouvée à chaque build de la lib par un essai de fumée lancé sur un JDK 8 (section 6).
+Le jar de sources de chaque variante suit (`storify-0.8.0-sources.jar`, `storify-0.8.0-jdk11-sources.jar`) ; les sources sont les mêmes. La
+variante Java 11 est éprouvée à chaque build de la lib par un essai de fumée lancé sur un JDK 11 (section 6).
 
 ### 4.2 Le shading
 
@@ -236,19 +237,19 @@ relocatées (mensongères pour kotlin-reflect) et à condition qu'aucun type Sto
 .\gradlew build
 ```
 
-Le build exige un JDK 25 (la toolchain) et un JDK 8, déclaré à Gradle (`org.gradle.java.installations.paths`, ou l'auto-détection), pour
-l'essai de fumée de la variante Java 8 ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) sur la variante Java 25 et écrivent leurs
+Le build exige un JDK 25 (la toolchain) et un JDK 11, déclaré à Gradle (`org.gradle.java.installations.paths`, ou l'auto-détection), pour
+l'essai de fumée de la variante Java 11 ; les tests tournent sous JUnit (plateforme unifiée JUnit 6) sur la variante Java 25 et écrivent leurs
 fichiers dans `build\tmp\storify-tests`. `check` enchaîne trois preuves (C-65) :
 
 - `test`, les 356 tests, sur la variante Java 25 ;
-- `checkBytecode`, qui lit chaque classe des deux jars : bytecode 69 dans `storify-<version>.jar`, 52 dans `storify-<version>-jdk8.jar` ;
-- `smokeJdk8Run`, l'essai de fumée de `src\smokeJdk8` : compilé en cible 1.8 contre le jar `jdk8`, comme un consommateur, et lancé sur la
-  toolchain 8 avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2 fournit ; il ouvre, modifie,
+- `checkBytecode`, qui lit chaque classe des deux jars : bytecode 69 dans `storify-<version>.jar`, 55 dans `storify-<version>-jdk11.jar` ;
+- `smokeJdk11Run`, l'essai de fumée de `src\smokeJdk11` : compilé en cible 11 contre le jar `jdk11`, comme un consommateur, et lancé sur la
+  toolchain 11 avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2 fournit ; il ouvre, modifie,
   sauve et relit un store JSON, un TOML et un JSON5, vérifie la sauvegarde préservante et la clé en double, et échoue si un résultat diffère.
 
-La variante Java 8 compile une copie de `src\main\kotlin` (la tâche `syncJdk8Sources`, vers `build\jdk8\kotlin`) en `jvmTarget` 1.8 avec
-`-Xjdk-release=1.8`, qui refuse à la compilation toute API de Java 9 et plus : le code est commun aux deux variantes, et le jour où un fichier
-devra s'écrire autrement pour l'une, il ira dans `src\jdk8\kotlin`, au même chemin relatif, un fichier par différence.
+La variante Java 11 compile une copie de `src\main\kotlin` (la tâche `syncJdk11Sources`, vers `build\jdk11\kotlin`) en `jvmTarget` 11 avec
+`-Xjdk-release=11`, qui refuse à la compilation toute API de Java 12 et plus : le code est commun aux deux variantes, et le jour où un fichier
+devra s'écrire autrement pour l'une, il ira dans `src\jdk11\kotlin`, au même chemin relatif, un fichier par différence.
 
 La visite guidée commentée de l'API vit dans `src\test\kotlin\fr\moulou\storify\demos\HomesModDemo.kt` : cinq démos
 exécutables sur un domaine réel de mod (homes, téléportation, délai, cooldown), chacune repartant d'un dossier vierge. Le même dossier porte

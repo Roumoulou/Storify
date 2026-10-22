@@ -2,11 +2,11 @@
 
 # ── Plugins de build ──────────────────────────────────────────────────────────
 kotlin = "2.4.21" # Le compilateur Kotlin. La même version que fabric-language-kotlin (1.14.2+kotlin.2.4.21), qui fournit la stdlib et reflect au runtime d'un mod : un consommateur reçoit du bytecode compilé par ce Kotlin-là
-java = "25" # La cible de la lib et sa toolchain. La variante Java 8 vise 8 par le build (section 3), pas par le catalogue
+java = "25" # La cible de la lib et sa toolchain. La variante Java 11 vise 11 par le build (section 3), pas par le catalogue
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 # JUnit seul : l'agrégat `junit-jupiter` porte l'api, les tests paramétrés et le moteur. JUnit 6 exige Java 17 : la suite tourne sur la
-# toolchain 25, jamais sur Java 8, que l'essai de fumée du build éprouve à sa place (section 7).
+# toolchain 25, jamais sur Java 11, que l'essai de fumée du build éprouve à sa place (section 7).
 junit = "6.1.3"
 
 # ── Dépendances ───────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ kotlinx-datetime = "0.8.0"
 # slf4j : le jeu le fournit depuis Minecraft 1.17.1 (1.8.0-beta4, puis 2.0.x), 1.16.5 pas, et les dix méthodes que la lib appelle existent dans
 # toutes ces versions. Ici, la 2.0.20 pour compiler, et slf4j-simple pour lire les logs de la lib dans les tests.
 slf4j = "2.0.20"
-# kotlin-json5 n'est plus ici : copiée dans les sources, sous internal\json5 (C-65), parce que son artefact est en bytecode Java 11.
+# kotlin-json5 n'est plus ici : copiée dans les sources, sous internal\json5 (C-65), un jar de moins pour un mod et un paquet relocalisé (build, section 2).
 
 
 [libraries]

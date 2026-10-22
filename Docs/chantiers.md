@@ -786,6 +786,21 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `checkBytecode`), réécrites sur des valeurs locales, puis vert sur un build complet et sur les tests rejoués, une entrée stockée et réutilisée :
   allumé dans `gradle.properties`. Puis, le même jour, les blocs `/** */` du build passés en `/* */`, sans astérisque en tête de ligne, comme chez
   Outfitter : ce ne sont pas des KDoc, aucun outil ne les lit, et la forme ne doit pas le laisser croire.
+- [x] **C-68 : la variante Java 11 remplace la Java 8, et la release 0.8.0** (S ; décision du 2026-10-21). Plus de Java 8 nulle part : mes mods
+  visent Java 11 au plus bas, 1.16.5 compris, que je lance sur Java 11 ; la variante Java 8 de C-65 n'a plus de consommateur, et Sampler, qui
+  l'avait demandée, part aux archives. Les trois questions. Utile : à tout mod sous 26.x, qui reçoit une variante compilée pour sa cible ou plus
+  bas ; une variante 8 ne servait plus personne. Vaut la peine : le changement tient en une valeur du build et des renommages, et il clôt la
+  question de Java 8 dans la doc. Cohérente : le mécanisme de C-65 est inchangé, la cible basse seule bouge. Design : le jeu de sources `jdk11`
+  (copie de `src\main\kotlin` par `syncJdk11Sources` vers `build\jdk11\kotlin`), `jvmTarget` 11 et `-Xjdk-release=11`, `release` 11, la feature
+  `jdk11` avec la capability du composant, le classifier `jdk11`, `checkBytecode` à 55 et `smokeJdk11Run` sur la toolchain 11 depuis
+  `src\smokeJdk11` ; la copie de kotlin-json5 reste, sa raison réécrite (un jar de moins pour un mod, un paquet relocalisé) ; `Utf8Bom.kt` garde sa
+  boucle sur `read` ; la release `0.8.0`, le mineur montant parce qu'un consommateur en cible 8 à 10 ne reçoit plus de variante. Écarté : revenir
+  à la dépendance `li.songe:json5` (une rupture de plus pour `Json5EncoderConfig` et un troisième `include` pour chaque mod) ; garder la variante
+  8 à côté (une compilation, un jar et une preuve pour personne) ; une variante 17 ou 21 (C-67, sans fichier qui la justifie). Tests : les 356
+  inchangés, `checkBytecode` et l'essai de fumée sur le JDK 11. Docs : le README (sections 1, 4 et 6), `architecture.md` (chapitres 13 et 14),
+  C-67 ici, le readme et le contexte du classeur, le banc, le `CHANGELOG.md`. **Fait le 2026-10-22** : le build vert, 357 tests (les 356 et le
+  bac à sable), 192 classes en 69 et 192 en 55 dans les deux jars, l'essai de fumée vert sur le JDK 11.0.32.1 ; les docs ; la release `0.8.0`
+  suit, selon `git-et-versions.md`.
 
 ## 5. P3, la vision
 
@@ -873,16 +888,17 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   commenté en JSON5 et en TOML, un fichier existant qui garde ses commentaires, l'option qui les réécrit, un objet imbriqué, le JSON strict qui
   ignore. Docs : README section 2, `architecture.md` chapitres 2 et 9.
 - [ ] **C-67 : une variante par cible Java, en une fonction du build** (M ; réflexion du 2026-10-19). Depuis C-65, l'artefact porte deux
-  variantes, Java 25 et Java 8, et aucun fichier propre à l'une d'elles : les deux jars font la même chose, aux idiomes du compilateur près. Une
-  variante de plus (17, 21) ne vaut que si elle contient ce que la 8 ne peut pas contenir, une API du JDK (les threads virtuels de Java 21 pour
+  variantes, Java 25 et Java 11 depuis C-68, et aucun fichier propre à l'une d'elles : les deux jars font la même chose, aux idiomes du compilateur près. Une
+  variante de plus (17, 21) ne vaut que si elle contient ce que la 11 ne peut pas contenir, une API du JDK (les threads virtuels de Java 21 pour
   l'auto-save, par exemple) ou un idiome que le compilateur n'émet qu'au-dessus d'une cible ; sans cela, c'est une compilation, un jar, une preuve
-  et 400 Ko publiés pour rien. Les cibles qui comptent sont celles des consommateurs, pas la liste des LTS : Minecraft donne 8 (1.16.5), 16
-  (1.17.1), 17 (1.18.2 à 1.20.4), 21 (1.20.5 à 1.21.11) et 25 (26.x) ; Gradle prend la variante la plus récente qui ne dépasse pas la cible, une
-  17 servirait 1.18 à 1.20.4, une 21 servirait 1.20.5 à 1.21.11, et 1.17.1 prendrait toujours la 8. Design esquissé : une base écrite pour la
-  cible la plus haute, `src\main`, et une couche par cible plus basse, `src\jdk21\kotlin`, `src\jdk8\kotlin`, sur le modèle des couches de
+  et 400 Ko publiés pour rien. Les cibles qui comptent sont celles des consommateurs, pas la liste des LTS : Minecraft donne 8 (1.16.5, que mes
+  mods visent en 11 et lancent sur Java 11, C-68), 16 (1.17.1), 17 (1.18.2 à 1.20.4), 21 (1.20.5 à 1.21.11) et 25 (26.x) ; Gradle prend la variante
+  la plus récente qui ne dépasse pas la cible, une 17 servirait 1.18 à 1.20.4, une 21 servirait 1.20.5 à 1.21.11, et 1.16.5 comme 1.17.1
+  prendraient toujours la 11. Design esquissé : une base écrite pour la
+  cible la plus haute, `src\main`, et une couche par cible plus basse, `src\jdk21\kotlin`, `src\jdk11\kotlin`, sur le modèle des couches de
   Sampler (une couche vaut pour sa cible et toutes les plus basses, un fichier au même chemin relatif remplace celui d'en dessous, un fichier par
   différence) ; une couche se nomme par sa cible, `jdk<N>`, et sert N et moins : la variante 21 compile la base puis la couche 21, la variante
-  8 la base, la couche 21 puis la couche 8, la tâche `Sync` les empilant dans cet ordre, la plus haute gagnant ; une vérification des
+  11 la base, la couche 21 puis la couche 11, la tâche `Sync` les empilant dans cet ordre, la plus haute gagnant ; une vérification des
   recouvrements morts à la manière du `checkLayers` de Sampler, qui refuse un fichier de couche identique à celui d'en dessous ou qui ne remplace
   rien ; une liste d'omissions par couche pour un fichier que la cible ne peut pas compiler, plutôt qu'une copie vidée ; une fonction du build
   qui, pour une cible, crée le jeu de
@@ -913,5 +929,5 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-19, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65 et C-66 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
+*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63, C-65, C-66 et C-68 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
 au 2026-09-23.*

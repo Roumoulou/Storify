@@ -12,10 +12,10 @@ import java.io.File
 import kotlin.system.exitProcess
 
 /**
- * L'essai de fumée de la variante Java 8 (C-65) : compilé en cible 1.8 contre le jar `jdk8`, comme un consommateur, et lancé par la tâche
- * `smokeJdk8Run` sur une toolchain 8, avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2
- * fournit. Les tests JUnit ne tournent pas sur Java 8 (JUnit 6 exige Java 17), et `-Xjdk-release` garde l'API, pas le comportement :
- * c'est ici que la promesse « tourne sur Java 8 » se vérifie, à chaque `check`. Argument : le dossier de travail, vidé au départ.
+ * L'essai de fumée de la variante Java 11 (C-65, C-68) : compilé en cible 11 contre le jar `jdk11`, comme un consommateur, et lancé par la tâche
+ * `smokeJdk11Run` sur une toolchain 11, avec les dépendances de la lib aux versions du catalogue, celles que fabric-language-kotlin 1.14.2
+ * fournit. Les tests JUnit ne tournent pas sur Java 11 (JUnit 6 exige Java 17), et `-Xjdk-release` garde l'API, pas le comportement :
+ * c'est ici que la promesse « tourne sur Java 11 » se vérifie, à chaque `check`. Argument : le dossier de travail, vidé au départ.
  */
 @Serializable
 data class Cfg(var greeting: String = "Bienvenue", var count: Int = 1)
@@ -82,8 +82,8 @@ private fun duplicate(dir: File) {
 
 fun main(args: Array<String>) {
     val javaVersion = System.getProperty("java.version")
-    println("Essai de fumée de la variante jdk8 de Storify sur Java $javaVersion")
-    check(javaVersion.startsWith("1.8."), "la JVM est un Java 8 ($javaVersion)")
+    println("Essai de fumée de la variante jdk11 de Storify sur Java $javaVersion")
+    check(javaVersion.startsWith("11."), "la JVM est un Java 11 ($javaVersion)")
     val dir = File(args[0]).apply { deleteRecursively(); mkdirs() }
     for (extension in listOf("json", "toml", "json5")) roundTrip(dir, extension)
     preserve(dir)
@@ -92,5 +92,5 @@ fun main(args: Array<String>) {
         println("${failures.size} échec(s) sur Java $javaVersion")
         exitProcess(1)
     }
-    println("La variante jdk8 passe sur Java $javaVersion : trois formats, la sauvegarde préservante, la clé en double.")
+    println("La variante jdk11 passe sur Java $javaVersion : trois formats, la sauvegarde préservante, la clé en double.")
 }

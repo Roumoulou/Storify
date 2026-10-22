@@ -36,8 +36,8 @@ import kotlin.io.path.writeText
  * guillemets, virgules traînantes et apostrophes compris.
  *
  * Le montage suit la conception de la brique kotlin-json5 elle-même (`li.songe:json5` 0.8.0, copiée dans
- * les sources de Storify sous `internal.json5` depuis C-65, pour que les deux variantes, Java 8 et Java 25,
- * la compilent) : le texte est du JSON5 de bout en bout (parsé et écrit par [Json5]), et le [Json] de
+ * les sources de Storify sous `internal.json5` depuis C-65, un jar de moins pour un mod et un paquet qui
+ * n'en heurte aucun autre) : le texte est du JSON5 de bout en bout (parsé et écrit par [Json5]), et le [Json] de
  * kotlinx ne sert que de moteur d'arbre (data class vers `JsonElement` et retour), sans jamais produire
  * de texte. L'API de la brique étant entièrement texte, le fichier se lit entier : le créneau est la
  * config, pas la donnée de masse.
