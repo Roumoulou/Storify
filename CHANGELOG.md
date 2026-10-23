@@ -3,6 +3,16 @@
 Les versions publiées de Storify, de la plus récente à la plus ancienne. Avant `1.0.0`, le mineur monte à chaque ajout ou rupture, le correctif pour
 une correction seule ; chaque version est un tag `v<version>` du dépôt et une release GitHub qui porte ses jars.
 
+## 0.10.0
+
+Le 2026-10-23 : `fr.moulou:storify:0.10.0` sur Repsy, en deux variantes sous la même coordonnée, Java 11 et Java 25 ; le code au cordeau, aucune API ne bouge.
+
+- **Le code au cordeau** (C-52) : chaque classe de `src\main`, de `src\test`, de l'essai de fumée et du banc suit l'ordre de déclaration de
+  `style-de-code.md` (The Human Readme), le companion en tête, les propriétés du public au privé, `init`, les méthodes par thème et par enchaînement,
+  l'appelé sous l'appelant, les types imbriqués en dernier, sans bannière de section ; un consommateur qui lit les sources publiées lit cet ordre-là.
+  Aucune ligne de logique ne change : le diff trié de chaque fichier est vide, la suite (371 tests), `checkBytecode`, l'essai de fumée Java 11 et le
+  banc en composite, gametests compris, sont verts. Aucun changement d'API, aucune rupture : un mod compilé contre la `0.9.0` reste compatible.
+
 ## 0.9.0
 
 Le 2026-10-22 : `fr.moulou:storify:0.9.0` sur Repsy, en deux variantes sous la même coordonnée, Java 11 et Java 25 ; les commentaires depuis le code.
