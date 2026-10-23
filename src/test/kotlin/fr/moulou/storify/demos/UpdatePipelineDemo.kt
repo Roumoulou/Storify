@@ -37,28 +37,8 @@ import org.junit.jupiter.api.TestMethodOrder
  *   2. le raccourci immuable en SNAPSHOT, type par type : seule une valeur mutable est copiée ;
  *   3. reposer la valeur déjà en place : l'avant est là, quelle que soit la valeur.
  */
-
-/** L'appelant type : un mod qui pose deux valeurs et en mute une autre, rien de plus. */
-class PipelineCaller {
-    fun relabel(store: BaseStore<ScalarData>) = store.set(ScalarData::label, "b")
-    fun recount(store: BaseStore<ScalarData>) = store.set(ScalarData::count, 2)
-    fun tag(store: BaseStore<ScalarData>) = store.mutate(ScalarData::tags) { it.add("t") }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class UpdatePipelineDemoTest {
-
-    private fun kind(captured: CapturedValue<*>): String = captured::class.simpleName ?: "?"
-
-    /** Ouvre un store observé, joue [update], et rend l'opération reçue par le callback. */
-    private fun observed(policy: UpdatePolicy, prepare: (BaseStore<ScalarData>) -> Unit = {}, update: (BaseStore<ScalarData>) -> Unit): SetOperation<*, *, *> =
-        StoreFactory.createFromConstructor<ScalarData>(newStorePath("scalars.json").toString(), config = StoreConfig(withAutoSave = false, defaultUpdatePolicy = policy)).use { store ->
-            prepare(store)
-            var received: SetOperation<*, *, *>? = null
-            store.registerOnUpdate { received = it as SetOperation<*, *, *> }
-            update(store)
-            checkNotNull(received)
-        }
 
     @Test
     fun `étape 1, depuis C-45, un appelant de trois lignes n'embarque que deux points d'entrée`() {
@@ -104,4 +84,23 @@ class UpdatePipelineDemoTest {
             check(operation.old is CapturedValue.Shallow<*> && operation.old.valueOrNull == operation.new.valueOrNull)
         }
     }
+
+    private fun kind(captured: CapturedValue<*>): String = captured::class.simpleName ?: "?"
+
+    /** Ouvre un store observé, joue [update], et rend l'opération reçue par le callback. */
+    private fun observed(policy: UpdatePolicy, prepare: (BaseStore<ScalarData>) -> Unit = {}, update: (BaseStore<ScalarData>) -> Unit): SetOperation<*, *, *> =
+        StoreFactory.createFromConstructor<ScalarData>(newStorePath("scalars.json").toString(), config = StoreConfig(withAutoSave = false, defaultUpdatePolicy = policy)).use { store ->
+            prepare(store)
+            var received: SetOperation<*, *, *>? = null
+            store.registerOnUpdate { received = it as SetOperation<*, *, *> }
+            update(store)
+            checkNotNull(received)
+        }
+}
+
+/** L'appelant type : un mod qui pose deux valeurs et en mute une autre, rien de plus. */
+class PipelineCaller {
+    fun relabel(store: BaseStore<ScalarData>) = store.set(ScalarData::label, "b")
+    fun recount(store: BaseStore<ScalarData>) = store.set(ScalarData::count, 2)
+    fun tag(store: BaseStore<ScalarData>) = store.mutate(ScalarData::tags) { it.add("t") }
 }

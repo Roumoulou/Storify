@@ -28,12 +28,6 @@ class DecodeErrorLineTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
-    private fun openFarm(path: Path): StoreDecodeException = assertThrows(StoreDecodeException::class.java) { StoreFactory.createFromConstructor<FarmConfig>(path.toString(), config = noAutoSave) }
-
-    private fun keys(vararg names: String): List<PathSegment> = names.map { PathSegment.Key(it) }
-
-    // ─── La valeur hors domaine, par le chemin que le message nomme ───
-
     @Test
     fun `une valeur d'énumération inconnue à la racine a sa ligne et son chemin`() {
         val path = newStorePath("farm.json").also { it.writeText("{\n  \"mood\": \"FURIOUS\",\n  \"favorite\": { \"name\": \"rex\", \"mood\": \"CALM\" },\n  \"pets\": {}\n}") }
@@ -59,8 +53,6 @@ class DecodeErrorLineTest {
         assertEquals(keys("pets", "rex", "mood"), failure.valuePath)
     }
 
-    // ─── La fin de fichier atteinte ───
-
     @Test
     fun `un fichier vide rend la ligne 1 et un chemin vide`() {
         val path = newStorePath("farm.json").also { it.writeText("") }
@@ -76,8 +68,6 @@ class DecodeErrorLineTest {
         assertEquals(3, failure.line) // la ligne où le fichier s'arrête, celle qu'un éditeur montre à sa fin
         assertEquals(emptyList<PathSegment>(), failure.valuePath)
     }
-
-    // ─── Les fautes à offset gardent leur ligne ───
 
     @Test
     fun `un fichier coupé au milieu d'une chaîne garde la ligne de son offset, et gagne le chemin`() {
@@ -95,8 +85,6 @@ class DecodeErrorLineTest {
         assertEquals(emptyList<PathSegment>(), failure.valuePath)
     }
 
-    // ─── JSON5 et TOML, dont le message ne dit pas où ───
-
     @Test
     fun `JSON5 et TOML restent sans ligne ni chemin pour une valeur hors domaine`() {
         val json5 = newStorePath("farm.json5").also { it.writeText("{\n  mood: 'FURIOUS',\n  favorite: { name: 'rex', mood: 'CALM' },\n  pets: {}\n}") }
@@ -107,4 +95,8 @@ class DecodeErrorLineTest {
             assertEquals(emptyList<PathSegment>(), failure.valuePath)
         }
     }
+
+    private fun openFarm(path: Path): StoreDecodeException = assertThrows(StoreDecodeException::class.java) { StoreFactory.createFromConstructor<FarmConfig>(path.toString(), config = noAutoSave) }
+
+    private fun keys(vararg names: String): List<PathSegment> = names.map { PathSegment.Key(it) }
 }

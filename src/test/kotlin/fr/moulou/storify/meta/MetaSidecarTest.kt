@@ -29,10 +29,6 @@ class MetaSidecarTest {
 
     private val timestampPattern = Regex("""\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}:\d{3}""")
 
-    private fun sidecarOf(path: Path): Path = path.resolveSibling("${path.fileName}.meta.json")
-
-    private fun readSidecar(path: Path): StoreMeta = Json.decodeFromString(StoreMeta.serializer(), sidecarOf(path).readText())
-
     @Test
     fun `sans withMeta, aucun sidecar ne naît`() {
         val path = newStorePath("nometa.json")
@@ -91,4 +87,8 @@ class MetaSidecarTest {
         val meta = readSidecar(path) // un sidecar TOML ferait échouer ce décodage JSON (décision C-09)
         assertEquals(1, meta.version)
     }
+
+    private fun sidecarOf(path: Path): Path = path.resolveSibling("${path.fileName}.meta.json")
+
+    private fun readSidecar(path: Path): StoreMeta = Json.decodeFromString(StoreMeta.serializer(), sidecarOf(path).readText())
 }

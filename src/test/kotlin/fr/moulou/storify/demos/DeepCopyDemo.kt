@@ -41,49 +41,12 @@ import kotlin.system.measureNanoTime
  *
  * Les étapes 1 à 4 et 6 n'utilisent que kotlinx.serialization : elles se rejouent dans n'importe quel projet Kotlin.
  */
-
-@Serializable
-data class Player(var name: String, var homes: MutableList<String> = mutableListOf())
-
-@Serializable
-data class Roster(var players: MutableList<Player> = mutableListOf())
-
-/** Une règle de droits : `"allow"` tout court, ou `{ "value": "allow", "note": "..." }` quand elle porte une note. */
-@Serializable(with = RuleSerializer::class)
-data class Rule(val value: String, val note: String? = null)
-
-/**
- * Le sérialiseur écrit pour le JSON : il regarde la forme de l'élément (une chaîne ou un objet) avant de décider comment lire, et choisit la
- * forme courte ou longue à l'écriture. Pour cela il exige un JsonDecoder et un JsonEncoder ; devant CBOR, le cast échoue.
- */
-object RuleSerializer : KSerializer<Rule> {
-    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Rule")
-
-    override fun deserialize(decoder: Decoder): Rule {
-        val element = (decoder as JsonDecoder).decodeJsonElement()
-        return when (element) {
-            is JsonPrimitive -> Rule(element.content)
-            is JsonObject -> Rule(element.getValue("value").jsonPrimitive.content, element["note"]?.jsonPrimitive?.content)
-            else -> error("Rule attend une chaîne ou un objet, pas $element")
-        }
-    }
-
-    override fun serialize(encoder: Encoder, value: Rule) {
-        val out = encoder as JsonEncoder
-        if (value.note == null) out.encodeJsonElement(JsonPrimitive(value.value))
-        else out.encodeJsonElement(buildJsonObject { put("value", value.value); put("note", value.note) })
-    }
-}
-
-/** Le fichier de droits : une map de règles, avec une règle par défaut pour que la copie ait quelque chose à sérialiser. */
-@Serializable
-data class Permissions(var rules: MutableMap<String, Rule> = mutableMapOf("fly" to Rule("allow")))
-
 @OptIn(ExperimentalSerializationApi::class)
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class DeepCopyDemoTest {
 
     private val cbor = Cbor { encodeDefaults = true }
+
     private val json = Json { encodeDefaults = true }
 
     @Test
@@ -172,3 +135,40 @@ class DeepCopyDemoTest {
         println("copie de 200 joueurs : CBOR %.1f µs, arbre JSON %.1f µs".format(cborNs / 1_000.0, treeNs / 1_000.0))
     }
 }
+
+@Serializable
+data class Player(var name: String, var homes: MutableList<String> = mutableListOf())
+
+@Serializable
+data class Roster(var players: MutableList<Player> = mutableListOf())
+
+/** Une règle de droits : `"allow"` tout court, ou `{ "value": "allow", "note": "..." }` quand elle porte une note. */
+@Serializable(with = RuleSerializer::class)
+data class Rule(val value: String, val note: String? = null)
+
+/**
+ * Le sérialiseur écrit pour le JSON : il regarde la forme de l'élément (une chaîne ou un objet) avant de décider comment lire, et choisit la
+ * forme courte ou longue à l'écriture. Pour cela il exige un JsonDecoder et un JsonEncoder ; devant CBOR, le cast échoue.
+ */
+object RuleSerializer : KSerializer<Rule> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Rule")
+
+    override fun deserialize(decoder: Decoder): Rule {
+        val element = (decoder as JsonDecoder).decodeJsonElement()
+        return when (element) {
+            is JsonPrimitive -> Rule(element.content)
+            is JsonObject -> Rule(element.getValue("value").jsonPrimitive.content, element["note"]?.jsonPrimitive?.content)
+            else -> error("Rule attend une chaîne ou un objet, pas $element")
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: Rule) {
+        val out = encoder as JsonEncoder
+        if (value.note == null) out.encodeJsonElement(JsonPrimitive(value.value))
+        else out.encodeJsonElement(buildJsonObject { put("value", value.value); put("note", value.note) })
+    }
+}
+
+/** Le fichier de droits : une map de règles, avec une règle par défaut pour que la copie ait quelque chose à sérialiser. */
+@Serializable
+data class Permissions(var rules: MutableMap<String, Rule> = mutableMapOf("fly" to Rule("allow")))

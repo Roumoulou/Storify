@@ -20,28 +20,10 @@ import kotlin.io.path.writeText
  * du code (étape 2) ; sous CODE_WINS, chaque sauvegarde remet les commentaires du code au-dessus des clés qu'il commente, sans toucher aux autres
  * (étape 3).
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class CommentsDemoTest {
 
     private val format = Json5Format()
-
-    @Serializable
-    @StoreComment("La config du mod Demo : éditez les valeurs, pas les clés")
-    data class DemoConfig(
-        @StoreComment("Le message d'accueil, affiché à la connexion") var greeting: String = "Bienvenue",
-        @StoreComment("Entre 1 et 100", "Au-delà, la commande refuse") var maxHomes: Int = 3,
-        var debug: Boolean = false,
-        @StoreComment("Les délais, en secondes") var delays: DemoDelays = DemoDelays(),
-    )
-
-    @Serializable
-    data class DemoDelays(@StoreComment("Avant la téléportation") var warmup: Int = 3, var cooldown: Int = 60)
-
-    private fun show(title: String, text: String) {
-        println("── $title ──")
-        println(text.trimEnd())
-    }
 
     @Test
     fun `étape 1, un fichier neuf porte les commentaires du code`() {
@@ -71,4 +53,21 @@ class CommentsDemoTest {
         format.encodeToPathPreserving(DemoConfig.serializer(), DemoConfig(greeting = "Bonjour", maxHomes = 10, debug = true, delays = DemoDelays(5, 30)), path, edited, CommentPolicy.CODE_WINS)
         show("après la sauvegarde du mod, CODE_WINS", path.readText())
     }
+
+    private fun show(title: String, text: String) {
+        println("── $title ──")
+        println(text.trimEnd())
+    }
+
+    @Serializable
+    @StoreComment("La config du mod Demo : éditez les valeurs, pas les clés")
+    data class DemoConfig(
+        @StoreComment("Le message d'accueil, affiché à la connexion") var greeting: String = "Bienvenue",
+        @StoreComment("Entre 1 et 100", "Au-delà, la commande refuse") var maxHomes: Int = 3,
+        var debug: Boolean = false,
+        @StoreComment("Les délais, en secondes") var delays: DemoDelays = DemoDelays(),
+    )
+
+    @Serializable
+    data class DemoDelays(@StoreComment("Avant la téléportation") var warmup: Int = 3, var cooldown: Int = 60)
 }

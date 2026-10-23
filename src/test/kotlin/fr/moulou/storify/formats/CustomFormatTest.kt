@@ -27,37 +27,10 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
-// ─── Le format « tiers » ──────────────────────────────────────────────────────────────
-
 /**
  * Un format inconnu de la lib, comme en écrirait un consommateur : il délègue à une instance Json
  * dédiée sous une extension à lui (on teste le point d'extension C-09, pas un parseur).
  */
-class CustomFormat : StoreFormat {
-
-    private val json = Json { prettyPrint = false; encodeDefaults = true }
-
-    @OptIn(ExperimentalSerializationApi::class)
-    override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-        return path.inputStream().use { stream -> json.decodeFromStream(deserializer, stream) }
-    }
-
-    @OptIn(ExperimentalSerializationApi::class)
-    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
-        path.parent?.createDirectories()
-        path.outputStream().use { stream -> json.encodeToStream(serializer, data, stream) }
-    }
-
-    override fun fileExtension(): String = "custom"
-}
-
-@Serializable
-data class CustomPayload(
-    var name: String = "steve",
-    var count: Int = 3,
-)
-
-// ─── Les tests ────────────────────────────────────────────────────────────────────────
 
 /**
  * C-09 : le point d'extension des formats, exercé de bout en bout par un format que la lib ne
@@ -66,12 +39,6 @@ data class CustomPayload(
 class CustomFormatTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    private fun newStorePath(fileName: String): Path {
-        val directory = Paths.get("build", "tmp", "storify-tests", UUID.randomUUID().toString())
-        Files.createDirectories(directory)
-        return directory.resolve(fileName)
-    }
 
     @Test
     fun `un format enregistré se résout par l'extension et fait l'aller-retour complet`() {
@@ -110,4 +77,33 @@ class CustomFormatTest {
         assertTrue(exception.message!!.contains("zzz")) // le message nomme l'extension fautive et les formats connus
     }
 
+    private fun newStorePath(fileName: String): Path {
+        val directory = Paths.get("build", "tmp", "storify-tests", UUID.randomUUID().toString())
+        Files.createDirectories(directory)
+        return directory.resolve(fileName)
+    }
 }
+
+class CustomFormat : StoreFormat {
+
+    private val json = Json { prettyPrint = false; encodeDefaults = true }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
+        return path.inputStream().use { stream -> json.decodeFromStream(deserializer, stream) }
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
+        path.parent?.createDirectories()
+        path.outputStream().use { stream -> json.encodeToStream(serializer, data, stream) }
+    }
+
+    override fun fileExtension(): String = "custom"
+}
+
+@Serializable
+data class CustomPayload(
+    var name: String = "steve",
+    var count: Int = 3,
+)

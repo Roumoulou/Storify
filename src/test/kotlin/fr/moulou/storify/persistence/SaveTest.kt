@@ -80,8 +80,7 @@ class SaveTest {
         }
     }
 
-    // ─── Le snapshot du save, devant public seulement (C-41) : le compteur mesure les copies réellement faites ───
-
+    /** Le snapshot du save, devant public seulement (C-41) : le compteur mesure les copies réellement faites. */
     @Test
     fun `l'ouverture ne copie pas la racine, avec ou sans useDeepCopy`() {
         val before = CountedBoxSerializer.serializations

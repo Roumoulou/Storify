@@ -38,43 +38,18 @@ import kotlin.io.path.writeText
  * `validateFile` ; le lecteur tolérant laisse passer ; TOML refusait déjà, par sa spécification. Depuis C-55, la cause et `valuePath` portent le
  * chemin du doublon, la clé en dernier segment, sauf en TOML, où il reste vide.
  */
-@Serializable
-data class DupGroup(var priority: Int = 0, var prefix: String = "")
-
-@Serializable
-data class DupFile(var version: Int = 1, var defaults: DupGroup = DupGroup(), var groups: MutableMap<String, DupGroup> = mutableMapOf(), var members: MutableList<DupGroup> = mutableListOf())
-
-class DupFileValidator : Validator<DupFile> {
-    override fun validate(data: DupFile, ctx: ValidationContext) {
-        ctx.check(data.version >= 1, "version", "must be at least 1", data.version)
-    }
-}
 
 class DuplicateKeysTest {
 
     private val strict = JsonFormat()
+
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
     private val rootDuplicate = "{\n  \"version\": 1,\n  \"version\": 2,\n  \"groups\": {}\n}"
+
     private val nestedDuplicate = "{\n  \"version\": 1,\n  \"defaults\": {\n    \"priority\": 1,\n    \"priority\": 2,\n    \"prefix\": \"\"\n  },\n  \"groups\": {}\n}"
+
     private val mapDuplicate = "{\n  \"version\": 1,\n  \"groups\": {\n    \"vip\": { \"priority\": 10 },\n    \"vip\": { \"priority\": 20 }\n  }\n}"
-
-    private fun file(name: String, text: String): Path = newStorePath(name).also { it.writeText(text) }
-
-    /** La faute enveloppée, comme la reçoit un consommateur : par `validateFile`, qui décode par la même voie que les stores. */
-    private fun failure(format: StoreFormat, path: Path): StoreDecodeException =
-        assertThrows(StoreDecodeException::class.java) { format.validateFile(path, DupFile.serializer(), DupFileValidator()) }
-
-    /** La faute telle que la lit un consommateur : la ligne et le chemin sur l'exception enveloppée comme sur sa cause, et le message qui nomme les deux. */
-    private fun assertDuplicate(failure: StoreDecodeException, key: String, line: Int, path: String) {
-        assertEquals(line, failure.line)
-        assertEquals(ErrorPath.parse(path), failure.valuePath)
-        val cause = assertInstanceOf(DuplicateKeyException::class.java, failure.cause)
-        assertEquals(key, cause.key)
-        assertEquals(line, cause.line)
-        assertEquals(ErrorPath.parse(path), cause.path)
-        assertTrue(failure.message!!.contains("at line $line") && failure.message!!.contains("Duplicate key '$key' at $path"))
-    }
 
     @Test
     fun `un doublon à la racine est refusé par le lecteur strict, avec la ligne de la seconde occurrence`() {
@@ -213,5 +188,34 @@ class DuplicateKeysTest {
         assertEquals(2, failure.line)
         assertFalse(failure.cause is DuplicateKeyException)
         assertTrue(failure.valuePath.isEmpty()) // tomlkt ne nomme le chemin que dans son message, « version (L2) »
+    }
+
+    private fun file(name: String, text: String): Path = newStorePath(name).also { it.writeText(text) }
+
+    /** La faute enveloppée, comme la reçoit un consommateur : par `validateFile`, qui décode par la même voie que les stores. */
+    private fun failure(format: StoreFormat, path: Path): StoreDecodeException =
+        assertThrows(StoreDecodeException::class.java) { format.validateFile(path, DupFile.serializer(), DupFileValidator()) }
+
+    /** La faute telle que la lit un consommateur : la ligne et le chemin sur l'exception enveloppée comme sur sa cause, et le message qui nomme les deux. */
+    private fun assertDuplicate(failure: StoreDecodeException, key: String, line: Int, path: String) {
+        assertEquals(line, failure.line)
+        assertEquals(ErrorPath.parse(path), failure.valuePath)
+        val cause = assertInstanceOf(DuplicateKeyException::class.java, failure.cause)
+        assertEquals(key, cause.key)
+        assertEquals(line, cause.line)
+        assertEquals(ErrorPath.parse(path), cause.path)
+        assertTrue(failure.message!!.contains("at line $line") && failure.message!!.contains("Duplicate key '$key' at $path"))
+    }
+}
+
+@Serializable
+data class DupGroup(var priority: Int = 0, var prefix: String = "")
+
+@Serializable
+data class DupFile(var version: Int = 1, var defaults: DupGroup = DupGroup(), var groups: MutableMap<String, DupGroup> = mutableMapOf(), var members: MutableList<DupGroup> = mutableListOf())
+
+class DupFileValidator : Validator<DupFile> {
+    override fun validate(data: DupFile, ctx: ValidationContext) {
+        ctx.check(data.version >= 1, "version", "must be at least 1", data.version)
     }
 }

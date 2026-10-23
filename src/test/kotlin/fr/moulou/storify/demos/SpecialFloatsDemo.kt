@@ -30,29 +30,12 @@ import kotlin.io.path.writeText
  *   2. la même valeur écrite à la main dans le fichier, comme le ferait un admin, puis ouverte par un store ;
  *   3. le pont d'avant C-42, reconstitué par le constructeur : un Json passé par le consommateur est pris tel quel, son refus compris.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class SpecialFloatsDemoTest {
 
     private val config = StoreConfig(withAutoSave = false, withShutdownHook = false)
 
     private val values = listOf("NaN" to Double.NaN, "+Infinity" to Double.POSITIVE_INFINITY, "-Infinity" to Double.NEGATIVE_INFINITY)
-
-    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ it }) { e -> "${e::class.simpleName}: ${(e.cause ?: e).message?.lineSequence()?.first()?.take(120)}" }
-
-    private fun oneLine(path: Path) = path.readText().replace(Regex("\\s+"), " ").trim()
-
-    private fun open(path: Path, format: StoreFormat? = null): String = outcome { StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = config).use { "OK, ratio = ${it.data.ratio}" } }
-
-    /** Pose [value] dans un store neuf, sauvegarde, et rend ce que la sauvegarde puis un store neuf en disent. */
-    private fun saveThenReopen(fileName: String, value: Double, format: StoreFormat? = null): Pair<String, String> {
-        val path = newStorePath(fileName)
-        val store = StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = config)
-        store.set(Tuning::ratio, value)
-        val saved = outcome { store.saveImmediate(); "OK, fichier : ${oneLine(path)}" }
-        runCatching { store.close() } // si la sauvegarde a échoué, la sauvegarde d'adieu échoue de même
-        return saved to open(path, format)
-    }
 
     @Test
     fun `étape 1, depuis C-42, une valeur spéciale en mémoire se sauve et se relit dans les trois formats`() {
@@ -94,5 +77,21 @@ class SpecialFloatsDemoTest {
             println("        %-9s  relu par un store neuf : %s   (l'ancienne valeur : la modification est perdue)".format(label, reopened))
             check(saved.startsWith("JsonEncodingException") && reopened == "OK, ratio = 1.0")
         }
+    }
+
+    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ it }) { e -> "${e::class.simpleName}: ${(e.cause ?: e).message?.lineSequence()?.first()?.take(120)}" }
+
+    private fun oneLine(path: Path) = path.readText().replace(Regex("\\s+"), " ").trim()
+
+    private fun open(path: Path, format: StoreFormat? = null): String = outcome { StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = config).use { "OK, ratio = ${it.data.ratio}" } }
+
+    /** Pose [value] dans un store neuf, sauvegarde, et rend ce que la sauvegarde puis un store neuf en disent. */
+    private fun saveThenReopen(fileName: String, value: Double, format: StoreFormat? = null): Pair<String, String> {
+        val path = newStorePath(fileName)
+        val store = StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = config)
+        store.set(Tuning::ratio, value)
+        val saved = outcome { store.saveImmediate(); "OK, fichier : ${oneLine(path)}" }
+        runCatching { store.close() } // si la sauvegarde a échoué, la sauvegarde d'adieu échoue de même
+        return saved to open(path, format)
     }
 }

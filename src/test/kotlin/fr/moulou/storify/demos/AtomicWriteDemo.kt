@@ -30,26 +30,8 @@ import kotlin.io.path.readText
  * écrit dans un temporaire voisin puis le déplace d'un coup (C-02). Étape 3 : depuis C-34, ce mécanisme est public, AtomicFiles.write et
  * encodeToPathAtomically, pour tout fichier écrit hors store (un export, une copie de secours, un catalogue généré).
  */
-
-/** Un format qui tombe en panne au milieu de l'écriture : la moitié du JSON, puis une IOException. */
-class HalfWayFormat : StoreFormat {
-    private val json = JsonFormat()
-    override fun fileExtension(): String = "json"
-    override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA = json.decodeFromPath(deserializer, path)
-    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
-        path.outputStream().use { stream ->
-            stream.write("{\n  \"name\": \"à moitié".toByteArray())
-            throw IOException("disque plein au milieu de l'écriture")
-        }
-    }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class AtomicWriteDemoTest {
-
-    private fun goodFile(): Path = newStorePath("data.json").also { JsonFormat().encodeToPath(PlainData.serializer(), PlainData(name = "steve", count = 7), it) }
-
-    private fun show(label: String, path: Path) = println("$label : ${path.readText().replace("\n", " ").replace(Regex("\\s+"), " ")}")
 
     @Test
     fun `étape 1, écrit directement par le format, le fichier précédent est perdu`() {
@@ -92,5 +74,22 @@ class AtomicWriteDemoTest {
         JsonFormat().encodeToPathAtomically(PlainData(name = "alex", count = 8), path) // l'écriture qui réussit, atomique elle aussi
         show("après l'export", path)
         check(path.readText().contains("alex"))
+    }
+
+    private fun goodFile(): Path = newStorePath("data.json").also { JsonFormat().encodeToPath(PlainData.serializer(), PlainData(name = "steve", count = 7), it) }
+
+    private fun show(label: String, path: Path) = println("$label : ${path.readText().replace("\n", " ").replace(Regex("\\s+"), " ")}")
+}
+
+/** Un format qui tombe en panne au milieu de l'écriture : la moitié du JSON, puis une IOException. */
+class HalfWayFormat : StoreFormat {
+    private val json = JsonFormat()
+    override fun fileExtension(): String = "json"
+    override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA = json.decodeFromPath(deserializer, path)
+    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
+        path.outputStream().use { stream ->
+            stream.write("{\n  \"name\": \"à moitié".toByteArray())
+            throw IOException("disque plein au milieu de l'écriture")
+        }
     }
 }

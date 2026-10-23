@@ -26,15 +26,10 @@ import kotlin.io.path.writeText
  * seul JSON5 le tolérait, et un store ne s'ouvrait pas sur une config enregistrée par le Bloc-notes. Depuis : Storify lit avec ou sans BOM,
  * et écrit toujours sans.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class BomDemoTest {
 
     private val bom = "\uFEFF"
-
-    private fun outcome(attempt: () -> Any?): String = runCatching(attempt).fold({ "OK $it" }, { "${it::class.simpleName}: ${it.message?.take(90)}" })
-
-    private fun firstBytes(path: java.nio.file.Path) = Files.readAllBytes(path).take(3).joinToString(" ") { "%02X".format(it) }
 
     @Test
     fun `étape 1, un BOM, c'est trois octets invisibles en tête du fichier`() {
@@ -75,4 +70,8 @@ class BomDemoTest {
         println("après une sauvegarde : les 3 premiers octets sont ${firstBytes(path)}   (7B 0A 20 = '{', saut de ligne, espace : plus de BOM)")
         check(!path.readText().startsWith(bom))
     }
+
+    private fun outcome(attempt: () -> Any?): String = runCatching(attempt).fold({ "OK $it" }, { "${it::class.simpleName}: ${it.message?.take(90)}" })
+
+    private fun firstBytes(path: java.nio.file.Path) = Files.readAllBytes(path).take(3).joinToString(" ") { "%02X".format(it) }
 }

@@ -51,37 +51,10 @@ import kotlin.system.measureNanoTime
  *      pièges du scanner, une clé échappée, deux clés sur une ligne, la même clé dans deux objets, un faux doublon dans une chaîne, un
  *      doublon sous un élément de liste, chacun avec son chemin.
  */
-
-/** Un groupe de permissions, à la façon d'AegisPerms. */
-@Serializable
-data class PermGroup(var priority: Int = 0, var prefix: String = "")
-
-/** Le fichier de vérité : une valeur à la racine, un objet imbriqué, une map à clé naturelle, un tableau décodé en Set. */
-@Serializable
-data class PermsFile(
-    var version: Int = 1,
-    var defaults: PermGroup = PermGroup(),
-    var groups: MutableMap<String, PermGroup> = mutableMapOf(),
-    var admins: MutableSet<String> = mutableSetOf(),
-)
-
-/** Le validator type d'un consommateur : il voit les groupes décodés, jamais le texte. */
-class PermsFileValidator : Validator<PermsFile> {
-    override fun validate(data: PermsFile, ctx: ValidationContext) {
-        ctx.check(data.version >= 1, "version", "must be at least 1", data.version)
-        data.groups.forEach { (name, group) ->
-            ctx.check(name.isNotBlank(), "groups[$name]", "group name must not be blank")
-            ctx.check(group.priority >= 0, "groups[$name].priority", "must not be negative", group.priority)
-        }
-    }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class DuplicateKeysDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    private class Variant(val label: String, val json: String, val json5: String, val toml: String)
 
     private val variants = listOf(
         Variant(
@@ -211,45 +184,12 @@ class DuplicateKeysDemoTest {
     )
 
     private val root get() = variants[0]
+
     private val nested get() = variants[1]
+
     private val map get() = variants[2]
+
     private val set get() = variants[3]
-
-    private fun describe(p: PermsFile) =
-        "version=${p.version}, defaults.priority=${p.defaults.priority}, groups=[${p.groups.entries.joinToString { "${it.key}->${it.value.priority}" }}], admins=${p.admins}"
-
-    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ "OK ($it)" }) { e ->
-        val decode = e as? StoreDecodeException
-        val where = decode?.line?.let { " at line $it" } ?: ""
-        val path = decode?.valuePath?.takeIf { it.isNotEmpty() }?.let { ", path ${ErrorPath.render(it)}" } ?: ""
-        "${e::class.simpleName}$where$path: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(110)}"
-    }
-
-    private fun open(text: String, fileName: String, format: StoreFormat): String {
-        val path = newStorePath(fileName).also { it.writeText(text) }
-        return StoreFactory.createFromConstructor<PermsFile>(path.toString(), format = format, config = noAutoSave).use { describe(it.data) }
-    }
-
-    private fun openAll(format: StoreFormat, fileName: String, text: (Variant) -> String): Map<String, String> =
-        variants.associate { variant -> variant.label to outcome { open(text(variant), fileName, format) } }
-
-    private fun show(results: Map<String, String>, indent: String = "    ") = results.forEach { (label, result) -> println("$indent%-36s %s".format(label, result)) }
-
-    /** Refusé à cette ligne, et à ce chemin quand le format le donne (JSON et JSON5 ; TOML ne le dit que dans son message). */
-    private fun refused(result: String, line: Int, path: String? = null) = result.startsWith("StoreDecodeException at line $line${path?.let { ", path $it" } ?: ""}:")
-
-    /** Ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
-    private fun captureLog(block: () -> Unit): List<String> {
-        val buffer = ByteArrayOutputStream()
-        val original = System.out
-        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
-        try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
-    }
 
     @Test
     fun `étape 1, JSON, l'avant par le lecteur tolérant, le dernier gagne sans un mot, et depuis C-50 le strict refuse avec la ligne`() {
@@ -352,5 +292,67 @@ class DuplicateKeysDemoTest {
         check(listOf(siblings, elements, inString).all { JsonDuplicateKeys.firstDuplicate(it) == null })
         check(JsonDuplicateKeys.firstDuplicate(inList) == JsonDuplicateKeys.Duplicate("a", 1, ErrorPath.parse("[1].a")))
         check(JsonDuplicateKeys.firstDuplicate(map.json) == JsonDuplicateKeys.Duplicate("vip", 6, ErrorPath.parse("groups.vip")) && JsonDuplicateKeys.firstDuplicate(text) == null)
+    }
+
+    private fun describe(p: PermsFile) =
+        "version=${p.version}, defaults.priority=${p.defaults.priority}, groups=[${p.groups.entries.joinToString { "${it.key}->${it.value.priority}" }}], admins=${p.admins}"
+
+    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ "OK ($it)" }) { e ->
+        val decode = e as? StoreDecodeException
+        val where = decode?.line?.let { " at line $it" } ?: ""
+        val path = decode?.valuePath?.takeIf { it.isNotEmpty() }?.let { ", path ${ErrorPath.render(it)}" } ?: ""
+        "${e::class.simpleName}$where$path: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(110)}"
+    }
+
+    private fun open(text: String, fileName: String, format: StoreFormat): String {
+        val path = newStorePath(fileName).also { it.writeText(text) }
+        return StoreFactory.createFromConstructor<PermsFile>(path.toString(), format = format, config = noAutoSave).use { describe(it.data) }
+    }
+
+    private fun openAll(format: StoreFormat, fileName: String, text: (Variant) -> String): Map<String, String> =
+        variants.associate { variant -> variant.label to outcome { open(text(variant), fileName, format) } }
+
+    private fun show(results: Map<String, String>, indent: String = "    ") = results.forEach { (label, result) -> println("$indent%-36s %s".format(label, result)) }
+
+    /** Refusé à cette ligne, et à ce chemin quand le format le donne (JSON et JSON5 ; TOML ne le dit que dans son message). */
+    private fun refused(result: String, line: Int, path: String? = null) = result.startsWith("StoreDecodeException at line $line${path?.let { ", path $it" } ?: ""}:")
+
+    /** Ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
+    private fun captureLog(block: () -> Unit): List<String> {
+        val buffer = ByteArrayOutputStream()
+        val original = System.out
+        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
+        try {
+            block()
+        } finally {
+            System.setOut(original)
+        }
+        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
+    }
+
+    private class Variant(val label: String, val json: String, val json5: String, val toml: String)
+}
+
+/** Un groupe de permissions, à la façon d'AegisPerms. */
+@Serializable
+data class PermGroup(var priority: Int = 0, var prefix: String = "")
+
+/** Le fichier de vérité : une valeur à la racine, un objet imbriqué, une map à clé naturelle, un tableau décodé en Set. */
+@Serializable
+data class PermsFile(
+    var version: Int = 1,
+    var defaults: PermGroup = PermGroup(),
+    var groups: MutableMap<String, PermGroup> = mutableMapOf(),
+    var admins: MutableSet<String> = mutableSetOf(),
+)
+
+/** Le validator type d'un consommateur : il voit les groupes décodés, jamais le texte. */
+class PermsFileValidator : Validator<PermsFile> {
+    override fun validate(data: PermsFile, ctx: ValidationContext) {
+        ctx.check(data.version >= 1, "version", "must be at least 1", data.version)
+        data.groups.forEach { (name, group) ->
+            ctx.check(name.isNotBlank(), "groups[$name]", "group name must not be blank")
+            ctx.check(group.priority >= 0, "groups[$name].priority", "must not be negative", group.priority)
+        }
     }
 }

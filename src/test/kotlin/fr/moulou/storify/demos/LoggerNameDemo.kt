@@ -22,9 +22,26 @@ import java.io.PrintStream
  *      journal d'un serveur Fabric, qui affiche le nom du logger entre parenthèses, elles ne sont pas sous `(aegisperms)` ;
  *   2. depuis C-37 : `StoreConfig(loggerName = "aegisperms")`, et les mêmes lignes arrivent sous le logger du mod, préfixe `[Storify]` gardé.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class LoggerNameDemoTest {
+
+    @Test
+    fun `étape 1, sans loggerName les lignes d'un store sortent sous Storify`() {
+        val lines = openAndClose(StoreConfig(withAutoSave = false, readOnly = true))
+        lines.forEach { println("    $it") }
+        val names = lines.map(::loggerNameOf).distinct()
+        println("    nom du logger : $names ; le journal du mod s'appellerait « aegisperms » : ces lignes n'y sont pas")
+        check(names == listOf("Storify"))
+    }
+
+    @Test
+    fun `étape 2, depuis C-37, loggerName range les mêmes lignes sous le journal du mod`() {
+        val lines = openAndClose(StoreConfig(withAutoSave = false, readOnly = true, loggerName = "aegisperms"))
+        lines.forEach { println("    $it") }
+        val names = lines.map(::loggerNameOf).distinct()
+        println("    nom du logger : $names ; le préfixe [Storify] reste dans le message, il dit d'où vient la ligne")
+        check(names == listOf("aegisperms") && lines.all { "[Storify]" in it })
+    }
 
     /** Capture ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
     private fun captureLog(block: () -> Unit): List<String> {
@@ -44,23 +61,5 @@ class LoggerNameDemoTest {
 
     private fun openAndClose(config: StoreConfig): List<String> = captureLog {
         StoreFactory.create<PlainData>(newStorePath("permissions.json").toString(), config = config).close()
-    }
-
-    @Test
-    fun `étape 1, sans loggerName les lignes d'un store sortent sous Storify`() {
-        val lines = openAndClose(StoreConfig(withAutoSave = false, readOnly = true))
-        lines.forEach { println("    $it") }
-        val names = lines.map(::loggerNameOf).distinct()
-        println("    nom du logger : $names ; le journal du mod s'appellerait « aegisperms » : ces lignes n'y sont pas")
-        check(names == listOf("Storify"))
-    }
-
-    @Test
-    fun `étape 2, depuis C-37, loggerName range les mêmes lignes sous le journal du mod`() {
-        val lines = openAndClose(StoreConfig(withAutoSave = false, readOnly = true, loggerName = "aegisperms"))
-        lines.forEach { println("    $it") }
-        val names = lines.map(::loggerNameOf).distinct()
-        println("    nom du logger : $names ; le préfixe [Storify] reste dans le message, il dit d'où vient la ligne")
-        check(names == listOf("aegisperms") && lines.all { "[Storify]" in it })
     }
 }

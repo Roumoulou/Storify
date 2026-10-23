@@ -21,13 +21,10 @@ import kotlin.io.path.writeText
  * dès que le store se croit modifié (étape 3). Depuis C-30, readOnly refuse tout ça (étape 4) : toute écriture lève, ni hook ni planificateur ;
  * withShutdownHook débraye le hook seul, et createIfMissing décide si le fichier initial s'écrit une fois, ou jamais rien sur le disque.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class ReadOnlyDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false) // pas de tick d'auto-save : seul le code, ou le hook, peut écrire
-
-    private fun nameLine(text: String) = text.lines().first { "\"name\"" in it }.trim()
 
     @Test
     fun `étape 1, un store que le code n'écrit jamais réécrit quand même le fichier, il suffit d'une transaction au bloc vide`() {
@@ -86,4 +83,6 @@ class ReadOnlyDemoTest {
         println("fichier après tout ça : ${nameLine(path.readText())}")
         check(path.readText().contains("édité par l'application de bureau"))
     }
+
+    private fun nameLine(text: String) = text.lines().first { "\"name\"" in it }.trim()
 }

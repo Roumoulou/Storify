@@ -67,8 +67,6 @@ class BaseStore<DATA : Any> internal constructor(
         val metaFormat = JsonFormat()
     }
 
-    // ── L'état ── les propriétés, du public au privé
-
     /** Le chemin du store, absolu et normalisé dès la construction (C-12) : logs, erreurs, sidecar et temporaires en héritent tous. */
     override val path: Path = storePath.toAbsolutePath().normalize()
 
@@ -111,23 +109,17 @@ class BaseStore<DATA : Any> internal constructor(
     /** L'origine des données, posée par [initData] une fois le fournisseur appelé : lui seul sait s'il a posé un fichier (C-40). */
     private var dataOrigin: DataOrigin = DataOrigin.DEFAULT
 
-    // La persistance
-
     /**
      * Snapshot de [_data] au dernier save : le `old` du prochain callback de save. Tenu seulement devant un auditeur de save (C-41) : pris à
      * l'arrivée du premier ([registerOnSave]), puis à chaque save ; sans auditeur il reste `null`, et rien ne se copie.
      */
-    @Volatile
-    private var lastSavedData: DATA? = null
+    @Volatile private var lastSavedData: DATA? = null
 
     /** `true` après le premier appel réussi à [save]. */
-    @Volatile
-    private var hasSavedAtLeastOnce: Boolean = false
+    @Volatile private var hasSavedAtLeastOnce: Boolean = false
 
     /** Verrou d'IO : les sauvegardes d'un même store s'exécutent l'une après l'autre. */
     private val saveIoLock = Any()
-
-    // L'auto-save
 
     /** Scheduler single-thread pour l'auto-save périodique. */
     private val saveScheduler = Executors.newSingleThreadScheduledExecutor()
@@ -138,22 +130,16 @@ class BaseStore<DATA : Any> internal constructor(
     /** Quand `true`, les ticks d'auto-save sont ignorés. */
     private val autoSavePaused = AtomicBoolean(false)
 
-    // La fin de vie
-
     /** `true` après [close] : le store reste lisible, les écritures refusent. */
     private val closed = AtomicBoolean(false)
 
     /** Le hook d'arrêt JVM, gardé en champ pour que [close] puisse le désarmer. */
     private val shutdownHook = Thread { runShutdownHook() }
 
-    // Les callbacks : conteneurs privés et thread-safe, l'enregistrement passe par register* (C-08)
-
     private val onSaveCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onReloadCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacks = CopyOnWriteArrayList<(Operation<DATA>) -> Unit>()
     private val onUpdateCallbacksMap = ConcurrentHashMap<KProperty1<*, *>, CopyOnWriteArrayList<TargetedListener<DATA>>>()
-
-    // Les policies
 
     /**
      * Politique d'update par propriété ; à défaut d'entrée ici, celle de [StoreConfig.defaultUpdatePolicy] s'applique. Thread-safe (C-45) :
@@ -285,8 +271,6 @@ class BaseStore<DATA : Any> internal constructor(
         if (isShutdownHookArmed) Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
 
-    // ── La lecture et la validation ──
-
     override fun reloadFromFile(validate: Boolean) {
         checkOpen()
         val incoming = format.decodeFile(dataSerializer, path)
@@ -333,8 +317,6 @@ class BaseStore<DATA : Any> internal constructor(
         val onDisk = format.decodeFile(dataSerializer, path)
         return validator?.let { ValidationErrorEnricher.validate(format, path, onDisk, it) } ?: ValidationResult.Success
     }
-
-    // ── Les mises à jour ──
 
     /** Le point d'entrée de `set` et `setIn` (C-45) : l'extension inline y arrive avec le sérialiseur de la valeur, matérialisé à son site réifié. */
     @PublishedApi
@@ -493,8 +475,6 @@ class BaseStore<DATA : Any> internal constructor(
         isDirty = true
     }
 
-    // ── Les callbacks ──
-
     override fun registerOnSave(callback: (Operation<DATA>) -> Unit) {
         onSaveCallbacks.add(callback)
         // La référence du prochain `old` se prend à l'arrivée du premier auditeur, tant que la mémoire est encore l'état du dernier save ;
@@ -532,8 +512,6 @@ class BaseStore<DATA : Any> internal constructor(
         }
     }
 
-    // ── Les policies ──
-
     /** Change la politique d'update d'une propriété au runtime ; une propriété hors de l'arbre de DATA est signalée, elle ne s'appliquera jamais. */
     fun setUpdatePolicy(prop: KProperty1<*, *>, policy: UpdatePolicy) {
         if (!belongsToDataTree(prop)) {
@@ -547,8 +525,6 @@ class BaseStore<DATA : Any> internal constructor(
 
     /** Vrai si la propriété appartient à l'arbre de [DATA], classes imbriquées comprises. Interne pour les tests. */
     internal fun belongsToDataTree(prop: KProperty1<*, *>): Boolean = prop in dataTreeProperties
-
-    // ── La persistance ──
 
     override fun saveImmediate() = save(SaveTrigger.IMMEDIATE)
 
@@ -624,8 +600,6 @@ class BaseStore<DATA : Any> internal constructor(
 
     override fun isAutoSavePaused(): Boolean = autoSavePaused.get()
 
-    // ── La fin de vie ──
-
     /**
      * Détache proprement le store : le tick d'auto-save est annulé, le planificateur arrêté (la JVM n'est
      * plus retenue), le hook d'arrêt JVM désarmé, et les données encore dirty font une sauvegarde d'adieu
@@ -660,8 +634,6 @@ class BaseStore<DATA : Any> internal constructor(
         if (isDirty) save(SaveTrigger.SHUTDOWN)
     }
 
-    // ── Les aides communes ── appelées de partout, sous leurs appelants
-
     /** Refuse tout accès à un store fermé. */
     private fun checkOpen() {
         check(!closed.get()) { "[Storify] Store '$path' is closed" }
@@ -678,8 +650,6 @@ class BaseStore<DATA : Any> internal constructor(
 
     /** Exécute le [validator] sur [data] et retourne un [ValidationResult]. */
     private fun runValidation(data: DATA): ValidationResult = validator?.evaluate(data) ?: ValidationResult.Success
-
-    // ── Les types imbriqués ──
 
     /**
      * D'où viennent les données à l'ouverture : le fichier déjà présent (`FILE`), la ressource embarquée que [defaultDataProvider] vient de

@@ -30,35 +30,8 @@ import java.nio.file.Path
  *   3. une ressource TOML commentée : ils arrivent aussi, mais la première sauvegarde réécrit le fichier entier, la limite connue du TOML ;
  *   4. une ressource invalide : la copie reste sur le disque, éditable, et le message dit qu'elle vient de la ressource, avec la ligne.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class ResourceCopyDemoTest {
-
-    private fun resourceBytes(name: String): ByteArray = checkNotNull(javaClass.classLoader.getResourceAsStream(name)) { "ressource de test introuvable : $name" }.use { it.readBytes() }
-
-    private fun show(label: String, bytes: ByteArray) {
-        println("    $label (${bytes.size} octets)")
-        bytes.decodeToString().lines().forEach { println("        | $it") }
-    }
-
-    /** Imprime la ressource puis le fichier, et rend vrai s'ils sont identiques à l'octet. */
-    private fun sameAsResource(resource: String, path: Path): Boolean {
-        val shipped = resourceBytes(resource)
-        val onDisk = Files.readAllBytes(path)
-        show("la ressource du jar, $resource", shipped)
-        show("le fichier après le premier lancement", onDisk)
-        return shipped.contentEquals(onDisk).also { println("    identique à l'octet : ${if (it) "oui" else "non"}") }
-    }
-
-    /** Le premier lancement : le fichier n'existe pas, le store naît de la ressource puis se ferme. ResourceData porte sa config par annotation (ni auto-save ni validation). */
-    private fun firstLaunch(fileName: String, resource: String): Path =
-        newStorePath(fileName).also { path -> StoreFactory.createFromResource<ResourceData>(path.toString(), resource).close() }
-
-    /** Un second lancement : le fichier existe, il gagne sur la ressource ; le mod change une valeur et sauvegarde. */
-    private fun changeLevelAndSave(path: Path, resource: String) = StoreFactory.createFromResource<ResourceData>(path.toString(), resource).use { store ->
-        store.set(ResourceData::level, 43)
-        store.saveImmediate()
-    }
 
     @Test
     fun `étape 1, depuis C-40, le fichier du premier lancement est la ressource JSON, à l'octet`() {
@@ -94,5 +67,31 @@ class ResourceCopyDemoTest {
         failure?.message?.lines()?.forEach { println("        $it") }
         check(sameAsResource("resource-data_invalid.json", path))
         check(failure?.message?.contains("copied from the default resource") == true)
+    }
+
+    private fun resourceBytes(name: String): ByteArray = checkNotNull(javaClass.classLoader.getResourceAsStream(name)) { "ressource de test introuvable : $name" }.use { it.readBytes() }
+
+    private fun show(label: String, bytes: ByteArray) {
+        println("    $label (${bytes.size} octets)")
+        bytes.decodeToString().lines().forEach { println("        | $it") }
+    }
+
+    /** Imprime la ressource puis le fichier, et rend vrai s'ils sont identiques à l'octet. */
+    private fun sameAsResource(resource: String, path: Path): Boolean {
+        val shipped = resourceBytes(resource)
+        val onDisk = Files.readAllBytes(path)
+        show("la ressource du jar, $resource", shipped)
+        show("le fichier après le premier lancement", onDisk)
+        return shipped.contentEquals(onDisk).also { println("    identique à l'octet : ${if (it) "oui" else "non"}") }
+    }
+
+    /** Le premier lancement : le fichier n'existe pas, le store naît de la ressource puis se ferme. ResourceData porte sa config par annotation (ni auto-save ni validation). */
+    private fun firstLaunch(fileName: String, resource: String): Path =
+        newStorePath(fileName).also { path -> StoreFactory.createFromResource<ResourceData>(path.toString(), resource).close() }
+
+    /** Un second lancement : le fichier existe, il gagne sur la ressource ; le mod change une valeur et sauvegarde. */
+    private fun changeLevelAndSave(path: Path, resource: String) = StoreFactory.createFromResource<ResourceData>(path.toString(), resource).use { store ->
+        store.set(ResourceData::level, 43)
+        store.saveImmediate()
     }
 }

@@ -13,9 +13,6 @@ data class Home(
     var location: Location
 )
 
-// ─────────────────────────────────────────────
-// Validator pour Home
-// ─────────────────────────────────────────────
 class HomeValidator : Validator<Home> {
     private val locationValidator = LocationValidator()
 

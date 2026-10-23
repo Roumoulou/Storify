@@ -23,24 +23,10 @@ import kotlin.io.path.writeText
  * StoreDecodeException (chemin, format, ligne au mieux, cause conservée), sous l'ancêtre StorifyException qu'elle partage avec
  * ValidationException, un seul catch.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class DecodeErrorsDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    private fun lineage(e: Throwable): String = generateSequence<Class<*>>(e.javaClass) { it.superclass }.map { it.simpleName }.takeWhile { it != "Throwable" }.joinToString(" > ")
-
-    private fun show(label: String, attempt: () -> Unit) {
-        val failure = runCatching(attempt).exceptionOrNull()
-        if (failure == null) {
-            println("$label : passé")
-            return
-        }
-        println("$label")
-        println("    classe  : ${lineage(failure)}")
-        println("    message : ${failure.message?.lines()?.joinToString(" | ")?.take(230)}")
-    }
 
     @Test
     fun `étape 1, un JSON avec une virgule de trop`() {
@@ -79,5 +65,18 @@ class DecodeErrorsDemoTest {
         )
         check(opens.all { runCatching(it).exceptionOrNull() is StorifyException })
         println("    les deux sont des StorifyException : un seul catch suffit")
+    }
+
+    private fun lineage(e: Throwable): String = generateSequence<Class<*>>(e.javaClass) { it.superclass }.map { it.simpleName }.takeWhile { it != "Throwable" }.joinToString(" > ")
+
+    private fun show(label: String, attempt: () -> Unit) {
+        val failure = runCatching(attempt).exceptionOrNull()
+        if (failure == null) {
+            println("$label : passé")
+            return
+        }
+        println("$label")
+        println("    classe  : ${lineage(failure)}")
+        println("    message : ${failure.message?.lines()?.joinToString(" | ")?.take(230)}")
     }
 }

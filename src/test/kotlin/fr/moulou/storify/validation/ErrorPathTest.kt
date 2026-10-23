@@ -9,10 +9,6 @@ import org.junit.jupiter.api.Test
 /** La grammaire des chemins d'erreur (C-32) et son rendu (C-55) : `render` est le miroir de `parse`, et un chemin rendu se relit en lui-même. */
 class ErrorPathTest {
 
-    private fun key(name: String) = PathSegment.Key(name)
-
-    private fun index(index: Int) = PathSegment.Index(index)
-
     @Test
     fun `render joint les clés par un point, met un index entre crochets, et protège entre crochets et guillemets une clé vide ou qui porte un point ou un crochet`() {
         assertEquals("", ErrorPath.render(emptyList()))
@@ -37,4 +33,8 @@ class ErrorPathTest {
         assertEquals(digits, ErrorPath.parse(ErrorPath.render(digits)))
         assertEquals(listOf(key("a[0"), key("")), ErrorPath.parse(ErrorPath.render(listOf(key("a[0"), key(""))))) // un crochet fermant dans une clé ne se relit pas, limite écrite de parse
     }
+
+    private fun key(name: String) = PathSegment.Key(name)
+
+    private fun index(index: Int) = PathSegment.Index(index)
 }

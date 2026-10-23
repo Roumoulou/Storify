@@ -30,6 +30,7 @@ import kotlin.io.path.writeText
 class Json5FormatTest {
 
     private val format = Json5Format()
+
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
     @Test
@@ -137,8 +138,7 @@ class Json5FormatTest {
         assertEquals(6, format.decodeFromPath(PlainData.serializer(), path).count)
     }
 
-    // ─── NaN et les infinis (C-42) : du JSON5 valide, qui ne doit pas faire échouer la sauvegarde d'un store ───
-
+    /** NaN et les infinis (C-42) : du JSON5 valide, qui ne doit pas faire échouer la sauvegarde d'un store. */
     @Test
     fun `NaN et les infinis se sauvent et se relisent par un store, comme en JSON`() {
         for (value in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {

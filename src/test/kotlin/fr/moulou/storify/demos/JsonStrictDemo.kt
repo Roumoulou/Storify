@@ -37,15 +37,6 @@ import kotlin.io.path.writeText
  * Le lecteur tolérant : Json { prettyPrint, isLenient, encodeDefaults, allowStructuredMapKeys, allowSpecialFloatingPointValues, allowComments }.
  * Le strict : les mêmes sans isLenient ni allowComments ; allowSpecialFloatingPointValues gardé, l'étape 4 montre l'autre choix.
  */
-
-/** Un réglage avec un booléen et un nombre à virgule, pour les variantes que PlainData ne peut pas porter. */
-@Serializable
-data class Tuning(var enabled: Boolean = true, var ratio: Double = 1.0)
-
-/** Une map à clés textuelles, pour l'étape 5. */
-@Serializable
-data class Scores(var scores: MutableMap<String, Int> = mutableMapOf())
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class JsonStrictDemoTest {
 
@@ -60,16 +51,6 @@ class JsonStrictDemoTest {
     /** Le même, NaN refusé : le strict de kotlinx, et celui qu'AegisPerms se construit. */
     private val strictest = JsonFormat(Json { prettyPrint = true; encodeDefaults = true; allowStructuredMapKeys = true })
 
-    private class Variant(val label: String, val text: String, val open: (Path, StoreFormat) -> String)
-
-    private fun plain(label: String, text: String) = Variant(label, text) { path, format ->
-        StoreFactory.create<PlainData>(path.toString(), format = format, config = noAutoSave).use { "name=${it.data.name}, count=${it.data.count}" }
-    }
-
-    private fun tuning(label: String, text: String) = Variant(label, text) { path, format ->
-        StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = noAutoSave).use { "enabled=${it.data.enabled}, ratio=${it.data.ratio}" }
-    }
-
     private val variants = listOf(
         plain("JSON standard", "{\n  \"name\": \"steve\",\n  \"count\": 1,\n  \"tags\": []\n}"),
         plain("un commentaire", "{\n  \"name\": \"steve\",\n  // le compteur\n  \"count\": 1,\n  \"tags\": []\n}"),
@@ -82,21 +63,6 @@ class JsonStrictDemoTest {
         plain("une virgule manquante, tableau", "{\n  \"name\": \"steve\",\n  \"count\": 1,\n  \"tags\": [\"a\" \"b\"]\n}"),
         plain("une clé inconnue", "{\n  \"name\": \"steve\",\n  \"colour\": \"red\",\n  \"count\": 1,\n  \"tags\": []\n}"),
     )
-
-    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ "OK ($it)" }) { e ->
-        val decode = e as? StoreDecodeException
-        val where = decode?.line?.let { " at line $it" } ?: ""
-        "${e::class.simpleName}$where: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(100)}"
-    }
-
-    private fun openAll(format: StoreFormat): Map<String, String> = variants.associate { variant ->
-        val path = newStorePath("config.json").also { it.writeText(variant.text) }
-        variant.label to outcome { variant.open(path, format) }
-    }
-
-    private fun show(results: Map<String, String>) = results.forEach { (label, result) -> println("    %-32s %s".format(label, result)) }
-
-    private fun oneLine(path: Path) = path.readText().replace(Regex("\\s+"), " ")
 
     @Test
     fun `étape 1, ce que le lecteur tolérant accepte, le défaut d'avant C-36, JsonFormat lenient()`() {
@@ -134,6 +100,40 @@ class JsonStrictDemoTest {
         saveNaN("allowSpecialFloatingPointValues = false (le strict de kotlinx)", strictest)
     }
 
+    @Test
+    fun `étape 5, allowStructuredMapKeys n'est pas une tolérance de syntaxe`() {
+        val path = newStorePath("scores.json").also { it.writeText("{\n  \"scores\": [\"steve\", 1]\n}") }
+        val withFlag = outcome { strict.decodeFromPath(Scores.serializer(), path).scores.toString() }
+        val withoutFlag = outcome { JsonFormat(Json { allowStructuredMapKeys = false }).decodeFromPath(Scores.serializer(), path).scores.toString() }
+        println("    une map à clés textuelles écrite en tableau, allowStructuredMapKeys = true  : $withFlag")
+        println("    la même,                                    allowStructuredMapKeys = false : $withoutFlag")
+        // Le réglage ne joue que pour une map à clés structurées (une data class en clé), qu'il permet d'écrire en tableau : une capacité, pas une tolérance.
+        check(!withFlag.startsWith("OK") && !withoutFlag.startsWith("OK"))
+    }
+
+    private fun plain(label: String, text: String) = Variant(label, text) { path, format ->
+        StoreFactory.create<PlainData>(path.toString(), format = format, config = noAutoSave).use { "name=${it.data.name}, count=${it.data.count}" }
+    }
+
+    private fun tuning(label: String, text: String) = Variant(label, text) { path, format ->
+        StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = noAutoSave).use { "enabled=${it.data.enabled}, ratio=${it.data.ratio}" }
+    }
+
+    private fun outcome(attempt: () -> String): String = runCatching(attempt).fold({ "OK ($it)" }) { e ->
+        val decode = e as? StoreDecodeException
+        val where = decode?.line?.let { " at line $it" } ?: ""
+        "${e::class.simpleName}$where: ${(decode?.cause ?: e).message?.lineSequence()?.first()?.take(100)}"
+    }
+
+    private fun openAll(format: StoreFormat): Map<String, String> = variants.associate { variant ->
+        val path = newStorePath("config.json").also { it.writeText(variant.text) }
+        variant.label to outcome { variant.open(path, format) }
+    }
+
+    private fun show(results: Map<String, String>) = results.forEach { (label, result) -> println("    %-32s %s".format(label, result)) }
+
+    private fun oneLine(path: Path) = path.readText().replace(Regex("\\s+"), " ")
+
     private fun saveNaN(label: String, format: JsonFormat) {
         val path = newStorePath("tuning.json")
         val store = StoreFactory.createFromConstructor<Tuning>(path.toString(), format = format, config = StoreConfig(withAutoSave = false, withShutdownHook = false))
@@ -151,14 +151,13 @@ class JsonStrictDemoTest {
         }
     }
 
-    @Test
-    fun `étape 5, allowStructuredMapKeys n'est pas une tolérance de syntaxe`() {
-        val path = newStorePath("scores.json").also { it.writeText("{\n  \"scores\": [\"steve\", 1]\n}") }
-        val withFlag = outcome { strict.decodeFromPath(Scores.serializer(), path).scores.toString() }
-        val withoutFlag = outcome { JsonFormat(Json { allowStructuredMapKeys = false }).decodeFromPath(Scores.serializer(), path).scores.toString() }
-        println("    une map à clés textuelles écrite en tableau, allowStructuredMapKeys = true  : $withFlag")
-        println("    la même,                                    allowStructuredMapKeys = false : $withoutFlag")
-        // Le réglage ne joue que pour une map à clés structurées (une data class en clé), qu'il permet d'écrire en tableau : une capacité, pas une tolérance.
-        check(!withFlag.startsWith("OK") && !withoutFlag.startsWith("OK"))
-    }
+    private class Variant(val label: String, val text: String, val open: (Path, StoreFormat) -> String)
 }
+
+/** Un réglage avec un booléen et un nombre à virgule, pour les variantes que PlainData ne peut pas porter. */
+@Serializable
+data class Tuning(var enabled: Boolean = true, var ratio: Double = 1.0)
+
+/** Une map à clés textuelles, pour l'étape 5. */
+@Serializable
+data class Scores(var scores: MutableMap<String, Int> = mutableMapOf())

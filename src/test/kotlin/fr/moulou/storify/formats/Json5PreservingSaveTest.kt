@@ -22,9 +22,6 @@ class Json5PreservingSaveTest {
 
     private val format = Json5Format()
 
-    private fun preserve(data: PlainData, path: Path, previousText: String?) =
-        format.encodeToPathPreserving(PlainData.serializer(), data, path, previousText)
-
     @Test
     fun `une valeur changée se retouche, commentaires et style restent`() {
         val path = newStorePath("value.json5")
@@ -129,4 +126,7 @@ class Json5PreservingSaveTest {
 
         assertTrue(path.readText().startsWith("{\n    name: 'x',\n    count: 1,\n    tags: []"), path.readText())
     }
+
+    private fun preserve(data: PlainData, path: Path, previousText: String?) =
+        format.encodeToPathPreserving(PlainData.serializer(), data, path, previousText)
 }

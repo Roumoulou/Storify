@@ -17,9 +17,6 @@ data class Location(
     val dimension : String
 )
 
-// ─────────────────────────────────────────────
-// Validator pour Location
-// ─────────────────────────────────────────────
 class LocationValidator : Validator<Location> {
     override fun validate(data: Location, ctx: ValidationContext) {
         // Y doit être entre -64 et 320 (limites Minecraft)

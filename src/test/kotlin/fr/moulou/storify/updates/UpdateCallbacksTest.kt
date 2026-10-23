@@ -28,9 +28,6 @@ class UpdateCallbacksTest {
 
     private val snapshotConfig = StoreConfig(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
 
-    /** Une référence de propriété fabriquée AILLEURS qu'au site d'enregistrement et d'update. */
-    private fun countFromElsewhere(): KProperty1<PlainData, Int> = PlainData::count
-
     @Test
     fun `le callback global reçoit chaque opération observée, du set à la transaction`() {
         StoreFactory.create<PlainData>(newStorePath("global.json").toString(), config = snapshotConfig).use { store ->
@@ -150,4 +147,7 @@ class UpdateCallbacksTest {
             assertEquals(5, seenFromCallback)
         }
     }
+
+    /** Une référence de propriété fabriquée AILLEURS qu'au site d'enregistrement et d'update. */
+    private fun countFromElsewhere(): KProperty1<PlainData, Int> = PlainData::count
 }

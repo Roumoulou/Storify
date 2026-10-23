@@ -28,24 +28,6 @@ import kotlin.io.path.writeText
  *   3. un fichier JSON5 (clés nues, commentaires) : avant, aucune ligne ; depuis, le localisateur de la famille JSON les lit ;
  *   4. valider un fichier édité à la main sans ouvrir de store : `format.validateFile(path, validator)`.
  */
-
-@Serializable
-data class Member(var joinCount: Int = 0, var homes: MutableList<String> = mutableListOf())
-
-@Serializable
-data class Guild(var name: String = "guilde", var players: MutableMap<String, Member> = mutableMapOf())
-
-/** Le validator type d'un mod : les chemins traversent la map des joueurs, comme celui du banc. */
-class GuildValidator : Validator<Guild> {
-    override fun validate(data: Guild, ctx: ValidationContext) {
-        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
-        data.players.forEach { (id, member) ->
-            ctx.check(member.joinCount >= 0, "players[$id].joinCount", "must not be negative", member.joinCount)
-            member.homes.forEachIndexed { index, home -> ctx.check(home.isNotBlank(), "players[$id].homes[$index]", "must not be blank") }
-        }
-    }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class ValidationLinesDemoTest {
 
@@ -60,11 +42,6 @@ class ValidationLinesDemoTest {
           }
         }
     """.trimIndent()
-
-    private fun report(data: Guild, format: StoreFormat, path: Path): String {
-        val result = GuildValidator().evaluate(data) as ValidationResult.Failure
-        return ValidationErrorEnricher.enrich(format, path, result.errors).joinToString("\n") { "    " + it.formatFull() }
-    }
 
     @Test
     fun `étape 1, une erreur sur une clé de la racine reçoit sa ligne`() {
@@ -93,5 +70,27 @@ class ValidationLinesDemoTest {
         val path = newStorePath("guild.json").also { it.writeText(jsonText) }
         val result = JsonFormat().validateFile(path, GuildValidator())
         println("    " + (result as ValidationResult.Failure).formatFull().lines().joinToString("\n    "))
+    }
+
+    private fun report(data: Guild, format: StoreFormat, path: Path): String {
+        val result = GuildValidator().evaluate(data) as ValidationResult.Failure
+        return ValidationErrorEnricher.enrich(format, path, result.errors).joinToString("\n") { "    " + it.formatFull() }
+    }
+}
+
+@Serializable
+data class Member(var joinCount: Int = 0, var homes: MutableList<String> = mutableListOf())
+
+@Serializable
+data class Guild(var name: String = "guilde", var players: MutableMap<String, Member> = mutableMapOf())
+
+/** Le validator type d'un mod : les chemins traversent la map des joueurs, comme celui du banc. */
+class GuildValidator : Validator<Guild> {
+    override fun validate(data: Guild, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+        data.players.forEach { (id, member) ->
+            ctx.check(member.joinCount >= 0, "players[$id].joinCount", "must not be negative", member.joinCount)
+            member.homes.forEachIndexed { index, home -> ctx.check(home.isNotBlank(), "players[$id].homes[$index]", "must not be blank") }
+        }
     }
 }

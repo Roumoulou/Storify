@@ -29,24 +29,10 @@ import kotlin.io.path.writeText
  *   1. une modification en mémoire, un fichier édité à la main, un rechargement : la modification est écartée, le log le dit, le dirty retombe ;
  *   2. la sauvegarde d'adieu ne part plus, et le fichier de l'admin reste tel quel, mise en forme comprise.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class ReloadDirtyDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    /** Ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
-    private fun captureLog(block: () -> Unit): List<String> {
-        val buffer = ByteArrayOutputStream()
-        val original = System.out
-        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
-        try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
-    }
 
     @Test
     fun `étape 1, depuis C-47, une modification en mémoire, un fichier édité à la main, un rechargement qui le dit`() {
@@ -80,5 +66,18 @@ class ReloadDirtyDemoTest {
         store.close() // la sauvegarde d'adieu ne part que dirty : elle ne part pas
         println("    après close() : ${saves.size} sauvegarde, fichier : ${path.readText()}")
         check(saves.isEmpty() && path.readText() == afterReload)
+    }
+
+    /** Ce que le logger de test écrit sur System.out pendant [block], ligne par ligne. */
+    private fun captureLog(block: () -> Unit): List<String> {
+        val buffer = ByteArrayOutputStream()
+        val original = System.out
+        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
+        try {
+            block()
+        } finally {
+            System.setOut(original)
+        }
+        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
     }
 }
