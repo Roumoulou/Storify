@@ -827,6 +827,13 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   ensuite. Le pipeline reste celui de l'arbre : la clé de version lue puis retirée avant le décodage, la sauvegarde nommée par la version d'origine,
   le refus du downgrade, rien d'écrit en échec. Sans étape : un champ ajouté prend son défaut, un champ renommé se lit par `@JsonNames` en JSON et
   JSON5 (`useAlternativeNames`, pas en TOML) ; un champ retiré bute sur le strict, le curseur 5.
+  Le design du 2026-09-16, à reprendre sans repartir de zéro : la version du schéma dans le fichier de données, clé `schema-version`, le sidecar meta en
+  miroir informatif ; l'opt-in par la déclaration d'un registre `storeMigrations { }` : une clé sans registre ment ; le pivot `JsonObject` par une
+  capacité `MigratableStoreFormat`, préservation JSON5 comprise jusque dans les migrations ; une DSL `step(n)` à version courante implicite ; le
+  pipeline : backup nommé par version source, refus net du downgrade, rien d'écrit en échec. Les curseurs encore à trancher avant d'écrire une ligne :
+  1. le nom exact de la clé ; 2. absence de clé = v1 ou v0 ; 3. backup écrasé ou horodaté ; 4. helpers d'arbre fournis ou kotlinx nu ; 5. la doctrine
+  des clés inconnues : aujourd'hui TOML tolère, JSON et JSON5 refusent ; 6. TOML supporté via le pivot, ou hors v1 ; le septième, la forme d'une étape,
+  est tranché ci-dessus.
 - [x] **C-18 : la distribution Minecraft** (M/L ; LECTURE). Comment un mod embarque Storify : dépendance externe publiée, jar-in-jar, ou shading ;
   l'articulation avec fabric-language-kotlin (qui fournit stdlib et kotlinx.serialization au runtime) ; et la publication sur Repsy à mettre en
   place (décidée le 2026-09-13) : circuit `maven-publish` remis en état, identifiants par la chaîne de secrets (BWS, `secrets-et-acces.md` de
