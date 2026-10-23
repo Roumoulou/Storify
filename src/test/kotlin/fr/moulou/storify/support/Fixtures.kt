@@ -29,8 +29,7 @@ import kotlinx.serialization.json.put
  * TestingClasses.kt, héritées des samples et promues ici.
  */
 
-// ─── La voie nue : aucune annotation, companion Defaultable, constructeur sans argument ─────────
-
+/** La voie nue : aucune annotation, companion Defaultable, constructeur sans argument. */
 @Serializable
 data class PlainData(
     var name: String = "steve",
@@ -42,8 +41,7 @@ data class PlainData(
     }
 }
 
-// ─── L'imbrication : setIn/mutateIn, et la policy annotée sur une classe imbriquée ──────────────
-
+/** L'imbrication : setIn/mutateIn, et la policy annotée sur une classe imbriquée. */
 @Serializable
 data class InnerLeaf(
     var label: String = "leaf",
@@ -74,8 +72,7 @@ data class TwinData(
     }
 }
 
-// ─── Les scalaires : le raccourci immuable du pipeline d'update, type par type (C-45) ──────────
-
+/** Les scalaires : le raccourci immuable du pipeline d'update, type par type (C-45). */
 enum class ScalarMood { CALM, ANGRY }
 
 @Serializable
@@ -92,8 +89,7 @@ data class ScalarData(
     var tags: MutableList<String> = mutableListOf(),
 )
 
-// ─── Le kit annoté complet ──────────────────────────────────────────────────────────────────────
-
+/** Le kit annoté complet. */
 @Serializable
 @StorePath("build/tmp/storify-tests/annotated/annotated-data.json")
 @StoreFileFormat(StoreFileFormatType.JSON)
@@ -116,9 +112,7 @@ class AnnotatedDataValidator : Validator<AnnotatedData> {
     }
 }
 
-// ─── La préséance format et config ──────────────────────────────────────────────────────────────
-
-/** Annotée TOML : prouve que l'annotation bat l'extension du chemin, et qu'un format explicite bat l'annotation. */
+/** La préséance format et config. Annotée TOML : prouve que l'annotation bat l'extension du chemin, et qu'un format explicite bat l'annotation. */
 @Serializable
 @StoreConfiguration(withAutoSave = false)
 @StoreFileFormat(StoreFileFormatType.TOML)
@@ -135,8 +129,7 @@ data class AnnotatedJson5Data(var motto: String = "json5", var rank: Int = 1)
 @StoreConfiguration(withAutoSave = false, withMeta = true)
 data class AnnotatedMetaData(var value: Int = 5)
 
-// ─── L'accord withValidation (C-24) : true des deux côtés, le validator est l'opt-in ───────────
-
+/** L'accord withValidation (C-24) : true des deux côtés, le validator est l'opt-in. */
 @Serializable
 @StoreValidator(BareValidatedDataValidator::class)
 data class BareValidatedData(var name: String = "ok")
@@ -158,8 +151,7 @@ class AnnotatedValidatedDataValidator : Validator<AnnotatedValidatedData> {
     }
 }
 
-// ─── La préséance des validators : l'annoté refuse tout, l'explicite accepte tout ───────────────
-
+/** La préséance des validators : l'annoté refuse tout, l'explicite accepte tout. */
 @Serializable
 @StoreConfiguration(withAutoSave = false)
 @StoreValidator(RejectingValidator::class)
@@ -177,8 +169,7 @@ class AcceptingValidator : Validator<RejectingByAnnotationData> {
     }
 }
 
-// ─── Les échecs de la factory ───────────────────────────────────────────────────────────────────
-
+/** Les échecs de la factory. */
 @Serializable
 data class NoCompanionData(var x: Int = 0)
 
@@ -220,8 +211,7 @@ class InvalidByDefaultValidator : Validator<InvalidByDefaultData> {
     }
 }
 
-// ─── Les Defaultable externes ───────────────────────────────────────────────────────────────────
-
+/** Les Defaultable externes. */
 class ExternalPlainDefaults : Defaultable<PlainData> {
     override fun getDefault(): PlainData = PlainData(name = "external", count = 7)
 }
@@ -234,8 +224,7 @@ class ExternalAnnotatedDefaults : Defaultable<AnnotatedData> {
     override fun getDefault(): AnnotatedData = AnnotatedData(greeting = "externe", uses = 9)
 }
 
-// ─── Les ressources embarquées (fichiers dans src\test\resources) ──────────────────────────────
-
+/** Les ressources embarquées (fichiers dans src\test\resources). */
 @Serializable
 @StorePath("build/tmp/storify-tests/annotated/resource-data.json")
 @StoreDefaultResource("resource-data_default.json")
@@ -253,8 +242,7 @@ class ValidatedResourceDataValidator : Validator<ValidatedResourceData> {
     }
 }
 
-// ─── La fixture TOML modeste (types que le format TOML représente sans détour) ─────────────────
-
+/** La fixture TOML modeste (types que le format TOML représente sans détour). */
 @Serializable
 data class TomlishData(
     var title: String = "storify",
@@ -270,9 +258,7 @@ data class TomlishData(
     }
 }
 
-// ─── Le sérialiseur écrit pour le JSON (C-29) : une règle à deux formes, `"allow"` ou `{ "value": ..., "note": ... }` ───────────────────────
-
-/** Une règle à deux formes JSON : la chaîne courte sans note, l'objet quand elle en porte une. */
+/** Le sérialiseur écrit pour le JSON (C-29) : une règle à deux formes, la chaîne courte `"allow"` sans note, l'objet `{ "value": ..., "note": ... }` quand elle en porte une. */
 @Serializable(with = ShapedRuleSerializer::class)
 data class ShapedRule(val value: String, val note: String? = null)
 
@@ -304,21 +290,17 @@ data class ShapedRulesData(var rules: MutableMap<String, ShapedRule> = mutableMa
     }
 }
 
-// ─── La lecture seule par annotation (C-30) ─────────────────────────────────────────────────────
-
+/** La lecture seule par annotation (C-30). */
 @Serializable
 @StoreConfiguration(readOnly = true)
 data class ReadOnlyAnnotatedData(var name: String = "lecture seule")
 
-// ─── Le logger nommé par annotation (C-37) ──────────────────────────────────────────────────────
-
+/** Le logger nommé par annotation (C-37). */
 @Serializable
 @StoreConfiguration(withAutoSave = false, loggerName = "annotated-mod")
 data class LoggerNameAnnotatedData(var name: String = "journal")
 
-// ─── La fabrique au sérialiseur donné (C-54) : une racine sans aucune annotation, son sérialiseur écrit à la main ──────────────────────
-
-/** Une racine sans aucune annotation, ni `@Serializable` ni rien de Storify : son sérialiseur, [BareRootSerializer], se donne à la fabrique en valeur. */
+/** La fabrique au sérialiseur donné (C-54) : une racine sans aucune annotation, ni `@Serializable` ni rien de Storify, dont le sérialiseur, [BareRootSerializer], écrit à la main, se donne à la fabrique en valeur. */
 class BareRoot(var name: String = "bare", var level: Int = 1, var leaf: BareLeaf = BareLeaf())
 
 /** Une feuille sans `@Serializable` : le type d'une propriété que `serializer<VALUE>()` ne trouve pas, la limite de la fabrique sous SNAPSHOT. */
@@ -347,8 +329,7 @@ class BareRootValidator : Validator<BareRoot> {
     }
 }
 
-// ─── La valeur hors domaine (C-56) : une énumération à la racine, dans un objet imbriqué et sous une clé de map ──────────────────────────
-
+/** La valeur hors domaine (C-56) : une énumération à la racine, dans un objet imbriqué et sous une clé de map. */
 enum class Mood { CALM, ANGRY }
 
 @Serializable

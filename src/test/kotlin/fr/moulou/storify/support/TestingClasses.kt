@@ -59,31 +59,6 @@ data class RandomData(
     var complexObject: MutableList<MutableMap<String, MutableMap<String, MutableList<String>>>>
 ) {
     companion object {
-
-        // ─────────────────────────────────────────────
-        // Validator pour RandomData (checks partiels)
-        // ─────────────────────────────────────────────
-        class RandomDataValidator : Validator<RandomData> {
-            private val homeValidator = HomeValidator()
-
-            override fun validate(data: RandomData, ctx: ValidationContext) {
-                // Vérifier que les listes de Home contiennent des données valides
-                ctx.validateEach("listOfHomeVar", data.listOfHomeVar, homeValidator)
-                ctx.validateEach("listOfHomeVal", data.listOfHomeVal, homeValidator)
-                ctx.validateEach("mutableListHomeVar", data.mutableListHomeVar, homeValidator)
-
-                // Les listes de strings ne doivent pas contenir de blancs
-                data.listOfStringVar.forEachIndexed { index, s ->
-                    ctx.check(s.isNotBlank(), "listOfStringVar[$index]", "must not be blank", s)
-                }
-
-                // Les sets d'entiers ne doivent pas contenir de valeurs négatives
-                data.setOfIntegerVar.forEach { value ->
-                    ctx.check(value >= 0, "setOfIntegerVar", "must not contain negative values", value)
-                }
-            }
-        }
-
         fun default(): RandomData {
             return RandomData(
                 listOfStringVar = listOf(), listOfStringVal = listOf(),
@@ -134,6 +109,27 @@ data class RandomData(
             )
         }
 
+        class RandomDataValidator : Validator<RandomData> {
+            private val homeValidator = HomeValidator()
+
+            override fun validate(data: RandomData, ctx: ValidationContext) {
+                // Vérifier que les listes de Home contiennent des données valides
+                ctx.validateEach("listOfHomeVar", data.listOfHomeVar, homeValidator)
+                ctx.validateEach("listOfHomeVal", data.listOfHomeVal, homeValidator)
+                ctx.validateEach("mutableListHomeVar", data.mutableListHomeVar, homeValidator)
+
+                // Les listes de strings ne doivent pas contenir de blancs
+                data.listOfStringVar.forEachIndexed { index, s ->
+                    ctx.check(s.isNotBlank(), "listOfStringVar[$index]", "must not be blank", s)
+                }
+
+                // Les sets d'entiers ne doivent pas contenir de valeurs négatives
+                data.setOfIntegerVar.forEach { value ->
+                    ctx.check(value >= 0, "setOfIntegerVar", "must not contain negative values", value)
+                }
+            }
+        }
+
     }
 }
 
@@ -142,9 +138,10 @@ data class SimpleNestedData(
     var randomDataVar: RandomData, val randomDataVal: RandomData,
 ) {
     companion object {
-        // ─────────────────────────────────────────────
-        // Validator pour SimpleNestedData
-        // ─────────────────────────────────────────────
+        fun default(): SimpleNestedData {
+            return SimpleNestedData(randomDataVar = RandomData.default(), randomDataVal = RandomData.default())
+        }
+
         class SimpleNestedDataValidator : Validator<SimpleNestedData> {
             private val randomDataValidator = RandomData.Companion.RandomDataValidator()
 
@@ -152,10 +149,6 @@ data class SimpleNestedData(
                 ctx.validateNested("randomDataVar", data.randomDataVar, randomDataValidator)
                 ctx.validateNested("randomDataVal", data.randomDataVal, randomDataValidator)
             }
-        }
-
-        fun default(): SimpleNestedData {
-            return SimpleNestedData(randomDataVar = RandomData.default(), randomDataVal = RandomData.default())
         }
     }
 }
@@ -179,24 +172,6 @@ data class PrimitivesBlock(
     var unitVar: Unit, val unitVal: Unit,
 ) {
     companion object {
-
-        // ─────────────────────────────────────────────
-        // Validator pour PrimitivesBlock
-        // ─────────────────────────────────────────────
-        class PrimitivesBlockValidator : Validator<PrimitivesBlock> {
-            @OptIn(ExperimentalUnsignedTypes::class)
-            override fun validate(data: PrimitivesBlock, ctx: ValidationContext) {
-                // Quelques vérifications de cohérence sur les primitives
-                ctx.check(data.intVar >= 0, "intVar", "must be non-negative", data.intVar)
-                ctx.check(data.longVar >= 0L, "longVar", "must be non-negative", data.longVar)
-                ctx.check(data.floatVar.isFinite(), "floatVar", "must be a finite number", data.floatVar)
-                ctx.check(data.doubleVar.isFinite(), "doubleVar", "must be a finite number", data.doubleVar)
-                ctx.check(!data.doubleVar.isNaN(), "doubleVar", "must not be NaN", data.doubleVar)
-                ctx.check(!data.floatVar.isNaN(), "floatVar", "must not be NaN", data.floatVar)
-                ctx.check(data.stringVar.length <= 1000, "stringVar", "must be 1000 characters or less", data.stringVar)
-            }
-        }
-
         fun default() = PrimitivesBlock(
             byteVar = 1, byteVal = 2,
             uByteVar = 1u, uByteVal = 2u,
@@ -213,6 +188,20 @@ data class PrimitivesBlock(
             stringVar = "hello", stringVal = "world",
             unitVar = Unit, unitVal = Unit,
         )
+
+        class PrimitivesBlockValidator : Validator<PrimitivesBlock> {
+            @OptIn(ExperimentalUnsignedTypes::class)
+            override fun validate(data: PrimitivesBlock, ctx: ValidationContext) {
+                // Quelques vérifications de cohérence sur les primitives
+                ctx.check(data.intVar >= 0, "intVar", "must be non-negative", data.intVar)
+                ctx.check(data.longVar >= 0L, "longVar", "must be non-negative", data.longVar)
+                ctx.check(data.floatVar.isFinite(), "floatVar", "must be a finite number", data.floatVar)
+                ctx.check(data.doubleVar.isFinite(), "doubleVar", "must be a finite number", data.doubleVar)
+                ctx.check(!data.doubleVar.isNaN(), "doubleVar", "must not be NaN", data.doubleVar)
+                ctx.check(!data.floatVar.isNaN(), "floatVar", "must not be NaN", data.floatVar)
+                ctx.check(data.stringVar.length <= 1000, "stringVar", "must be 1000 characters or less", data.stringVar)
+            }
+        }
     }
 }
 

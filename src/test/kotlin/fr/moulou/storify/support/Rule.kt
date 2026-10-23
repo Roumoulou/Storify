@@ -18,9 +18,6 @@ data class Rule(
     var allowedDimensionsFromWhichPlayerCanCreateAHome : MutableSet<String>
 )
 
-// ─────────────────────────────────────────────
-// Validator pour Rule
-// ─────────────────────────────────────────────
 class RuleValidator : Validator<Rule> {
     override fun validate(data: Rule, ctx: ValidationContext) {
         ctx.check(data.maxHomes in 1..100, "maxHomes", "must be between 1 and 100", data.maxHomes)
