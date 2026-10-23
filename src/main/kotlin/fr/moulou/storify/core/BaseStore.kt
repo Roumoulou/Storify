@@ -30,7 +30,7 @@ import kotlin.reflect.full.memberProperties
 
 /**
  * Le store : l'attelage d'une data class sérialisable, d'un fichier et de tout ce qu'un mod réclame autour, mécanisme par mécanisme dans
- * `Docs\architecture.md` (le cycle de vie au chapitre 4). Le corps de la classe suit l'ordre de Java : le companion, les propriétés du public au
+ * `docs\technical-docs\architecture.md` (le cycle de vie au chapitre 4). Le corps de la classe suit l'ordre de Java : le companion, les propriétés du public au
  * privé, `init`, puis les méthodes dans le sens de la vie d'un store (l'ouverture, la lecture, les mises à jour, les callbacks, les policies,
  * la persistance, la fin de vie, les aides communes), l'appelé sous l'appelant, et les types imbriqués en dernier.
  *

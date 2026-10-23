@@ -50,4 +50,5 @@ licence LGPL-3.0-only, la copie profonde par l'arbre JSON, le mode lecture seule
 l'écrivain atomique public, le JSON strict, le logger nommé) ; `0.3.0-SNAPSHOT` (2026-09-30 : la ressource embarquée copiée telle quelle,
 l'écriture JSON tamponnée, le pipeline d'update hors de l'inline) ; `0.4.0-SNAPSHOT` (2026-10-01, republiée le 2026-10-05 : les clés en double
 refusées, le localisateur borné à son parent) ; `0.5.0-SNAPSHOT` (2026-10-07 : `createFromProvider`, la ligne d'une faute sans offset) ;
-`0.6.0-SNAPSHOT` (2026-10-08 : le chemin d'une clé en double, `ErrorPath.render`). Le détail, chantier par chantier, vit dans `Docs\chantiers.md`.
+`0.6.0-SNAPSHOT` (2026-10-08 : le chemin d'une clé en double, `ErrorPath.render`). Le détail, chantier par chantier, vit dans
+`docs\technical-docs\chantiers.md`.

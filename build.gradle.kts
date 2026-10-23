@@ -29,7 +29,7 @@
    - maven-publish          la publication, sur Repsy et dans le dépôt Maven local
 
  Les dépôts vivent dans settings.gradle.kts, et nulle part ici (FAIL_ON_PROJECT_REPOS).
- La doc de la lib est dans Docs\ : architecture.md (le chapitre 14 pour les variantes)
+ La doc de la lib est dans docs\technical-docs\ : architecture.md (le chapitre 14 pour les variantes)
  et chantiers.md (C-65, C-66, C-68) ; la recette d'un consommateur, au README, section 4.
 ════════════════════════════════════════════════════════════════════════════════
 */

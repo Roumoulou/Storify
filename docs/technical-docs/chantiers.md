@@ -50,7 +50,8 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
 - **Priorités** : P1, les fondations (fiabilité et comportements par défaut) ; P2, l'API et le ménage ; P3, la vision (ce qui fait grandir).
 - **Effort** : S (une séance courte), M (une vraie séance), L (plusieurs séances ou une conception préalable).
 - **Sources** : `B1` à `B4` = constats n° 1 à 4 de la section 6 du README du banc ; `CRASH` = le crash client du 2026-09-13 à 11:30 ;
-  `TODO-1/2/3` = les trois points de l'ancien `Docs\TODO` ; `TESTS` = la remise au vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
+  `TODO-1/2/3` = les trois points de l'ancien `TODO` de la doc, rangé hors du dépôt dans `_archives\2026-10-23\Docs\` du classeur ; `TESTS` = la remise au
+  vert du 2026-09-13 ; `LECTURE` = la lecture du code ;
   `AVIS` = l'avis externe du 2026-09-28, écrit pour AegisPerms, un consommateur dont le fichier de droits est édité hors du mod, vérifié point par
   point contre le code le même jour ; `AEGIS` = la demande d'AegisPerms du 2026-09-30, section 4.12 de son cahier des charges ; `MMC` = la
   remontée de ManyManyCommands du 2026-10-05, chapitre 5.2 de son `architecture.md` ; `AEGIS-F` = la remontée de la session des fichiers
@@ -896,7 +897,12 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   au-dessus de la clé seulement ; pas de commentaire sur une entrée de map, la propriété qui porte la map garde le sien ; une clé nue reste nue sous
   `FILE_WINS`. Écarté : json5k ; une passe sur le texte TOML ; la traduction de `@StoreComment` vers tomlkt, parce qu'un sérialiseur généré donne son
   propre descripteur à `beginStructure` et qu'il faudrait envelopper l'encodeur et chaque sérialiseur imbriqué, ce que les sérialiseurs des
-  `TomlElement` de tomlkt refuseraient ; la lecture par réflexion, les formats ne recevant que le sérialiseur. **Fait le 2026-10-22** : `StoreComment` et `CommentPolicy` (`StoreAnnotations.kt`), `commentPolicy` dans `StoreConfig`, `@StoreConfiguration` et la factory, `StoreComments`, la surcharge de `PreservingStoreFormat` que `BaseStore` appelle, `Json5Format` (`encodeNew`, `reconcile`, `withComments`, `withoutComment`) ; huit tests dans `CommentsTest` et la démo `CommentsDemo`. Mesuré : 368 tests verts (les 357 et les 11 nouveaux), 198 classes en 69 et 198 en 55, l'essai de fumée vert sur le JDK 11, le banc vert en composite, gametests compris. Les docs : README (sections 1, 2 et 5), `architecture.md` (chapitres 2 et 9, où la raison de la copie json5 est réécrite), le `CHANGELOG.md` à la `0.9.0`, le readme du classeur.
+  `TomlElement` de tomlkt refuseraient ; la lecture par réflexion, les formats ne recevant que le sérialiseur. **Fait le 2026-10-22** : `StoreComment` et
+  `CommentPolicy` (`StoreAnnotations.kt`), `commentPolicy` dans `StoreConfig`, `@StoreConfiguration` et la factory, `StoreComments`, la surcharge de
+  `PreservingStoreFormat` que `BaseStore` appelle, `Json5Format` (`encodeNew`, `reconcile`, `withComments`, `withoutComment`) ; huit tests dans
+  `CommentsTest` et la démo `CommentsDemo`. Mesuré : 368 tests verts (les 357 et les 11 nouveaux), 198 classes en 69 et 198 en 55, l'essai de fumée vert
+  sur le JDK 11, le banc vert en composite, gametests compris. Les docs : README (sections 1, 2 et 5), `architecture.md` (chapitres 2 et 9, où la raison
+  de la copie json5 est réécrite), le `CHANGELOG.md` à la `0.9.0`, le readme du classeur.
 - [ ] **C-67 : une variante par cible Java, en une fonction du build** (M ; réflexion du 2026-10-19). Depuis C-65, l'artefact porte deux
   variantes, Java 25 et Java 11 depuis C-68, et aucun fichier propre à l'une d'elles : les deux jars font la même chose, aux idiomes du compilateur près. Une
   variante de plus (17, 21) ne vaut que si elle contient ce que la 11 ne peut pas contenir, une API du JDK (les threads virtuels de Java 21 pour
@@ -939,5 +945,4 @@ Un chantier à la fois ; un chantier qui en révèle un autre l'ajoute à la lis
 
 ---
 
-*Dernière vérification : 2026-10-22, C-28 à C-34, C-36, C-37, C-39 à C-61, C-63 à C-66, C-68 et C-69 cochés, C-35, C-38, C-62 et C-67 en attente ; les constats du banc à jour
-au 2026-09-23.*
+*Dernière vérification : 2026-10-22.*

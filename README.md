@@ -17,7 +17,8 @@ rapport d'erreurs détaillé, et un sidecar de métadonnées.
   publié, preuve faite le 2026-09-23 sur un serveur sans Gradle.
 - Build et tests : verts au 2026-10-22 (371 tests, le bytecode des deux variantes et l'essai de fumée sur Java 11, section 6), sur la stack
   ci-dessous.
-- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente) vivent dans `Docs\chantiers.md`.
+- L'API n'est pas encore stabilisée : les chantiers ouverts (C-17, C-19 et C-20 ; C-35, C-38, C-62 et C-67 en attente) vivent dans
+  `docs\technical-docs\chantiers.md`.
 - Dépôt Git : `https://github.com/Roumoulou/Storify`, public ; branche `master`, un chantier par branche fondue par `merge --no-ff`, une
   release par tag `v<version>` (`git-et-versions.md` de The Human Readme) ; `CHANGELOG.md` tient les versions.
 - Licence : LGPL-3.0-only (section 9) : le texte de la licence est `LICENSE`, celui de la GPL v3 qu'elle incorpore `LICENSE.GPL`, et chaque source
@@ -272,7 +273,7 @@ version publiée est une release : un tag `v<version>` sur `master`, une release
 
 ## 7. Les limites connues
 
-En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `Docs\chantiers.md` :
+En toute franchise, mesurées au banc et par les tests ; le détail et les remèdes vivent dans `docs\technical-docs\chantiers.md` :
 
 - la validation à l'update est un opt-in (`validateOnUpdate`) volontairement non recommandé : chaque geste copie la racine entière et valide sous
   verrou ; préférez des contrôles métier avant de muter, `validateNow()` et la revalidation du reload couvrent le reste ;
@@ -284,9 +285,8 @@ En toute franchise, mesurées au banc et par les tests ; le détail et les remè
 
 ## 8. La documentation
 
-- `Docs\architecture.md` : comment la lib est faite, mécanisme par mécanisme.
-- `Docs\chantiers.md` : le bilan (forces et faiblesses) et la liste priorisée de tout ce qui est à revoir, refaire ou construire.
-- `Docs\info.md` et `Docs\TODO` : les documents historiques (l'ancien brief d'analyse et les premières notes), absorbés par les deux précédents.
+- `docs\technical-docs\architecture.md` : comment la lib est faite, mécanisme par mécanisme.
+- `docs\technical-docs\chantiers.md` : le bilan (forces et faiblesses) et la liste priorisée de tout ce qui est à revoir, refaire ou construire.
 - `CHANGELOG.md` : les versions publiées, de la plus récente à la plus ancienne, et ce que chacune apporte.
 
 ## 9. La licence
