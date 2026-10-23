@@ -9,13 +9,18 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
+max_line_length = 280
 ij_kotlin_allow_trailing_comma = true
 ij_kotlin_allow_trailing_comma_on_call_site = true
+
+[*.java]
+max_line_length = 280
 
 [*.{json,yml,yaml,toml}]
 indent_size = 2
 
 [*.md]
+max_line_length = 160
 trim_trailing_whitespace = false
 
 [*.{bat,cmd}]
@@ -24,5 +29,5 @@ end_of_line = crlf
 [gradlew.bat]
 end_of_line = crlf
 
-[*.ps1]
+[*.{ps1,psd1}]
 charset = utf-8-bom

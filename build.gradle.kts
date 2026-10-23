@@ -271,8 +271,8 @@ tasks.withType<Jar>().configureEach {
  SECTION 6 — LES TESTS
 ════════════════════════════════════════════════════════════════════════════════
 
- La suite JUnit (356 tests au 2026-10-19, plus le bac à sable local) tourne sur la
- variante Java 25, la toolchain du projet, et écrit ses fichiers dans
+ La suite JUnit (plus le bac à sable local, hors Git) tourne sur la variante Java 25,
+ la toolchain du projet, et écrit ses fichiers dans
  build\tmp\storify-tests. Elle valide la logique une fois : les deux variantes viennent
  des mêmes sources, et la promesse Java 11 se tient à la section 7.
 
@@ -289,6 +289,13 @@ tasks.test {
         showExceptions = true
         showCauses = true
         exceptionFormat = TestExceptionFormat.FULL
+    }
+    // Le rapport XML de JUnit nomme le poste (hostname) : réécrit en localhost après la tâche, pour qu'un scan de build\ ne le relève pas ; un générique à chevrons n'est pas un attribut XML valide.
+    val reportDir = reports.junitXml.outputLocation
+    doLast {
+        reportDir.get().asFile.walkTopDown().filter { it.extension == "xml" }.forEach { report ->
+            report.writeText(report.readText().replace(Regex("hostname=\"[^\"]*\""), "hostname=\"localhost\""))
+        }
     }
 }
 
