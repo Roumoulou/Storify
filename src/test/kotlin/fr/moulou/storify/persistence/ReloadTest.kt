@@ -110,8 +110,6 @@ class ReloadTest {
         }
     }
 
-    // ─── Le fichier gagne (C-47) ───
-
     @Test
     fun `un rechargement sur un store modifié écarte la modification, le fichier gagne, et le dirty retombe`() {
         val path = newStorePath("reload-dirty.json")

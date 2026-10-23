@@ -20,18 +20,6 @@ import java.io.PrintStream
  */
 class LoggerNameTest {
 
-    private fun captureLog(block: () -> Unit): List<String> {
-        val buffer = ByteArrayOutputStream()
-        val original = System.out
-        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
-        try {
-            block()
-        } finally {
-            System.setOut(original)
-        }
-        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
-    }
-
     @Test
     fun `le logger d'un store se nomme Storify par défaut`() {
         StoreFactory.create<PlainData>(newStorePath("default.json").toString(), config = StoreConfig(withAutoSave = false)).use { store ->
@@ -49,5 +37,17 @@ class LoggerNameTest {
 
         assertTrue(lines.isNotEmpty())
         lines.forEach { line -> assertTrue(line.contains(" aegisperms - [Storify] "), line) }
+    }
+
+    private fun captureLog(block: () -> Unit): List<String> {
+        val buffer = ByteArrayOutputStream()
+        val original = System.out
+        System.setOut(PrintStream(buffer, true, Charsets.UTF_8))
+        try {
+            block()
+        } finally {
+            System.setOut(original)
+        }
+        return buffer.toString(Charsets.UTF_8).lines().filter { it.isNotBlank() }
     }
 }

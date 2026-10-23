@@ -19,27 +19,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.io.path.writeText
 
-// ─── La fixture : un effectif dont les chemins traversent une map, validée par validateEach ─────
-
-@Serializable
-data class Member(var joinCount: Int = 0)
-
-@Serializable
-data class Roster(var name: String = "roster", var players: MutableMap<String, Member> = mutableMapOf("steve" to Member()))
-
-object MemberValidator : Validator<Member> {
-    override fun validate(data: Member, ctx: ValidationContext) {
-        ctx.check(data.joinCount >= 0, "joinCount", "must not be negative", data.joinCount)
-    }
-}
-
-class RosterValidator : Validator<Roster> {
-    override fun validate(data: Roster, ctx: ValidationContext) {
-        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
-        ctx.validateEach("players", data.players, MemberValidator)
-    }
-}
-
+/** La fixture : un effectif dont les chemins traversent une map, validée par validateEach. */
 /**
  * `validateFile` (C-32) : un fichier se valide sans store, décodé, validé et enrichi des lignes ; le store inspecte le sien sur le disque sans
  * toucher la mémoire ; un format sans localisateur rend les erreurs sans lignes ; un fichier qui ne se décode pas lève.
@@ -94,5 +74,24 @@ class ValidateFileTest {
         val failure = assertThrows(StoreDecodeException::class.java) { JsonFormat().validateFile(path, RosterValidator()) }
         assertInstanceOf(SerializationException::class.java, failure.cause)
         assertTrue(failure.message!!.contains("broken.json"))
+    }
+}
+
+@Serializable
+data class Member(var joinCount: Int = 0)
+
+@Serializable
+data class Roster(var name: String = "roster", var players: MutableMap<String, Member> = mutableMapOf("steve" to Member()))
+
+object MemberValidator : Validator<Member> {
+    override fun validate(data: Member, ctx: ValidationContext) {
+        ctx.check(data.joinCount >= 0, "joinCount", "must not be negative", data.joinCount)
+    }
+}
+
+class RosterValidator : Validator<Roster> {
+    override fun validate(data: Roster, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+        ctx.validateEach("players", data.players, MemberValidator)
     }
 }

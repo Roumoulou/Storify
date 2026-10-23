@@ -22,69 +22,7 @@ import kotlin.system.measureNanoTime
 @OptIn(ExperimentalSerializationApi::class)
 class DeepCopyBenchmark {
 
-    // ── Data classes de test ──
-
-    @Serializable
-    data class Tiny(var x: Int = 42, var name: String = "hello")
-
-    @Serializable
-    data class Small(
-        var name: String = "Alice",
-        var level: Int = 10,
-        var health: Double = 99.5,
-        var active: Boolean = true
-    )
-
-    @Serializable
-    data class Medium(
-        var name: String = "Guild_Alpha",
-        var level: Int = 5,
-        var members: List<MemberData> = (1..20).map { MemberData("Player_$it", it * 10) },
-        var ranks: Map<String, Int> = mapOf("owner" to 100, "officer" to 50, "member" to 10)
-    )
-
-    @Serializable
-    data class MemberData(var username: String, var score: Int)
-
-    @Serializable
-    data class Large(
-        var name: String = "BigGuild",
-        var members: List<MemberData> = (1..200).map { MemberData("Player_$it", it) },
-        var inventory: Map<String, List<String>> = (1..50).associate {
-            "slot_$it" to (1..10).map { i -> "item_${it}_$i" }
-        },
-        var nested: Medium = Medium()
-    )
-
-    @Serializable
-    data class Huge(
-        var guilds: List<Large> = (1..10).map { Large(name = "Guild_$it") },
-        var metadata: Map<String, String> = (1..100).associate { "key_$it" to "value_$it" }
-    )
-
     private val cbor = Cbor { encodeDefaults = true }
-
-    // ── Benchmark runner ──
-
-    private inline fun <reified T> bench(label: String, iterations: Int, obj: T) {
-        val serializer = serializer<T>()
-        val viaCbor = { cbor.decodeFromByteArray(serializer, cbor.encodeToByteArray(serializer, obj)) }
-
-        // Warmup
-        repeat(1_000) { obj.deepCopy(); viaCbor() }
-
-        // Measure
-        val treeNs = measureNanoTime { repeat(iterations) { obj.deepCopy() } }
-        val cborNs = measureNanoTime { repeat(iterations) { viaCbor() } }
-
-        val treeUs = (treeNs / iterations) / 1_000.0
-        val cborUs = (cborNs / iterations) / 1_000.0
-        val opsPerSec = if (treeUs > 0) (1_000_000.0 / treeUs).toLong() else 0
-
-        println("%-12s │ %8.1f µs │ %8.1f µs │ %,10d ops/s │ %,d iterations".format(label, treeUs, cborUs, opsPerSec, iterations))
-    }
-
-    // ── Tests ──
 
     @Test
     fun `deep copy benchmark, all sizes`() {
@@ -161,4 +99,60 @@ class DeepCopyBenchmark {
         println("═══════════════════════════════════════════════════════════════════")
         println()
     }
+
+    private inline fun <reified T> bench(label: String, iterations: Int, obj: T) {
+        val serializer = serializer<T>()
+        val viaCbor = { cbor.decodeFromByteArray(serializer, cbor.encodeToByteArray(serializer, obj)) }
+
+        // Warmup
+        repeat(1_000) { obj.deepCopy(); viaCbor() }
+
+        // Measure
+        val treeNs = measureNanoTime { repeat(iterations) { obj.deepCopy() } }
+        val cborNs = measureNanoTime { repeat(iterations) { viaCbor() } }
+
+        val treeUs = (treeNs / iterations) / 1_000.0
+        val cborUs = (cborNs / iterations) / 1_000.0
+        val opsPerSec = if (treeUs > 0) (1_000_000.0 / treeUs).toLong() else 0
+
+        println("%-12s │ %8.1f µs │ %8.1f µs │ %,10d ops/s │ %,d iterations".format(label, treeUs, cborUs, opsPerSec, iterations))
+    }
+
+    @Serializable
+    data class Tiny(var x: Int = 42, var name: String = "hello")
+
+    @Serializable
+    data class Small(
+        var name: String = "Alice",
+        var level: Int = 10,
+        var health: Double = 99.5,
+        var active: Boolean = true
+    )
+
+    @Serializable
+    data class Medium(
+        var name: String = "Guild_Alpha",
+        var level: Int = 5,
+        var members: List<MemberData> = (1..20).map { MemberData("Player_$it", it * 10) },
+        var ranks: Map<String, Int> = mapOf("owner" to 100, "officer" to 50, "member" to 10)
+    )
+
+    @Serializable
+    data class MemberData(var username: String, var score: Int)
+
+    @Serializable
+    data class Large(
+        var name: String = "BigGuild",
+        var members: List<MemberData> = (1..200).map { MemberData("Player_$it", it) },
+        var inventory: Map<String, List<String>> = (1..50).associate {
+            "slot_$it" to (1..10).map { i -> "item_${it}_$i" }
+        },
+        var nested: Medium = Medium()
+    )
+
+    @Serializable
+    data class Huge(
+        var guilds: List<Large> = (1..10).map { Large(name = "Guild_$it") },
+        var metadata: Map<String, String> = (1..100).associate { "key_$it" to "value_$it" }
+    )
 }

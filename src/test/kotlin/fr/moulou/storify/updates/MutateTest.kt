@@ -25,7 +25,9 @@ import org.junit.jupiter.api.Test
 class MutateTest {
 
     private val skipConfig = StoreConfig(withAutoSave = false)
+
     private val snapshotConfig = StoreConfig(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
+
     private val shallowConfig = StoreConfig(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SHALLOW)
 
     @Test

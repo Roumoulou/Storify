@@ -21,13 +21,22 @@ import kotlin.system.exitProcess
 data class Cfg(var greeting: String = "Bienvenue", var count: Int = 1)
 
 private val noThreads = StoreConfig(withAutoSave = false, withShutdownHook = false)
+
 private val failures = mutableListOf<String>()
 
-private fun check(condition: Boolean, what: String) {
-    if (condition) println("  ok : $what") else {
-        println("  ÉCHEC : $what")
-        failures += what
+fun main(args: Array<String>) {
+    val javaVersion = System.getProperty("java.version")
+    println("Essai de fumée de la variante jdk11 de Storify sur Java $javaVersion")
+    check(javaVersion.startsWith("11."), "la JVM est un Java 11 ($javaVersion)")
+    val dir = File(args[0]).apply { deleteRecursively(); mkdirs() }
+    for (extension in listOf("json", "toml", "json5")) roundTrip(dir, extension)
+    preserve(dir)
+    duplicate(dir)
+    if (failures.isNotEmpty()) {
+        println("${failures.size} échec(s) sur Java $javaVersion")
+        exitProcess(1)
     }
+    println("La variante jdk11 passe sur Java $javaVersion : trois formats, la sauvegarde préservante, la clé en double.")
 }
 
 /** Un store créé depuis le constructeur, modifié, sauvé, puis rouvert : la valeur relue est celle écrite. */
@@ -80,17 +89,9 @@ private fun duplicate(dir: File) {
     check("line 4" in message && "Duplicate key 'count'" in message, "[dup] le message porte la ligne 4 et la clé : $message")
 }
 
-fun main(args: Array<String>) {
-    val javaVersion = System.getProperty("java.version")
-    println("Essai de fumée de la variante jdk11 de Storify sur Java $javaVersion")
-    check(javaVersion.startsWith("11."), "la JVM est un Java 11 ($javaVersion)")
-    val dir = File(args[0]).apply { deleteRecursively(); mkdirs() }
-    for (extension in listOf("json", "toml", "json5")) roundTrip(dir, extension)
-    preserve(dir)
-    duplicate(dir)
-    if (failures.isNotEmpty()) {
-        println("${failures.size} échec(s) sur Java $javaVersion")
-        exitProcess(1)
+private fun check(condition: Boolean, what: String) {
+    if (condition) println("  ok : $what") else {
+        println("  ÉCHEC : $what")
+        failures += what
     }
-    println("La variante jdk11 passe sur Java $javaVersion : trois formats, la sauvegarde préservante, la clé en double.")
 }

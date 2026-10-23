@@ -34,25 +34,12 @@ import kotlin.system.measureNanoTime
  *   4. le bord : un callback enregistré sur un store déjà modifié n'a pas d'avant à son premier save ;
  *   5. le prix de cette copie sur une racine de cinq mille joueurs, que seul un store écouté paie encore.
  */
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class SaveSnapshotDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
+
     private val noCopies = StoreConfig(withAutoSave = false, useDeepCopy = false)
-
-    private fun countedStore(config: StoreConfig) = StoreFactory.create<CountedData>(newStorePath("counted.json").toString(), config = config)
-
-    /** Le nombre de sérialisations de la racine pendant [block] : une par écriture de fichier, une par copie profonde. */
-    private fun serializationsDuring(block: () -> Unit): Int {
-        val before = CountedBoxSerializer.serializations
-        block()
-        return CountedBoxSerializer.serializations - before
-    }
-
-    private fun describe(captured: CapturedValue<CountedData>): String = captured.valueOrNull?.let { "${captured::class.simpleName}(box = ${it.box.value})" } ?: "Unavailable"
-
-    private fun show(saves: List<SaveOperation<CountedData>>) = saves.forEachIndexed { index, save -> println("    save ${index + 1} : old = ${describe(save.old)}, new = ${describe(save.new)}") }
 
     @Test
     fun `étape 1, depuis C-41, l'ouverture ne copie plus la racine`() {
@@ -126,4 +113,17 @@ class SaveSnapshotDemoTest {
         println("    une sauvegarde sans auditeur      : %.2f ms en moyenne, l'écriture seule".format(averageSaveMs(listened = false)))
         println("    une sauvegarde devant un auditeur : %.2f ms en moyenne, l'écriture plus la copie".format(averageSaveMs(listened = true)))
     }
+
+    private fun countedStore(config: StoreConfig) = StoreFactory.create<CountedData>(newStorePath("counted.json").toString(), config = config)
+
+    /** Le nombre de sérialisations de la racine pendant [block] : une par écriture de fichier, une par copie profonde. */
+    private fun serializationsDuring(block: () -> Unit): Int {
+        val before = CountedBoxSerializer.serializations
+        block()
+        return CountedBoxSerializer.serializations - before
+    }
+
+    private fun describe(captured: CapturedValue<CountedData>): String = captured.valueOrNull?.let { "${captured::class.simpleName}(box = ${it.box.value})" } ?: "Unavailable"
+
+    private fun show(saves: List<SaveOperation<CountedData>>) = saves.forEachIndexed { index, save -> println("    save ${index + 1} : old = ${describe(save.old)}, new = ${describe(save.new)}") }
 }

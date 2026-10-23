@@ -37,8 +37,6 @@ class ResolutionTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
-    // ─── Le format ───
-
     @Test
     fun `le format explicite bat l'annotation et l'extension`() {
         val path = newStorePath("config.toml")
@@ -63,8 +61,6 @@ class ResolutionTest {
         assertTrue(jsonPath.readText().trimStart().startsWith("{"))
         assertTrue(tomlPath.readText().contains("title = "))
     }
-
-    // ─── La config ───
 
     @Test
     fun `la config explicite bat l'annotation, le sidecar en témoin`() {
@@ -96,8 +92,6 @@ class ResolutionTest {
         assertThrows(ValidationException::class.java) { StoreFactory.createFromConstructor<AnnotatedValidatedData>(path.toString()) }
     }
 
-    // ─── Le validator ───
-
     @Test
     fun `le validator explicite bat l'annoté`() {
         // L'annoté refuse tout : si le store naît, c'est l'explicite (qui accepte tout) qui a tourné.
@@ -109,8 +103,6 @@ class ResolutionTest {
             StoreFactory.createFromConstructor<RejectingByAnnotationData>(newStorePath("who2.json").toString())
         }
     }
-
-    // ─── La lecture seule (C-30) ───
 
     @Test
     fun `l'annotation readOnly se résout, et une config explicite la bat`() {
@@ -133,8 +125,6 @@ class ResolutionTest {
             assertEquals("Storify", store.loggerName) // l'explicite gagne, avec son défaut
         }
     }
-
-    // ─── Le fail-fast C-09 ───
 
     @Test
     fun `un DATA non sérialisable échoue à la création, avant tout fichier`() {

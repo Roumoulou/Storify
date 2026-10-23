@@ -26,13 +26,6 @@ import org.junit.jupiter.api.TestMethodOrder
  *
  *   1. le fichier .class d'un appelant qui ouvre deux stores : sa taille, et tout ce qu'il référence de la lib, classe par classe.
  */
-
-/** L'appelant type : un mod qui ouvre sa config et ses données, rien de plus. */
-class OpeningCaller {
-    fun openConfig(path: String) = StoreFactory.createFromConstructor<ScalarData>(path, config = StoreConfig(withAutoSave = false))
-    fun openData(path: String) = StoreFactory.create<PlainData>(path)
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class StoreOpeningDemoTest {
 
@@ -51,4 +44,10 @@ class StoreOpeningDemoTest {
         }
         check(references.all { it.startsWith("core/StoreFactory.") || it == "core/StoreConfig.<init>" }) // la factory, et la config que l'appelant construit lui-même
     }
+}
+
+/** L'appelant type : un mod qui ouvre sa config et ses données, rien de plus. */
+class OpeningCaller {
+    fun openConfig(path: String) = StoreFactory.createFromConstructor<ScalarData>(path, config = StoreConfig(withAutoSave = false))
+    fun openData(path: String) = StoreFactory.create<PlainData>(path)
 }

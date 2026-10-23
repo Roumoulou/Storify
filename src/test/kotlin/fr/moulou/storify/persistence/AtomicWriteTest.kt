@@ -41,38 +41,6 @@ class AtomicWriteTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
-    /** Un format tiers étourdi : il ne crée pas les dossiers parents ; `atomicWrite` doit couvrir. */
-    class ForgetfulFormat : StoreFormat {
-        private val json = Json { encodeDefaults = true }
-
-        @OptIn(ExperimentalSerializationApi::class)
-        override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
-            return path.inputStream().use { stream -> json.decodeFromStream(deserializer, stream) }
-        }
-
-        @OptIn(ExperimentalSerializationApi::class)
-        override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
-            path.outputStream().use { stream -> json.encodeToStream(serializer, data, stream) } // aucun createDirectories, exprès
-        }
-
-        override fun fileExtension(): String = "forgetful"
-    }
-
-    /** Un format qui tombe en panne au milieu de l'écriture : la moitié du JSON, puis une IOException. */
-    class CrashingFormat : StoreFormat {
-        private val json = JsonFormat()
-        override fun fileExtension(): String = "json"
-        override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA = json.decodeFromPath(deserializer, path)
-        override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
-            path.outputStream().use { stream ->
-                stream.write("{\n  \"name\": \"à moitié".toByteArray())
-                throw IOException("disque plein au milieu de l'écriture")
-            }
-        }
-    }
-
-    private fun noTempLeft(directory: Path): Boolean = Files.list(directory).use { stream -> stream.noneMatch { it.fileName.toString().endsWith(".tmp") } }
-
     @Test
     fun `aucun fichier temporaire ne survit à une sauvegarde`() {
         val path = newStorePath("clean.json")
@@ -181,5 +149,37 @@ class AtomicWriteTest {
 
         assertTrue(Files.exists(foreign))
         assertFalse(Files.exists(own))
+    }
+
+    private fun noTempLeft(directory: Path): Boolean = Files.list(directory).use { stream -> stream.noneMatch { it.fileName.toString().endsWith(".tmp") } }
+
+    /** Un format tiers étourdi : il ne crée pas les dossiers parents ; `atomicWrite` doit couvrir. */
+    class ForgetfulFormat : StoreFormat {
+        private val json = Json { encodeDefaults = true }
+
+        @OptIn(ExperimentalSerializationApi::class)
+        override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA {
+            return path.inputStream().use { stream -> json.decodeFromStream(deserializer, stream) }
+        }
+
+        @OptIn(ExperimentalSerializationApi::class)
+        override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
+            path.outputStream().use { stream -> json.encodeToStream(serializer, data, stream) } // aucun createDirectories, exprès
+        }
+
+        override fun fileExtension(): String = "forgetful"
+    }
+
+    /** Un format qui tombe en panne au milieu de l'écriture : la moitié du JSON, puis une IOException. */
+    class CrashingFormat : StoreFormat {
+        private val json = JsonFormat()
+        override fun fileExtension(): String = "json"
+        override fun <DATA> decodeFromPath(deserializer: DeserializationStrategy<DATA>, path: Path): DATA = json.decodeFromPath(deserializer, path)
+        override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
+            path.outputStream().use { stream ->
+                stream.write("{\n  \"name\": \"à moitié".toByteArray())
+                throw IOException("disque plein au milieu de l'écriture")
+            }
+        }
     }
 }

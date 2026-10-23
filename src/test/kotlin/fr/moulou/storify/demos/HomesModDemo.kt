@@ -26,12 +26,192 @@ import java.nio.file.Paths
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-// ═══ Le domaine : un mod de homes, comme on l'écrirait pour un vrai serveur ═════════════════════
-//
-// Deux stores, deux vies : la CONFIG (TOML, éditée par l'admin, écrite au moment où on la modifie)
-// et les DONNÉES (JSON du monde, vivantes, auto-sauvées). C'est le découpage type d'un mod Storify.
+/**
+ * La visite guidée de Storify, au propre, sur le domaine du mod de homes : cinq démos autonomes,
+ * chacune centrée sur une facette de la lib (naissance et défauts, édition de config sous callbacks,
+ * logique métier avec cooldown, auto-save réel, édition à chaud revalidée).
+ *
+ * Chaque démo repart d'un dossier vierge : le ménage de [cleanSlate] efface ce qu'une exécution
+ * précédente aurait laissé (fichiers de stores, sidecars, temporaires). Les fichiers vivent dans
+ * `build\tmp\storify-demo`, que `gradlew clean` emporte.
+ */
+class HomesModDemo {
+
+    private val demoDirectory: Path = Paths.get("build", "tmp", "storify-demo")
+
+    private val configPath: Path = demoDirectory.resolve("config").resolve("homesmod.toml")
+
+    private val dataPath: Path = demoDirectory.resolve("world").resolve("data").resolve("homes.json")
+
+    /** Le réglage type d'une config : validée, sans auto-save (elle s'écrit quand on la modifie), observable (SNAPSHOT). */
+    private val configSettings = StoreConfig(withValidation = true, withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
+
+    /** Le réglage type des données quand la démo n'a pas besoin d'auto-save : validées, observables. */
+    private val dataSettings = StoreConfig(withValidation = true, withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
+
+    /**
+     * LE MÉNAGE DU DÉBUT. Si une exécution précédente a laissé des fichiers, la démo repartirait
+     * d'un état inconnu (un TOML déjà modifié, un JSON avec d'anciens joueurs). On efface donc tout
+     * le dossier de démo, systématiquement, avant chaque test : c'est le prix d'un départ déterministe,
+     * et le bon réflexe pour toute démo qui écrit sur disque.
+     */
+    @BeforeEach
+    fun cleanSlate() {
+        if (Files.exists(demoDirectory)) {
+            Files.walk(demoDirectory).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
+        }
+    }
+
+    /** Démo 1 : la naissance d'un store. */
+    @Test
+    fun `la config naît avec ses défauts, validée, dans un TOML lisible`() {
+        // createFromConstructor : les données initiales viennent des défauts du constructeur.
+        // Le format n'est pas précisé : l'extension .toml le résout toute seule ; les dossiers
+        // manquants sont créés à l'écriture, et la validation tourne AVANT que le fichier naisse
+        // (des défauts invalides ne toucheraient jamais le disque).
+        val store = StoreFactory.createFromConstructor<HomesModConfig>(
+            stringPath = configPath.toString(),
+            config = configSettings,
+            validator = HomesModConfigValidator(),
+        )
+
+        assertEquals(3, store.data.maxHomesPerPlayer)
+        assertTrue(Files.exists(configPath)) // le fichier initial est né...
+        assertTrue(configPath.readText().contains("maxHomesPerPlayer = 3")) // ... en TOML lisible par l'admin
+
+        store.close() // la fin de vie propre : un store se ferme comme un flux (il est AutoCloseable)
+    }
+
+    /** Démo 2 : la config s'édite sous callbacks et se persiste immédiatement. */
+    @Test
+    fun `la config se modifie sous callbacks et s'écrit d'un saveImmediate`() {
+        val store = StoreFactory.createFromConstructor<HomesModConfig>(configPath.toString(), config = configSettings, validator = HomesModConfigValidator())
+
+        // L'observatoire : en SNAPSHOT, chaque callback reçoit un avant/après figé, qu'on peut
+        // logguer ou comparer sans craindre qu'il change sous nos pieds.
+        val updates = mutableListOf<Operation<HomesModConfig>>()
+        store.registerOnUpdate { updates.add(it) }
+
+        store.set(HomesModConfig::cooldownSeconds, 120)
+        store.saveImmediate() // pas d'auto-save sur une config : on écrit au moment où l'on modifie
+
+        val operation = assertInstanceOf(SetOperation::class.java, updates.single())
+        assertEquals(60, operation.old.valueOrNull)  // l'avant...
+        assertEquals(120, operation.new.valueOrNull) // ... et l'après
+        assertTrue(configPath.readText().contains("cooldownSeconds = 120"))
+
+        store.close()
+    }
+
+    /**
+     * Démo 3 : la logique du mod : sethome, limite, cooldown, callback ciblé. Le pattern recommandé : les CONTRÔLES MÉTIER (la limite de homes, le
+     * cooldown) se font AVANT de muter ; la validation de la lib garde la frontière du fichier, pas chaque geste interne.
+     */
+    @Test
+    fun `sethome respecte la limite de la config, home respecte le cooldown`() {
+        val config = StoreFactory.createFromConstructor<HomesModConfig>(configPath.toString(), config = configSettings, validator = HomesModConfigValidator())
+        // Pas de validator explicite ici : celui de @StoreValidator sur HomesModData est résolu tout seul.
+        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = dataSettings)
+
+        val steve = "8667ba71-b85a-4004-af54-457a9734eed7"
+        var clockSeconds = 1_000L // l'horloge simulée de la démo (en vrai : l'horloge du serveur)
+
+        // « /sethome » : le contrôle métier d'abord, la mutation typée ensuite (getOrPut crée le dossier du joueur).
+        fun setHome(uuid: String, playerName: String, homeName: String, home: Home): Boolean {
+            val existing = homes.data.players[uuid]?.homes ?: emptyMap()
+            if (homeName !in existing && existing.size >= config.data.maxHomesPerPlayer) return false
+            homes.mutate(HomesModData::players) { players ->
+                players.getOrPut(uuid) { PlayerHomes(name = playerName) }.homes[homeName] = home
+            }
+            return true
+        }
+
+        // « /home » : le cooldown d'abord ; s'il passe, l'horodatage (setIn en navigation) et le compteur (set).
+        fun teleport(uuid: String, homeName: String): Boolean {
+            val record = homes.data.players[uuid] ?: return false
+            if (homeName !in record.homes) return false
+            if (clockSeconds - record.lastTeleportAtEpochSecond < config.data.cooldownSeconds) return false
+            homes.setIn(PlayerHomes::lastTeleportAtEpochSecond, clockSeconds) { players.getValue(uuid) }
+            homes.set(HomesModData::totalTeleports, homes.data.totalTeleports + 1)
+            return true
+        }
+
+        // Trois homes passent, le quatrième bute sur la limite lue dans la config.
+        // Un Home se construit toujours en entier : pas de valeurs par défaut, pas de home à moitié posé.
+        assertTrue(setHome(steve, "Steve", "base", Home("minecraft:overworld", x = 100.0, y = 64.0, z = 200.0)))
+        assertTrue(setHome(steve, "Steve", "mine", Home("minecraft:overworld", x = 0.0, y = 12.0, z = 0.0)))
+        assertTrue(setHome(steve, "Steve", "ferme", Home("minecraft:the_nether", x = 30.0, y = 70.0, z = -40.0)))
+        assertFalse(setHome(steve, "Steve", "plage", Home("minecraft:overworld", x = 500.0, y = 63.0, z = 500.0))) // maxHomesPerPlayer = 3
+
+        // Le callback ciblé : il ne parle que quand LE compteur bouge, pas à chaque update du store.
+        var counterCallbacks = 0
+        homes.registerOnUpdateOn(HomesModData::totalTeleports) { counterCallbacks++ }
+
+        assertTrue(teleport(steve, "base"))  // premier voyage : le cooldown démarre
+        assertFalse(teleport(steve, "mine")) // trop tôt : refusé sans avoir rien muté
+        clockSeconds += 61
+        assertTrue(teleport(steve, "mine"))  // le cooldown (60 s) est purgé
+
+        assertEquals(2, homes.data.totalTeleports)
+        assertEquals(2, counterCallbacks)
+
+        // La fin : close() fait la sauvegarde d'adieu du dirty restant, puis libère tout.
+        homes.close()
+        config.close()
+        assertTrue(dataPath.readText().contains("\"base\""))
+    }
+
+    /** Démo 4 : l'auto-save, le vrai. */
+    @Test
+    fun `l'auto-save persiste tout seul, puis close libère le monde`() {
+        // Intervalle court pour la démo ; en vrai : 30 s ou plus. À noter : même la policy par
+        // défaut (SKIP, silencieuse pour les callbacks) marque le store dirty : la persistance
+        // ne dépend jamais de l'observation.
+        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = StoreConfig(withAutoSave = true, autoSaveIntervalMs = 100))
+
+        val saves = mutableListOf<Operation<HomesModData>>()
+        homes.registerOnSave { saves.add(it) }
+
+        homes.mutate(HomesModData::players) { players -> players.getOrPut("alex-uuid") { PlayerHomes(name = "Alex") } }
+
+        // On attend le tick (généreusement : 5 s de marge pour un intervalle de 100 ms).
+        val deadline = System.currentTimeMillis() + 5_000
+        while (saves.none { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE } && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+        }
+
+        assertTrue(saves.any { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE })
+        assertTrue(dataPath.readText().contains("Alex"))
+
+        homes.close() // sans close(), le thread du planificateur retiendrait la JVM pour toujours
+    }
+
+    /** Démo 5 : l'édition à chaud, gardée par la revalidation. */
+    @Test
+    fun `un fichier édité à la main est revalidé au reload, la mémoire reste intacte`() {
+        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = dataSettings)
+        homes.mutate(HomesModData::players) { players -> players.getOrPut("steve-uuid") { PlayerHomes(name = "Steve") } }
+        homes.saveImmediate()
+
+        // L'admin se trompe : un compteur négatif, bien formé mais invalide.
+        dataPath.writeText(dataPath.readText().replace("\"totalTeleports\": 0", "\"totalTeleports\": -7"))
+
+        assertThrows(ValidationException::class.java) { homes.reloadFromFile() } // le reload refuse...
+        assertEquals(0, homes.data.totalTeleports) // ... et la mémoire n'a pas bougé
+
+        // L'admin corrige, le reload passe.
+        dataPath.writeText(dataPath.readText().replace("\"totalTeleports\": -7", "\"totalTeleports\": 42"))
+        homes.reloadFromFile()
+        assertEquals(42, homes.data.totalTeleports)
+
+        homes.close()
+    }
+}
 
 /**
+ * Le domaine : un mod de homes, comme on l'écrirait pour un vrai serveur. Deux stores, deux vies : la CONFIG (TOML, éditée par l'admin, écrite au moment
+ * où on la modifie) et les DONNÉES (JSON du monde, vivantes, auto-sauvées). C'est le découpage type d'un mod Storify.
+ *
  * La configuration du mod : le fichier TOML que l'admin du serveur édite.
  * Tous les champs ont une valeur par défaut : le store se crée par `createFromConstructor`,
  * la voie la plus naturelle pour une config de mod.
@@ -114,191 +294,5 @@ class HomesModDataValidator : Validator<HomesModData> {
             ctx.check(record.lastTeleportAtEpochSecond >= 0, "players[$uuid].lastTeleportAtEpochSecond", "must not be negative", record.lastTeleportAtEpochSecond)
             record.homes.forEach { (homeName, _) -> ctx.check(homeName.isNotBlank(), "players[$uuid].homes", "home name must not be blank") }
         }
-    }
-}
-
-// ═══ La visite guidée ════════════════════════════════════════════════════════════════════════════
-
-/**
- * La visite guidée de Storify, au propre, sur le domaine du mod de homes : cinq démos autonomes,
- * chacune centrée sur une facette de la lib (naissance et défauts, édition de config sous callbacks,
- * logique métier avec cooldown, auto-save réel, édition à chaud revalidée).
- *
- * Chaque démo repart d'un dossier vierge : le ménage de [cleanSlate] efface ce qu'une exécution
- * précédente aurait laissé (fichiers de stores, sidecars, temporaires). Les fichiers vivent dans
- * `build\tmp\storify-demo`, que `gradlew clean` emporte.
- */
-class HomesModDemo {
-
-    private val demoDirectory: Path = Paths.get("build", "tmp", "storify-demo")
-    private val configPath: Path = demoDirectory.resolve("config").resolve("homesmod.toml")
-    private val dataPath: Path = demoDirectory.resolve("world").resolve("data").resolve("homes.json")
-
-    /** Le réglage type d'une config : validée, sans auto-save (elle s'écrit quand on la modifie), observable (SNAPSHOT). */
-    private val configSettings = StoreConfig(withValidation = true, withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
-
-    /** Le réglage type des données quand la démo n'a pas besoin d'auto-save : validées, observables. */
-    private val dataSettings = StoreConfig(withValidation = true, withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
-
-    /**
-     * LE MÉNAGE DU DÉBUT. Si une exécution précédente a laissé des fichiers, la démo repartirait
-     * d'un état inconnu (un TOML déjà modifié, un JSON avec d'anciens joueurs). On efface donc tout
-     * le dossier de démo, systématiquement, avant chaque test : c'est le prix d'un départ déterministe,
-     * et le bon réflexe pour toute démo qui écrit sur disque.
-     */
-    @BeforeEach
-    fun cleanSlate() {
-        if (Files.exists(demoDirectory)) {
-            Files.walk(demoDirectory).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
-        }
-    }
-
-    // ═══ Démo 1 : la naissance d'un store ════════════════════════════════════════════════════════
-
-    @Test
-    fun `la config naît avec ses défauts, validée, dans un TOML lisible`() {
-        // createFromConstructor : les données initiales viennent des défauts du constructeur.
-        // Le format n'est pas précisé : l'extension .toml le résout toute seule ; les dossiers
-        // manquants sont créés à l'écriture, et la validation tourne AVANT que le fichier naisse
-        // (des défauts invalides ne toucheraient jamais le disque).
-        val store = StoreFactory.createFromConstructor<HomesModConfig>(
-            stringPath = configPath.toString(),
-            config = configSettings,
-            validator = HomesModConfigValidator(),
-        )
-
-        assertEquals(3, store.data.maxHomesPerPlayer)
-        assertTrue(Files.exists(configPath)) // le fichier initial est né...
-        assertTrue(configPath.readText().contains("maxHomesPerPlayer = 3")) // ... en TOML lisible par l'admin
-
-        store.close() // la fin de vie propre : un store se ferme comme un flux (il est AutoCloseable)
-    }
-
-    // ═══ Démo 2 : la config s'édite sous callbacks et se persiste immédiatement ═════════════════
-
-    @Test
-    fun `la config se modifie sous callbacks et s'écrit d'un saveImmediate`() {
-        val store = StoreFactory.createFromConstructor<HomesModConfig>(configPath.toString(), config = configSettings, validator = HomesModConfigValidator())
-
-        // L'observatoire : en SNAPSHOT, chaque callback reçoit un avant/après figé, qu'on peut
-        // logguer ou comparer sans craindre qu'il change sous nos pieds.
-        val updates = mutableListOf<Operation<HomesModConfig>>()
-        store.registerOnUpdate { updates.add(it) }
-
-        store.set(HomesModConfig::cooldownSeconds, 120)
-        store.saveImmediate() // pas d'auto-save sur une config : on écrit au moment où l'on modifie
-
-        val operation = assertInstanceOf(SetOperation::class.java, updates.single())
-        assertEquals(60, operation.old.valueOrNull)  // l'avant...
-        assertEquals(120, operation.new.valueOrNull) // ... et l'après
-        assertTrue(configPath.readText().contains("cooldownSeconds = 120"))
-
-        store.close()
-    }
-
-    // ═══ Démo 3 : la logique du mod : sethome, limite, cooldown, callback ciblé ═════════════════
-    // Le pattern recommandé : les CONTRÔLES MÉTIER (la limite de homes, le cooldown) se font AVANT
-    // de muter ; la validation de la lib garde la frontière du fichier, pas chaque geste interne.
-
-    @Test
-    fun `sethome respecte la limite de la config, home respecte le cooldown`() {
-        val config = StoreFactory.createFromConstructor<HomesModConfig>(configPath.toString(), config = configSettings, validator = HomesModConfigValidator())
-        // Pas de validator explicite ici : celui de @StoreValidator sur HomesModData est résolu tout seul.
-        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = dataSettings)
-
-        val steve = "8667ba71-b85a-4004-af54-457a9734eed7"
-        var clockSeconds = 1_000L // l'horloge simulée de la démo (en vrai : l'horloge du serveur)
-
-        // « /sethome » : le contrôle métier d'abord, la mutation typée ensuite (getOrPut crée le dossier du joueur).
-        fun setHome(uuid: String, playerName: String, homeName: String, home: Home): Boolean {
-            val existing = homes.data.players[uuid]?.homes ?: emptyMap()
-            if (homeName !in existing && existing.size >= config.data.maxHomesPerPlayer) return false
-            homes.mutate(HomesModData::players) { players ->
-                players.getOrPut(uuid) { PlayerHomes(name = playerName) }.homes[homeName] = home
-            }
-            return true
-        }
-
-        // « /home » : le cooldown d'abord ; s'il passe, l'horodatage (setIn en navigation) et le compteur (set).
-        fun teleport(uuid: String, homeName: String): Boolean {
-            val record = homes.data.players[uuid] ?: return false
-            if (homeName !in record.homes) return false
-            if (clockSeconds - record.lastTeleportAtEpochSecond < config.data.cooldownSeconds) return false
-            homes.setIn(PlayerHomes::lastTeleportAtEpochSecond, clockSeconds) { players.getValue(uuid) }
-            homes.set(HomesModData::totalTeleports, homes.data.totalTeleports + 1)
-            return true
-        }
-
-        // Trois homes passent, le quatrième bute sur la limite lue dans la config.
-        // Un Home se construit toujours en entier : pas de valeurs par défaut, pas de home à moitié posé.
-        assertTrue(setHome(steve, "Steve", "base", Home("minecraft:overworld", x = 100.0, y = 64.0, z = 200.0)))
-        assertTrue(setHome(steve, "Steve", "mine", Home("minecraft:overworld", x = 0.0, y = 12.0, z = 0.0)))
-        assertTrue(setHome(steve, "Steve", "ferme", Home("minecraft:the_nether", x = 30.0, y = 70.0, z = -40.0)))
-        assertFalse(setHome(steve, "Steve", "plage", Home("minecraft:overworld", x = 500.0, y = 63.0, z = 500.0))) // maxHomesPerPlayer = 3
-
-        // Le callback ciblé : il ne parle que quand LE compteur bouge, pas à chaque update du store.
-        var counterCallbacks = 0
-        homes.registerOnUpdateOn(HomesModData::totalTeleports) { counterCallbacks++ }
-
-        assertTrue(teleport(steve, "base"))  // premier voyage : le cooldown démarre
-        assertFalse(teleport(steve, "mine")) // trop tôt : refusé sans avoir rien muté
-        clockSeconds += 61
-        assertTrue(teleport(steve, "mine"))  // le cooldown (60 s) est purgé
-
-        assertEquals(2, homes.data.totalTeleports)
-        assertEquals(2, counterCallbacks)
-
-        // La fin : close() fait la sauvegarde d'adieu du dirty restant, puis libère tout.
-        homes.close()
-        config.close()
-        assertTrue(dataPath.readText().contains("\"base\""))
-    }
-
-    // ═══ Démo 4 : l'auto-save, le vrai ═══════════════════════════════════════════════════════════
-
-    @Test
-    fun `l'auto-save persiste tout seul, puis close libère le monde`() {
-        // Intervalle court pour la démo ; en vrai : 30 s ou plus. À noter : même la policy par
-        // défaut (SKIP, silencieuse pour les callbacks) marque le store dirty : la persistance
-        // ne dépend jamais de l'observation.
-        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = StoreConfig(withAutoSave = true, autoSaveIntervalMs = 100))
-
-        val saves = mutableListOf<Operation<HomesModData>>()
-        homes.registerOnSave { saves.add(it) }
-
-        homes.mutate(HomesModData::players) { players -> players.getOrPut("alex-uuid") { PlayerHomes(name = "Alex") } }
-
-        // On attend le tick (généreusement : 5 s de marge pour un intervalle de 100 ms).
-        val deadline = System.currentTimeMillis() + 5_000
-        while (saves.none { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE } && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50)
-        }
-
-        assertTrue(saves.any { it is SaveOperation<*> && it.trigger == SaveTrigger.AUTO_SAVE })
-        assertTrue(dataPath.readText().contains("Alex"))
-
-        homes.close() // sans close(), le thread du planificateur retiendrait la JVM pour toujours
-    }
-
-    // ═══ Démo 5 : l'édition à chaud, gardée par la revalidation ═════════════════════════════════
-
-    @Test
-    fun `un fichier édité à la main est revalidé au reload, la mémoire reste intacte`() {
-        val homes = StoreFactory.createFromConstructor<HomesModData>(dataPath.toString(), config = dataSettings)
-        homes.mutate(HomesModData::players) { players -> players.getOrPut("steve-uuid") { PlayerHomes(name = "Steve") } }
-        homes.saveImmediate()
-
-        // L'admin se trompe : un compteur négatif, bien formé mais invalide.
-        dataPath.writeText(dataPath.readText().replace("\"totalTeleports\": 0", "\"totalTeleports\": -7"))
-
-        assertThrows(ValidationException::class.java) { homes.reloadFromFile() } // le reload refuse...
-        assertEquals(0, homes.data.totalTeleports) // ... et la mémoire n'a pas bougé
-
-        // L'admin corrige, le reload passe.
-        dataPath.writeText(dataPath.readText().replace("\"totalTeleports\": -7", "\"totalTeleports\": 42"))
-        homes.reloadFromFile()
-        assertEquals(42, homes.data.totalTeleports)
-
-        homes.close()
     }
 }

@@ -45,22 +45,8 @@ import kotlin.system.measureNanoTime
  *   3. le même JSON écrit par quatre chemins : le flux nu d'avant C-48, un tampon de 8 Ko, de 64 Ko, une chaîne écrite d'un coup ;
  *   4. le même JSON lu par trois chemins : kotlinx lit déjà par blocs, le tampon y gagne peu.
  */
-
-/** Un format qui prévient quand un encodage commence et quand il finit : le témoin du moment où le store, en pleine sauvegarde, tient son read lock. */
-class SignallingFormat(private val delegate: StoreFormat) : StoreFormat by delegate {
-    @Volatile var encodingStarted = CountDownLatch(1)
-    @Volatile var encodingFinished = false
-    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
-        encodingStarted.countDown()
-        delegate.encodeToPath(serializer, data, path)
-        encodingFinished = true // encore sous le read lock de la sauvegarde : un mutate, qui prend le write lock, ne peut pas courir avant
-    }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class SaveLockDemoTest {
-
-    private fun players() = (1..5_000).map { Player("player$it", mutableListOf("base", "mine", "farm")) }
 
     @Test
     fun `étape 1, la part de chaque geste dans une sauvegarde de cinq mille joueurs`() {
@@ -150,5 +136,18 @@ class SaveLockDemoTest {
             val ns = measureNanoTime { repeat(runs) { read() } } / runs
             println("    %s : %6.1f ms".format(label, ns / 1e6))
         }
+    }
+
+    private fun players() = (1..5_000).map { Player("player$it", mutableListOf("base", "mine", "farm")) }
+}
+
+/** Un format qui prévient quand un encodage commence et quand il finit : le témoin du moment où le store, en pleine sauvegarde, tient son read lock. */
+class SignallingFormat(private val delegate: StoreFormat) : StoreFormat by delegate {
+    @Volatile var encodingStarted = CountDownLatch(1)
+    @Volatile var encodingFinished = false
+    override fun <DATA> encodeToPath(serializer: SerializationStrategy<DATA>, data: DATA, path: Path) {
+        encodingStarted.countDown()
+        delegate.encodeToPath(serializer, data, path)
+        encodingFinished = true // encore sous le read lock de la sauvegarde : un mutate, qui prend le write lock, ne peut pas courir avant
     }
 }

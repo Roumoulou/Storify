@@ -36,8 +36,6 @@ class CreateFromProviderTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
 
-    // ─── Les données initiales ───
-
     @Test
     fun `le fichier absent est créé depuis le fournisseur, appelé une fois`() {
         val path = newStorePath("bare.json")
@@ -59,8 +57,6 @@ class CreateFromProviderTest {
             assertEquals("feuille", store.data.leaf.label)
         }
     }
-
-    // ─── Le format ───
 
     @Test
     fun `sans format, l'extension du chemin choisit dans le registre`() {
@@ -89,8 +85,6 @@ class CreateFromProviderTest {
         assertFalse(Files.exists(path))
     }
 
-    // ─── Le validator ───
-
     @Test
     fun `le validator donné tourne à l'ouverture, des défauts invalides n'écrivent rien`() {
         val path = newStorePath("bare.json")
@@ -109,8 +103,6 @@ class CreateFromProviderTest {
             assertEquals(2, store.data.level)
         }
     }
-
-    // ─── Aucune annotation de classe lue ───
 
     @Test
     fun `une racine sans aucune annotation s'ouvre, se met à jour et se relit par le sérialiseur donné`() {
@@ -148,8 +140,6 @@ class CreateFromProviderTest {
         }
     }
 
-    // ─── La copie profonde par le sérialiseur donné ───
-
     @Test
     fun `le rollback d'une transaction passe par le sérialiseur donné`() {
         val path = newStorePath("bare.json")
@@ -161,8 +151,6 @@ class CreateFromProviderTest {
             assertEquals("leaf", store.data.leaf.label) // la copie de secours a traversé le substitut, feuille comprise
         }
     }
-
-    // ─── La limite sous SNAPSHOT ───
 
     @Test
     fun `sous SNAPSHOT, une propriété dont le type n'a pas de sérialiseur échoue au premier update observé, la mémoire intacte`() {

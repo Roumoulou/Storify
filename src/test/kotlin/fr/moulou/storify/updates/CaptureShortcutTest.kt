@@ -20,29 +20,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// ─── La fixture au compteur : chaque copie profonde passe par serialize, et se compte ───────────────
-
-@Serializable(with = CountedBoxSerializer::class)
-class CountedBox(var value: Int = 0)
-
-object CountedBoxSerializer : KSerializer<CountedBox> {
-    var serializations = 0
-    override val descriptor = PrimitiveSerialDescriptor("CountedBox", PrimitiveKind.INT)
-    override fun serialize(encoder: Encoder, value: CountedBox) {
-        serializations++
-        encoder.encodeInt(value.value)
-    }
-
-    override fun deserialize(decoder: Decoder): CountedBox = CountedBox(decoder.decodeInt())
-}
-
-@Serializable
-data class CountedData(var box: CountedBox = CountedBox(), var name: String = "steve") {
-    companion object : Defaultable<CountedData> {
-        override fun getDefault(): CountedData = CountedData()
-    }
-}
-
+/** La fixture au compteur : chaque copie profonde passe par serialize, et se compte. */
 /**
  * C-25 : le pipeline ne capture que devant public. Le compteur de sérialisations mesure les copies
  * profondes réellement faites : sans auditeur, un update observant n'en fait aucune ; le garde
@@ -99,5 +77,26 @@ class CaptureShortcutTest {
 
             assertEquals("valide", store.data.name) // refusé et restauré, comme devant public
         }
+    }
+}
+
+@Serializable(with = CountedBoxSerializer::class)
+class CountedBox(var value: Int = 0)
+
+object CountedBoxSerializer : KSerializer<CountedBox> {
+    var serializations = 0
+    override val descriptor = PrimitiveSerialDescriptor("CountedBox", PrimitiveKind.INT)
+    override fun serialize(encoder: Encoder, value: CountedBox) {
+        serializations++
+        encoder.encodeInt(value.value)
+    }
+
+    override fun deserialize(decoder: Decoder): CountedBox = CountedBox(decoder.decodeInt())
+}
+
+@Serializable
+data class CountedData(var box: CountedBox = CountedBox(), var name: String = "steve") {
+    companion object : Defaultable<CountedData> {
+        override fun getDefault(): CountedData = CountedData()
     }
 }

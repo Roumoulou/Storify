@@ -21,14 +21,6 @@ import kotlin.io.path.writeText
  */
 class ErrorEnricherTest {
 
-    private fun error(path: String, field: String?) = ValidationError(path = path, className = "T", field = field, message = "m")
-
-    private fun lineOf(format: StoreFormat, text: String, field: String, path: String = "Root", name: String = "f.json"): Int? {
-        val file = newStorePath(name)
-        file.writeText(text)
-        return ValidationErrorEnricher.enrich(format, file, listOf(error(path, field))).single().line
-    }
-
     @Test
     fun `une clé simple à la racine reçoit sa ligne`() {
         assertEquals(2, lineOf(JsonFormat(), "{\n  \"name\": \"x\"\n}", "name"))
@@ -304,5 +296,13 @@ class ErrorEnricherTest {
     @Test
     fun `un BOM en tête du fichier ne dérange pas les lignes`() {
         assertEquals(2, lineOf(JsonFormat(), "﻿{\n  \"name\": \"x\"\n}", "name"))
+    }
+
+    private fun error(path: String, field: String?) = ValidationError(path = path, className = "T", field = field, message = "m")
+
+    private fun lineOf(format: StoreFormat, text: String, field: String, path: String = "Root", name: String = "f.json"): Int? {
+        val file = newStorePath(name)
+        file.writeText(text)
+        return ValidationErrorEnricher.enrich(format, file, listOf(error(path, field))).single().line
     }
 }

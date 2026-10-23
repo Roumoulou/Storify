@@ -515,7 +515,10 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `c-52-tests-au-cordeau`, les aides privées sous les tests, celles des démos sous les étapes. Lot 0 : `BaseStore.kt` sans ses quatorze commentaires de
   groupe, ses deux `@Volatile` isolés sur la ligne de leur propriété. Lot 1, `support` : les bannières de `Fixtures.kt` devenues la KDoc de la première
   classe de leur groupe, celles de `Home`, `Location`, `Rule` et `TestingClasses` retirées, les `default()` des companions de `TestingClasses` avant leurs
-  validators imbriqués.
+  validators imbriqués. Lot 2, le reste de `src\test` et `src\smokeJdk11` : 47 classes de test réordonnées par un moteur de déplacement de lignes
+  (propriétés, lifecycle, tests, aides privées, types imbriqués ; la classe de test en tête de son fichier, ses fixtures et témoins sous elle), 24
+  bannières retirées dont 10 informatives passées en KDoc, 22 fichiers déjà dans l'ordre ; `Smoke.kt` dans l'ordre du fichier, `main` avant les
+  étapes qu'il appelle, `check` sous elles.
 - [x] **C-53 : le localisateur borné à son parent** (S ; MMC). `JsonLineLocator.lineOf` ne s'arrête pas à la fin de l'objet où il cherche. Quand un
   segment du chemin est absent de son parent, le parcours continue à la même profondeur dans la suite du fichier et rend la ligne d'une clé du même
   nom portée par un autre objet, là où la KDoc d'`ErrorLineLocator` promet `null`. Mesuré le 2026-10-05 sur le jar de `build\libs` construit le

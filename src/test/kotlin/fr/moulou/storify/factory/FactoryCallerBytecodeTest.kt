@@ -19,18 +19,6 @@ import fr.moulou.storify.support.resetAnnotatedFile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** L'appelant témoin : les huit fabriques, avec ce qu'un mod y met de lui-même, une config et un format explicites. */
-class FactoryCaller {
-    fun byCompanion() = StoreFactory.create<AnnotatedData>()
-    fun byCompanionAt(path: String) = StoreFactory.create<PlainData>(path, config = StoreConfig(withAutoSave = false))
-    fun byConstructor() = StoreFactory.createFromConstructor<AnnotatedData>()
-    fun byConstructorAt(path: String) = StoreFactory.createFromConstructor<AnnotatedTomlData>(path, format = JsonFormat())
-    fun byDefaultable() = StoreFactory.createFromDefaultable<AnnotatedData, ExternalAnnotatedDefaults>()
-    fun byDefaultableAt(path: String) = StoreFactory.createFromDefaultable<PlainData, ExternalPlainDefaults>(path, config = StoreConfig(withAutoSave = false))
-    fun byResource() = StoreFactory.createFromResource<ResourceData>()
-    fun byResourceAt(path: String) = StoreFactory.createFromResource<ResourceData>(path, "resource-data_default.json")
-}
-
 /**
  * Le garde-fou de C-46 : les huit fabriques sont inline pour matérialiser `DATA::class` et le sérialiseur, rien de plus. Le fichier .class
  * d'un appelant ne doit référencer de la lib que `StoreFactory` et ses quatre points d'entrée, plus ce que l'appelant construit lui-même.
@@ -69,4 +57,16 @@ class FactoryCallerBytecodeTest {
         caller.byResource().use { assertEquals("resource", it.data.origin) }
         caller.byResourceAt(newStorePath("resource.json").toString()).use { assertEquals(42, it.data.level) }
     }
+}
+
+/** L'appelant témoin : les huit fabriques, avec ce qu'un mod y met de lui-même, une config et un format explicites. */
+class FactoryCaller {
+    fun byCompanion() = StoreFactory.create<AnnotatedData>()
+    fun byCompanionAt(path: String) = StoreFactory.create<PlainData>(path, config = StoreConfig(withAutoSave = false))
+    fun byConstructor() = StoreFactory.createFromConstructor<AnnotatedData>()
+    fun byConstructorAt(path: String) = StoreFactory.createFromConstructor<AnnotatedTomlData>(path, format = JsonFormat())
+    fun byDefaultable() = StoreFactory.createFromDefaultable<AnnotatedData, ExternalAnnotatedDefaults>()
+    fun byDefaultableAt(path: String) = StoreFactory.createFromDefaultable<PlainData, ExternalPlainDefaults>(path, config = StoreConfig(withAutoSave = false))
+    fun byResource() = StoreFactory.createFromResource<ResourceData>()
+    fun byResourceAt(path: String) = StoreFactory.createFromResource<ResourceData>(path, "resource-data_default.json")
 }

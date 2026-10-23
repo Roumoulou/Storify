@@ -41,48 +41,6 @@ class CommentsTest {
 
     private val format = Json5Format()
 
-    @Serializable
-    @StoreComment("La config du mod Demo : éditez les valeurs, pas les clés")
-    data class CommentedConfig(
-        @StoreComment("Le message d'accueil") var greeting: String = "Bienvenue",
-        @StoreComment("Entre 1 et 100", "Au-delà, la commande refuse") var maxHomes: Int = 3,
-        var silent: Int = 0,
-        @StoreComment("Les délais, en secondes") var delays: Delays = Delays(),
-        @StoreComment("Par monde : le nom du monde vers sa règle") var perWorld: MutableMap<String, Int> = mutableMapOf("overworld" to 1),
-        @StoreComment("Une première ligne\net une seconde, coupée par le code") var split: Boolean = true,
-    )
-
-    @Serializable
-    data class Delays(@StoreComment("Avant la téléportation") var warmup: Int = 3, var cooldown: Int = 60)
-
-    @Serializable
-    @StoreConfiguration(withAutoSave = false, withShutdownHook = false, commentPolicy = CommentPolicy.CODE_WINS)
-    data class CodeWinsConfig(@StoreComment("Le message d'accueil") var greeting: String = "Bienvenue")
-
-    @Serializable
-    data class TomlCommented(@TomlComment("Le titre, par tomlkt") @StoreComment("Ignoré en TOML") var title: String = "toml")
-
-    data class HandMade(val x: String)
-
-    /** Un sérialiseur à descripteur fait main : rien n'y déclare de commentaire, et rien ne doit casser. */
-    private object HandMadeSerializer : KSerializer<HandMade> {
-        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("HandMade") { element<String>("x") }
-        override fun serialize(encoder: Encoder, value: HandMade) = encoder.encodeStructure(descriptor) { encodeStringElement(descriptor, 0, value.x) }
-        override fun deserialize(decoder: Decoder): HandMade = throw UnsupportedOperationException("écriture seule")
-    }
-
-    private fun commentLines(text: String) = text.lines().count { it.trimStart().startsWith("//") }
-
-    private fun lineBefore(text: String, key: String): String {
-        val lines = text.lines()
-        val index = lines.indexOfFirst { it.trimStart().startsWith("$key:") }
-        assertTrue(index > 0, "la clé $key manque")
-        return lines[index - 1].trim()
-    }
-
-    private fun preserve(data: CommentedConfig, path: Path, previousText: String?, policy: CommentPolicy = CommentPolicy.FILE_WINS) =
-        format.encodeToPathPreserving(CommentedConfig.serializer(), data, path, previousText, policy)
-
     @Test
     fun `un fichier neuf porte les commentaires du code, en tête et au-dessus de chaque clé`() {
         val path = newStorePath("new.json5")
@@ -234,5 +192,47 @@ class CommentsTest {
 
         assertTrue(path.readText().startsWith("// La config du mod Demo"))
         assertEquals(9, commentLines(path.readText()))
+    }
+
+    private fun commentLines(text: String) = text.lines().count { it.trimStart().startsWith("//") }
+
+    private fun lineBefore(text: String, key: String): String {
+        val lines = text.lines()
+        val index = lines.indexOfFirst { it.trimStart().startsWith("$key:") }
+        assertTrue(index > 0, "la clé $key manque")
+        return lines[index - 1].trim()
+    }
+
+    private fun preserve(data: CommentedConfig, path: Path, previousText: String?, policy: CommentPolicy = CommentPolicy.FILE_WINS) =
+        format.encodeToPathPreserving(CommentedConfig.serializer(), data, path, previousText, policy)
+
+    @Serializable
+    @StoreComment("La config du mod Demo : éditez les valeurs, pas les clés")
+    data class CommentedConfig(
+        @StoreComment("Le message d'accueil") var greeting: String = "Bienvenue",
+        @StoreComment("Entre 1 et 100", "Au-delà, la commande refuse") var maxHomes: Int = 3,
+        var silent: Int = 0,
+        @StoreComment("Les délais, en secondes") var delays: Delays = Delays(),
+        @StoreComment("Par monde : le nom du monde vers sa règle") var perWorld: MutableMap<String, Int> = mutableMapOf("overworld" to 1),
+        @StoreComment("Une première ligne\net une seconde, coupée par le code") var split: Boolean = true,
+    )
+
+    @Serializable
+    data class Delays(@StoreComment("Avant la téléportation") var warmup: Int = 3, var cooldown: Int = 60)
+
+    @Serializable
+    @StoreConfiguration(withAutoSave = false, withShutdownHook = false, commentPolicy = CommentPolicy.CODE_WINS)
+    data class CodeWinsConfig(@StoreComment("Le message d'accueil") var greeting: String = "Bienvenue")
+
+    @Serializable
+    data class TomlCommented(@TomlComment("Le titre, par tomlkt") @StoreComment("Ignoré en TOML") var title: String = "toml")
+
+    data class HandMade(val x: String)
+
+    /** Un sérialiseur à descripteur fait main : rien n'y déclare de commentaire, et rien ne doit casser. */
+    private object HandMadeSerializer : KSerializer<HandMade> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("HandMade") { element<String>("x") }
+        override fun serialize(encoder: Encoder, value: HandMade) = encoder.encodeStructure(descriptor) { encodeStringElement(descriptor, 0, value.x) }
+        override fun deserialize(decoder: Decoder): HandMade = throw UnsupportedOperationException("écriture seule")
     }
 }

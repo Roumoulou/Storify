@@ -26,93 +26,6 @@ import java.util.UUID
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-// ─── Les data classes d'essai ─────────────────────────────────────────────────────────
-
-/** La voie nue : aucune annotation, tout se donne à la factory. */
-@Serializable
-data class MyOwnData(
-    var stringValue: String,
-    var intValue: Int,
-    var myOwnData3: MyOwnData3,
-) {
-    companion object : Defaultable<MyOwnData> {
-        override fun getDefault(): MyOwnData = MyOwnData("default", 0, myOwnData3 = MyOwnData3(mutableMapOf(), MyOwnData4(mutableMapOf())))
-    }
-}
-
-@Serializable
-data class MyOwnData3(
-    var map: MutableMap<String, String>,
-    var myOwnData4: MyOwnData4,
-)
-
-@Serializable
-data class MyOwnData4(
-    var map: MutableMap<String, String>,
-)
-
-/** La voie annotée : config, format et validator viennent des annotations ; le path, lui, reste explicite dans les tests. */
-@Serializable
-@StoreConfiguration(withAutoSave = false)
-@StoreFileFormat(StoreFileFormatType.JSON)
-@StoreValidator(MyOwnData2Validator::class)
-data class MyOwnData2(
-    var stringValue: String,
-
-    @StoreUpdatePolicy(UpdatePolicy.SHALLOW)
-    var intValue: Int,
-    var myOwnData3: MyOwnData3,
-) {
-    companion object : Defaultable<MyOwnData2> {
-        override fun getDefault(): MyOwnData2 = MyOwnData2("default", 0, myOwnData3 = MyOwnData3(mutableMapOf(), MyOwnData4(mutableMapOf())))
-    }
-}
-
-class MyOwnData2Validator : Validator<MyOwnData2> {
-    override fun validate(data: MyOwnData2, ctx: ValidationContext) {
-        if (data.stringValue.isEmpty()) {
-            ctx.addError("stringValue", "stringValue cannot be empty")
-        }
-    }
-}
-
-/** Des défauts invalides dès la naissance : le fixture du chantier C-06. */
-@Serializable
-@StoreConfiguration(withAutoSave = false)
-@StoreValidator(InvalidDefaultsValidator::class)
-data class InvalidDefaultsData(
-    var name: String = "",
-)
-
-class InvalidDefaultsValidator : Validator<InvalidDefaultsData> {
-    override fun validate(data: InvalidDefaultsData, ctx: ValidationContext) {
-        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
-    }
-}
-
-/** L'opt-in du chantier C-05 : la validation à chaque update, non recommandée mais disponible. */
-@Serializable
-@StoreConfiguration(withAutoSave = false, validateOnUpdate = true)
-@StoreValidator(GuardedDataValidator::class)
-data class GuardedData(
-    var name: String = "valide",
-)
-
-class GuardedDataValidator : Validator<GuardedData> {
-    override fun validate(data: GuardedData, ctx: ValidationContext) {
-        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
-    }
-}
-
-/** La voie annotée avec policy par défaut choisie par annotation : le champ ajouté au chantier C-03. */
-@Serializable
-@StoreConfiguration(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
-data class AnnotatedPolicyData(
-    var label: String = "x",
-)
-
-// ─── Les tests ────────────────────────────────────────────────────────────────────────
-
 /**
  * Le banc d'essai unitaire des stores : création, callbacks, persistance, rechargement,
  * ressource embarquée et validation au chargement. Tout tourne sans auto-save (le tick en
@@ -126,12 +39,6 @@ data class AnnotatedPolicyData(
 class MyOwnTest {
 
     private val snapshotNoAutoSave = StoreConfig(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
-
-    private fun newStorePath(fileName: String): Path {
-        val directory = Paths.get("build", "tmp", "storify-tests", UUID.randomUUID().toString())
-        Files.createDirectories(directory)
-        return directory.resolve(fileName)
-    }
 
     @Test
     fun `création depuis le companion, set, callbacks et persistance`() {
@@ -444,4 +351,93 @@ class MyOwnTest {
             StoreFactory.createFromConstructor<GuardedData>(path.toString(), config = StoreConfig(withAutoSave = false, useDeepCopy = false, validateOnUpdate = true))
         }
     }
+
+    private fun newStorePath(fileName: String): Path {
+        val directory = Paths.get("build", "tmp", "storify-tests", UUID.randomUUID().toString())
+        Files.createDirectories(directory)
+        return directory.resolve(fileName)
+    }
 }
+
+/** La voie nue : aucune annotation, tout se donne à la factory. */
+@Serializable
+data class MyOwnData(
+    var stringValue: String,
+    var intValue: Int,
+    var myOwnData3: MyOwnData3,
+) {
+    companion object : Defaultable<MyOwnData> {
+        override fun getDefault(): MyOwnData = MyOwnData("default", 0, myOwnData3 = MyOwnData3(mutableMapOf(), MyOwnData4(mutableMapOf())))
+    }
+}
+
+@Serializable
+data class MyOwnData3(
+    var map: MutableMap<String, String>,
+    var myOwnData4: MyOwnData4,
+)
+
+@Serializable
+data class MyOwnData4(
+    var map: MutableMap<String, String>,
+)
+
+/** La voie annotée : config, format et validator viennent des annotations ; le path, lui, reste explicite dans les tests. */
+@Serializable
+@StoreConfiguration(withAutoSave = false)
+@StoreFileFormat(StoreFileFormatType.JSON)
+@StoreValidator(MyOwnData2Validator::class)
+data class MyOwnData2(
+    var stringValue: String,
+
+    @StoreUpdatePolicy(UpdatePolicy.SHALLOW)
+    var intValue: Int,
+    var myOwnData3: MyOwnData3,
+) {
+    companion object : Defaultable<MyOwnData2> {
+        override fun getDefault(): MyOwnData2 = MyOwnData2("default", 0, myOwnData3 = MyOwnData3(mutableMapOf(), MyOwnData4(mutableMapOf())))
+    }
+}
+
+class MyOwnData2Validator : Validator<MyOwnData2> {
+    override fun validate(data: MyOwnData2, ctx: ValidationContext) {
+        if (data.stringValue.isEmpty()) {
+            ctx.addError("stringValue", "stringValue cannot be empty")
+        }
+    }
+}
+
+/** Des défauts invalides dès la naissance : le fixture du chantier C-06. */
+@Serializable
+@StoreConfiguration(withAutoSave = false)
+@StoreValidator(InvalidDefaultsValidator::class)
+data class InvalidDefaultsData(
+    var name: String = "",
+)
+
+class InvalidDefaultsValidator : Validator<InvalidDefaultsData> {
+    override fun validate(data: InvalidDefaultsData, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
+/** L'opt-in du chantier C-05 : la validation à chaque update, non recommandée mais disponible. */
+@Serializable
+@StoreConfiguration(withAutoSave = false, validateOnUpdate = true)
+@StoreValidator(GuardedDataValidator::class)
+data class GuardedData(
+    var name: String = "valide",
+)
+
+class GuardedDataValidator : Validator<GuardedData> {
+    override fun validate(data: GuardedData, ctx: ValidationContext) {
+        ctx.check(data.name.isNotBlank(), "name", "must not be blank", data.name)
+    }
+}
+
+/** La voie annotée avec policy par défaut choisie par annotation : le champ ajouté au chantier C-03. */
+@Serializable
+@StoreConfiguration(withAutoSave = false, defaultUpdatePolicy = UpdatePolicy.SNAPSHOT)
+data class AnnotatedPolicyData(
+    var label: String = "x",
+)

@@ -31,8 +31,6 @@ import kotlin.io.path.writeText
  */
 class CreateFromResourceTest {
 
-    private fun resourceBytes(name: String): ByteArray = javaClass.classLoader.getResourceAsStream(name)!!.use { it.readBytes() }
-
     @Test
     fun `la voie annotée copie la ressource puis la décode`() {
         resetAnnotatedFile("build/tmp/storify-tests/annotated/resource-data.json")
@@ -133,4 +131,6 @@ class CreateFromResourceTest {
         assertTrue(exception.message!!.contains("copied from the default resource")) // le remède est dans ce fichier, le message le dit (C-40)
         assertTrue(exception.message!!.contains("line")) // et les erreurs pointent la ligne dans cette copie
     }
+
+    private fun resourceBytes(name: String): ByteArray = javaClass.classLoader.getResourceAsStream(name)!!.use { it.readBytes() }
 }

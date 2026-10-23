@@ -38,74 +38,10 @@ import kotlin.io.path.writeText
  *   3. depuis C-54 : la même ouverture par createFromProvider, le sérialiseur et les valeurs livrées donnés en valeurs, sans classe par
  *      famille, le schéma gardé : la faute de frappe est refusée à l'ouverture.
  */
-
-/** La table d'une famille de règles : ses clés et la valeur livrée de chacune. Chez ManyManyCommands, une table par famille, cinq en tout. */
-class RulesTable(val family: String, val shipped: Map<String, Int>)
-
-val HOMES = RulesTable("homes", mapOf("max-homes" to 3, "delay" to 5, "cooldown" to 30))
-val WARPS = RulesTable("warps", mapOf("max-warps" to 10, "delay" to 3))
-
-/** Le sérialiseur d'un fichier de règles, déduit de sa table : un objet aux clés de la table, un entier chacune ; une clé que la table ne connaît pas est refusée. */
-class RulesSerializer(private val table: RulesTable) : KSerializer<Map<String, Int>> {
-
-    private val map = MapSerializer(String.serializer(), Int.serializer())
-
-    override val descriptor: SerialDescriptor get() = map.descriptor
-
-    override fun deserialize(decoder: Decoder): Map<String, Int> {
-        val read = decoder.decodeSerializableValue(map)
-        val unknown = read.keys - table.shipped.keys
-        if (unknown.isNotEmpty()) throw SerializationException("Unknown key(s) $unknown in the rules of '${table.family}' (known: ${table.shipped.keys})")
-        return read
-    }
-
-    override fun serialize(encoder: Encoder, value: Map<String, Int>) = encoder.encodeSerializableValue(map, value)
-}
-
-// ─── Étape 1 : la voie d'aujourd'hui, une classe par famille ───────────────────────────────────
-
-/** Ce qu'un fichier de règles porte. La classe de base des documents de famille. */
-abstract class RulesDocument(val values: Map<String, Int>)
-
-/** Le sérialiseur d'une classe de famille : celui de sa table, enveloppé dans la classe pour que serializer<DATA>() ait quelque chose à trouver. */
-abstract class RulesDocumentSerializer<DOCUMENT : RulesDocument>(table: RulesTable, private val wrap: (Map<String, Int>) -> DOCUMENT) : KSerializer<DOCUMENT> {
-
-    private val rules = RulesSerializer(table)
-
-    override val descriptor: SerialDescriptor get() = rules.descriptor
-
-    override fun deserialize(decoder: Decoder): DOCUMENT = wrap(decoder.decodeSerializableValue(rules))
-
-    override fun serialize(encoder: Encoder, value: DOCUMENT) = encoder.encodeSerializableValue(rules, value.values)
-}
-
-/** La classe des homes, sans autre rôle que de donner prise à la réflexion : le sérialiseur par l'annotation, les valeurs livrées par le constructeur sans argument. */
-@Serializable(with = HomesRulesDocument.Format::class)
-class HomesRulesDocument(values: Map<String, Int> = HOMES.shipped) : RulesDocument(values) {
-
-    object Format : RulesDocumentSerializer<HomesRulesDocument>(HOMES, ::HomesRulesDocument)
-}
-
-/** La classe des warps, de la même forme. ManyManyCommands en déclare cinq comme elle, une par famille. */
-@Serializable(with = WarpsRulesDocument.Format::class)
-class WarpsRulesDocument(values: Map<String, Int> = WARPS.shipped) : RulesDocument(values) {
-
-    object Format : RulesDocumentSerializer<WarpsRulesDocument>(WARPS, ::WarpsRulesDocument)
-}
-
-// ─── Étape 2 : la seule voie sans classe, une Map sous son sérialiseur générique ──────────────
-
-/** Les valeurs livrées des homes, par la seule porte qui accepte une racine sans classe : un Defaultable externe, instancié par réflexion, donc sans la table en paramètre. */
-class HomesShippedValues : Defaultable<Map<String, Int>> {
-    override fun getDefault(): Map<String, Int> = HOMES.shipped
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class ProviderFactoryDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    private fun oneLine(path: Path) = path.readText().lines().joinToString(" ") { it.trim() }
 
     @Test
     fun `étape 1, aujourd'hui, une classe par famille pour que la réflexion ait quelque chose à trouver`() {
@@ -149,4 +85,64 @@ class ProviderFactoryDemoTest {
         println("    la faute de frappe, refusée à l'ouverture : ${refused?.message?.lines()?.first()}")
         check(refused is StoreDecodeException)
     }
+
+    private fun oneLine(path: Path) = path.readText().lines().joinToString(" ") { it.trim() }
+}
+
+/** La table d'une famille de règles : ses clés et la valeur livrée de chacune. Chez ManyManyCommands, une table par famille, cinq en tout. */
+class RulesTable(val family: String, val shipped: Map<String, Int>)
+
+val HOMES = RulesTable("homes", mapOf("max-homes" to 3, "delay" to 5, "cooldown" to 30))
+
+val WARPS = RulesTable("warps", mapOf("max-warps" to 10, "delay" to 3))
+
+/** Le sérialiseur d'un fichier de règles, déduit de sa table : un objet aux clés de la table, un entier chacune ; une clé que la table ne connaît pas est refusée. */
+class RulesSerializer(private val table: RulesTable) : KSerializer<Map<String, Int>> {
+
+    private val map = MapSerializer(String.serializer(), Int.serializer())
+
+    override val descriptor: SerialDescriptor get() = map.descriptor
+
+    override fun deserialize(decoder: Decoder): Map<String, Int> {
+        val read = decoder.decodeSerializableValue(map)
+        val unknown = read.keys - table.shipped.keys
+        if (unknown.isNotEmpty()) throw SerializationException("Unknown key(s) $unknown in the rules of '${table.family}' (known: ${table.shipped.keys})")
+        return read
+    }
+
+    override fun serialize(encoder: Encoder, value: Map<String, Int>) = encoder.encodeSerializableValue(map, value)
+}
+
+/** Étape 1 : la voie d'aujourd'hui, une classe par famille. Ce qu'un fichier de règles porte. La classe de base des documents de famille. */
+abstract class RulesDocument(val values: Map<String, Int>)
+
+/** Le sérialiseur d'une classe de famille : celui de sa table, enveloppé dans la classe pour que serializer<DATA>() ait quelque chose à trouver. */
+abstract class RulesDocumentSerializer<DOCUMENT : RulesDocument>(table: RulesTable, private val wrap: (Map<String, Int>) -> DOCUMENT) : KSerializer<DOCUMENT> {
+
+    private val rules = RulesSerializer(table)
+
+    override val descriptor: SerialDescriptor get() = rules.descriptor
+
+    override fun deserialize(decoder: Decoder): DOCUMENT = wrap(decoder.decodeSerializableValue(rules))
+
+    override fun serialize(encoder: Encoder, value: DOCUMENT) = encoder.encodeSerializableValue(rules, value.values)
+}
+
+/** La classe des homes, sans autre rôle que de donner prise à la réflexion : le sérialiseur par l'annotation, les valeurs livrées par le constructeur sans argument. */
+@Serializable(with = HomesRulesDocument.Format::class)
+class HomesRulesDocument(values: Map<String, Int> = HOMES.shipped) : RulesDocument(values) {
+
+    object Format : RulesDocumentSerializer<HomesRulesDocument>(HOMES, ::HomesRulesDocument)
+}
+
+/** La classe des warps, de la même forme. ManyManyCommands en déclare cinq comme elle, une par famille. */
+@Serializable(with = WarpsRulesDocument.Format::class)
+class WarpsRulesDocument(values: Map<String, Int> = WARPS.shipped) : RulesDocument(values) {
+
+    object Format : RulesDocumentSerializer<WarpsRulesDocument>(WARPS, ::WarpsRulesDocument)
+}
+
+/** Étape 2 : la seule voie sans classe, une Map sous son sérialiseur générique. Les valeurs livrées des homes, par la seule porte qui accepte une racine sans classe : un Defaultable externe, instancié par réflexion, donc sans la table en paramètre. */
+class HomesShippedValues : Defaultable<Map<String, Int>> {
+    override fun getDefault(): Map<String, Int> = HOMES.shipped
 }

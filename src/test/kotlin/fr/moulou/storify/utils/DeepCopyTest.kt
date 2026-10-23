@@ -81,9 +81,6 @@ class DeepCopyTest {
         assertNotSame(original.rules, copy.rules)
     }
 
-    @Serializable
-    data class Edge(var ratio: Double = Double.NaN, var big: Long = Long.MIN_VALUE, var byKey: Map<InnerLeaf, Int> = mapOf(InnerLeaf("k") to 1))
-
     @Test
     fun `NaN, un Long extrême et une clé de map structurée survivent à la copie`() {
         val copy = Edge().deepCopy()
@@ -113,4 +110,7 @@ class DeepCopyTest {
             assertEquals("deny", store.data.rules.getValue("fly").value)
         }
     }
+
+    @Serializable
+    data class Edge(var ratio: Double = Double.NaN, var big: Long = Long.MIN_VALUE, var byKey: Map<InnerLeaf, Int> = mapOf(InnerLeaf("k") to 1))
 }

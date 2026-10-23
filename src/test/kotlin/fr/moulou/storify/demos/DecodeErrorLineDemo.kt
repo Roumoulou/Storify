@@ -38,31 +38,10 @@ import kotlin.io.path.writeText
  *   4. la même faute en JSON5 et en TOML : ni ligne ni chemin, parce que leur message ne dit pas où, limite assumée ;
  *   5. la pièce que C-56 a branchée : le localisateur de C-32 et C-53, qui retrouve la ligne du chemin que le message nomme.
  */
-
-/** Le validator du contraste : ANGRY est une valeur légale de l'énumération, mais refusée ici. */
-class CalmOnlyValidator : Validator<FarmConfig> {
-    override fun validate(data: FarmConfig, ctx: ValidationContext) {
-        ctx.check(data.mood == Mood.CALM, "mood", "must be CALM", data.mood)
-    }
-}
-
 @TestMethodOrder(MethodOrderer.DisplayName::class)
 class DecodeErrorLineDemoTest {
 
     private val noAutoSave = StoreConfig(withAutoSave = false)
-
-    private fun open(path: Path) = StoreFactory.createFromConstructor<FarmConfig>(path.toString(), config = noAutoSave).close()
-
-    /** Ouvre le store, attend une StoreDecodeException, imprime sa ligne, son chemin et la première ligne de son message. */
-    private fun decodeFailure(label: String, path: Path): StoreDecodeException {
-        val failure = runCatching { open(path) }.exceptionOrNull()
-        check(failure is StoreDecodeException) { "$label : attendu StoreDecodeException, reçu $failure" }
-        println("    $label")
-        println("        line      : ${failure.line}")
-        println("        valuePath : ${failure.valuePath}")
-        println("        message   : ${failure.cause?.message?.lines()?.first()?.take(160)}")
-        return failure
-    }
 
     @Test
     fun `étape 1, une valeur d'énumération inconnue, le message nomme le chemin, l'exception porte sa ligne et son chemin`() {
@@ -111,5 +90,25 @@ class DecodeErrorLineDemoTest {
         val line = JsonLineLocator.lineOf(path.readText().lines(), segments)
         println("        chemin lu dans le message : « $rawPath », soit $segments ; ligne par le localisateur : $line")
         check(segments == failure.valuePath && line == failure.line)
+    }
+
+    private fun open(path: Path) = StoreFactory.createFromConstructor<FarmConfig>(path.toString(), config = noAutoSave).close()
+
+    /** Ouvre le store, attend une StoreDecodeException, imprime sa ligne, son chemin et la première ligne de son message. */
+    private fun decodeFailure(label: String, path: Path): StoreDecodeException {
+        val failure = runCatching { open(path) }.exceptionOrNull()
+        check(failure is StoreDecodeException) { "$label : attendu StoreDecodeException, reçu $failure" }
+        println("    $label")
+        println("        line      : ${failure.line}")
+        println("        valuePath : ${failure.valuePath}")
+        println("        message   : ${failure.cause?.message?.lines()?.first()?.take(160)}")
+        return failure
+    }
+}
+
+/** Le validator du contraste : ANGRY est une valeur légale de l'énumération, mais refusée ici. */
+class CalmOnlyValidator : Validator<FarmConfig> {
+    override fun validate(data: FarmConfig, ctx: ValidationContext) {
+        ctx.check(data.mood == Mood.CALM, "mood", "must be CALM", data.mood)
     }
 }
