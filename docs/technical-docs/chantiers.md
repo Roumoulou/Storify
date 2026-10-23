@@ -511,7 +511,11 @@ Chaque chantier porte une case, cochée quand c'est fait, avec la date.
   `Json5Format` et `TomlFormat` (les propriétés avant les méthodes, les méthodes dans l'ordre du contrat `StoreFormat`, l'appelé sous
   l'appelant), `StoreFactory` (`open` avant `readAnnotations` qu'il appelle, les types imbriqués à la fin), `AtomicFiles` (le nom du temporaire
   et son motif sous leurs appelants), `Store` (ses commentaires de groupe retirés). Aucune ligne de logique ne change : un diff ligne à ligne
-  hors ordre, la suite entière et le banc en composite en font la preuve.
+  hors ordre, la suite entière et le banc en composite en font la preuve. Repris le 2026-10-23 pour `src\test`, `src\smokeJdk11` et le banc, sur la branche
+  `c-52-tests-au-cordeau`, les aides privées sous les tests, celles des démos sous les étapes. Lot 0 : `BaseStore.kt` sans ses quatorze commentaires de
+  groupe, ses deux `@Volatile` isolés sur la ligne de leur propriété. Lot 1, `support` : les bannières de `Fixtures.kt` devenues la KDoc de la première
+  classe de leur groupe, celles de `Home`, `Location`, `Rule` et `TestingClasses` retirées, les `default()` des companions de `TestingClasses` avant leurs
+  validators imbriqués.
 - [x] **C-53 : le localisateur borné à son parent** (S ; MMC). `JsonLineLocator.lineOf` ne s'arrête pas à la fin de l'objet où il cherche. Quand un
   segment du chemin est absent de son parent, le parcours continue à la même profondeur dans la suite du fichier et rend la ligne d'une clé du même
   nom portée par un autre objet, là où la KDoc d'`ErrorLineLocator` promet `null`. Mesuré le 2026-10-05 sur le jar de `build\libs` construit le
